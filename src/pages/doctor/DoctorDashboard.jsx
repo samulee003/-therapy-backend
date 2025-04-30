@@ -43,12 +43,10 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext'; // Adjusted path
-import { 
-    getDoctorAppointments, 
-    getDoctorSlots, 
-    addDoctorSlot, 
-    removeDoctorSlot, 
-    bulkGenerateDoctorSlots 
+import {
+    getDoctorAppointments, // This now points to getAllAppointments
+    getScheduleForMonth,   // Use this instead of getDoctorSlots
+    saveScheduleForDate,   // Use this instead of addDoctorSlot
 } from '../../services/api'; // Adjusted path
 
 // Removed mock data
@@ -72,24 +70,13 @@ const DoctorDashboard = () => {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [errorAppointments, setErrorAppointments] = useState('');
 
-  // State for slots
-  const [slots, setSlots] = useState({}); // { 'YYYY-MM-DD': [{ _id: '...', time: 'HH:MM' }, ...] }
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [errorSlots, setErrorSlots] = useState('');
-  const [selectedDateForSlots, setSelectedDateForSlots] = useState(formatDate(new Date()));
-  const [newSlotTime, setNewSlotTime] = useState(''); // For adding single slot
-  const [deletingSlotId, setDeletingSlotId] = useState(null);
-
-  // State for bulk generation
-  const [bulkStartDate, setBulkStartDate] = useState('');
-  const [bulkEndDate, setBulkEndDate] = useState('');
-  const [bulkStartTime, setBulkStartTime] = useState('09:00');
-  const [bulkEndTime, setBulkEndTime] = useState('17:00');
-  const [bulkInterval, setBulkInterval] = useState(60); // minutes
-  const [bulkDaysOfWeek, setBulkDaysOfWeek] = useState([1, 2, 3, 4, 5]); // Mon-Fri
-  const [bulkLoading, setBulkLoading] = useState(false);
-  const [bulkError, setBulkError] = useState('');
-  const [bulkSuccess, setBulkSuccess] = useState('');
+  // State for schedule (was slots)
+  const [schedule, setSchedule] = useState({}); // { 'YYYY-MM-DD': { availableSlots: [...], bookedSlots: {...} }, ... }
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [errorSchedule, setErrorSchedule] = useState('');
+  const [currentScheduleDate, setCurrentScheduleDate] = useState(new Date()); // Use Date object for month/year navigation
+  const [editingDate, setEditingDate] = useState(null); // YYYY-MM-DD of the date being edited
+  const [availableSlotsForEdit, setAvailableSlotsForEdit] = useState([]); // Array of strings like "HH:MM"
 
   // --- Data Fetching --- //
 
@@ -98,11 +85,8 @@ const DoctorDashboard = () => {
     setLoadingAppointments(true);
     setErrorAppointments('');
     try {
-      // Fetch for a reasonable range, e.g., current month
-      const today = new Date();
-      const startOfMonth = formatDate(new Date(today.getFullYear(), today.getMonth(), 1));
-      const endOfMonth = formatDate(new Date(today.getFullYear(), today.getMonth() + 1, 0));
-      const response = await getDoctorAppointments(startOfMonth, endOfMonth);
+      const response = await getDoctorAppointments(); // Uses the alias to getAllAppointments
+      // Filter appointments on the frontend if needed (e.g., by date range)
       setAppointments(response.data || []);
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
@@ -113,37 +97,31 @@ const DoctorDashboard = () => {
     }
   };
 
-  const fetchSlots = async (date) => {
+  const fetchSchedule = async (year, month) => {
     if (!user) return;
-    setLoadingSlots(true);
-    setErrorSlots('');
+    setLoadingSchedule(true);
+    setErrorSchedule('');
     try {
-      // Fetch slots for the selected date
-      const response = await getDoctorSlots(date, date);
-      setSlots(prev => ({ ...prev, [date]: response.data[date] || [] }));
+      const response = await getScheduleForMonth(year, month);
+      setSchedule(response.data.schedule || {}); // Backend returns { success: true, schedule: { ... } }
     } catch (err) {
-      console.error(`Failed to fetch slots for ${date}:`, err);
-      setErrorSlots(err.response?.data?.message || err.message || `無法加載 ${date} 的時段。`);
-      setSlots(prev => ({ ...prev, [date]: [] })); // Clear slots for date on error
+      console.error(`Failed to fetch schedule for ${year}-${month}:`, err);
+      setErrorSchedule(err.response?.data?.message || err.message || `無法加載 ${year}年${month}月 的排班。`);
+      setSchedule({}); // Clear schedule on error
     } finally {
-      setLoadingSlots(false);
+      setLoadingSchedule(false);
     }
   };
 
-  // Initial fetch and fetch when user changes
+  // Initial fetch and fetch when user changes or month changes
   useEffect(() => {
     if (!authLoading && user) {
-      fetchAppointments();
-      fetchSlots(selectedDateForSlots);
+      fetchAppointments(); // Fetch all appointments initially
+      const year = currentScheduleDate.getFullYear();
+      const month = currentScheduleDate.getMonth() + 1;
+      fetchSchedule(year, month);
     }
-  }, [user, authLoading]);
-
-  // Fetch slots when selected date changes
-  useEffect(() => {
-    if (user) {
-        fetchSlots(selectedDateForSlots);
-    }
-  }, [selectedDateForSlots, user]);
+  }, [user, authLoading, currentScheduleDate]); // Depend on currentScheduleDate
 
   // --- Event Handlers --- //
 
@@ -151,77 +129,67 @@ const DoctorDashboard = () => {
     setTabValue(newValue);
   };
 
-  const handleDateChangeForSlots = (event) => {
-    setSelectedDateForSlots(event.target.value);
+  // Handle clicking a date on the schedule calendar to edit it
+  const handleEditDate = (dateStr) => { // dateStr is YYYY-MM-DD
+    setEditingDate(dateStr);
+    // Initialize availableSlotsForEdit based on current schedule data for that date
+    const currentSlots = schedule[dateStr]?.availableSlots || [];
+    setAvailableSlotsForEdit([...currentSlots]); // Use spread to create a new array
+  };
+  
+  // Handle adding a new time slot input for the editing date
+  const handleAddSlotToEdit = () => {
+    // Add an empty string or a default time
+    setAvailableSlotsForEdit([...availableSlotsForEdit, ""]); 
   };
 
-  const handleAddSlot = async () => {
-    if (!newSlotTime || !selectedDateForSlots) return;
-    // Basic time format validation (HH:MM)
-    if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(newSlotTime)) {
-        setErrorSlots('請輸入有效的時間格式 (HH:MM)，例如 09:00 或 14:30。');
-        return;
-    }
-
-    setLoadingSlots(true); // Use slot loading indicator
-    setErrorSlots('');
-    try {
-      await addDoctorSlot({ date: selectedDateForSlots, time: newSlotTime });
-      setNewSlotTime('');
-      // Refresh slots for the current date
-      fetchSlots(selectedDateForSlots);
-    } catch (err) {
-      console.error('Failed to add slot:', err);
-      setErrorSlots(err.response?.data?.message || err.message || '添加時段失敗。');
-      setLoadingSlots(false); // Ensure loading stops on error
-    }
+  // Handle changes in the time slot input fields
+  const handleSlotInputChange = (index, value) => {
+    const updatedSlots = [...availableSlotsForEdit];
+    // Basic validation or formatting can be added here
+    updatedSlots[index] = value;
+    setAvailableSlotsForEdit(updatedSlots);
+  };
+  
+  // Handle removing a time slot input from the editing date
+  const handleRemoveSlotFromEdit = (index) => {
+    const updatedSlots = availableSlotsForEdit.filter((_, i) => i !== index);
+    setAvailableSlotsForEdit(updatedSlots);
   };
 
-  const handleRemoveSlot = async (slotId) => {
-    if (!window.confirm('您確定要刪除這個可用時段嗎？')) {
-      return;
-    }
-    setDeletingSlotId(slotId);
-    setErrorSlots('');
+  // Handle saving the available slots for the currently editing date
+  const handleSaveScheduleForDate = async () => {
+    if (!editingDate) return;
+    
+    // Filter out empty strings and validate time format (HH:MM)
+    const validSlots = availableSlotsForEdit.filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot));
+    // Optionally sort the slots
+    validSlots.sort(); 
+
+    setLoadingSchedule(true); // Indicate loading
+    setErrorSchedule('');
     try {
-      await removeDoctorSlot(slotId);
-      // Refresh slots for the current date
-      fetchSlots(selectedDateForSlots);
+      await saveScheduleForDate(editingDate, validSlots);
+      setErrorSchedule(''); // Clear any previous error
+      setEditingDate(null); // Close the editor
+      setAvailableSlotsForEdit([]);
+      // Refresh schedule for the current month
+      const year = currentScheduleDate.getFullYear();
+      const month = currentScheduleDate.getMonth() + 1;
+      fetchSchedule(year, month);
     } catch (err) {
-      console.error('Failed to remove slot:', err);
-      setErrorSlots(err.response?.data?.message || err.message || '刪除時段失敗。');
-    } finally {
-      setDeletingSlotId(null);
+      console.error(`Failed to save schedule for ${editingDate}:`, err);
+      setErrorSchedule(err.response?.data?.message || err.message || `保存 ${editingDate} 的排班失敗。`);
+      setLoadingSchedule(false); // Stop loading on error
     }
   };
-
-  const handleBulkGenerate = async (event) => {
-    event.preventDefault();
-    if (!bulkStartDate || !bulkEndDate || !bulkStartTime || !bulkEndTime || bulkInterval <= 0 || bulkDaysOfWeek.length === 0) {
-        setBulkError('請填寫所有必填欄位並確保數值有效。');
-        return;
-    }
-    setBulkLoading(true);
-    setBulkError('');
-    setBulkSuccess('');
-    try {
-        const generationData = {
-            startDate: bulkStartDate,
-            endDate: bulkEndDate,
-            startTime: bulkStartTime,
-            endTime: bulkEndTime,
-            interval: parseInt(bulkInterval, 10),
-            daysOfWeek: bulkDaysOfWeek.map(d => parseInt(d, 10)),
-        };
-        const response = await bulkGenerateDoctorSlots(generationData);
-        setBulkSuccess(`成功生成 ${response.data.count || '多個'} 時段！`);
-        // Optionally clear form or redirect
-    } catch (err) {
-        console.error('Bulk generation failed:', err);
-        setBulkError(err.response?.data?.message || err.message || '批量生成時段失敗。');
-    } finally {
-        setBulkLoading(false);
-    }
+  
+  // Navigate schedule month
+  const handlePrevMonth = () => {
+      setCurrentScheduleDate(prevDate => new Date(prevDate.getFullYear(), prevDate.getMonth() - 1, 1));
+  };
+  const handleNextMonth = () => {
+      setCurrentScheduleDate(prevDate => new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 1));
   };
 
   // --- UI Rendering --- //
@@ -234,10 +202,9 @@ const DoctorDashboard = () => {
   // Sidebar menu items
   const menuItems = [
     { icon: <DashboardIcon />, label: '儀表板', value: 0 },
-    { icon: <CalendarIcon />, label: '時段管理', value: 1 },
+    { icon: <CalendarIcon />, label: '排班管理', value: 1 }, // Changed label
     { icon: <PeopleIcon />, label: '預約列表', value: 2 },
-    // { icon: <DownloadIcon />, label: '導出數據', value: 3 }, // Future feature
-    { icon: <SettingsIcon />, label: '設置', value: 3 }, // Adjusted value
+    { icon: <SettingsIcon />, label: '設置', value: 3 },
   ];
 
   // Render dashboard content
@@ -249,8 +216,8 @@ const DoctorDashboard = () => {
     if (errorAppointments && tabValue !== 1) { // Show appointment error except on slot tab
         return <Alert severity="error" sx={{ mb: 2 }}>{errorAppointments}</Alert>;
     }
-     if (errorSlots && tabValue === 1) { // Show slot error only on slot tab
-        return <Alert severity="error" sx={{ mb: 2 }}>{errorSlots}</Alert>;
+     if (errorSchedule && tabValue === 1) { // Show slot error only on slot tab
+        return <Alert severity="error" sx={{ mb: 2 }}>{errorSchedule}</Alert>;
     }
 
     switch (tabValue) {
@@ -388,187 +355,96 @@ const DoctorDashboard = () => {
             )}
           </Box>
         );
-      case 1: // Slot Management
+      case 1: // Schedule Management (Replaces Slot Management)
+        const year = currentScheduleDate.getFullYear();
+        const month = currentScheduleDate.getMonth() + 1;
+        const monthStr = currentScheduleDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        // Basic calendar rendering (replace with actual calendar component later)
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const firstDayOfMonth = new Date(year, month - 1, 1).getDay(); // 0=Sun, 1=Mon...
+        const calendarDays = [];
+        // Add empty cells for days before the 1st
+        for (let i = 0; i < firstDayOfMonth; i++) { calendarDays.push(null); }
+        // Add actual days
+        for (let day = 1; day <= daysInMonth; day++) { calendarDays.push(day); }
+
         return (
           <Box>
             <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
-              時段管理
+              排班管理 ({monthStr})
             </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              管理您的可預約時段。
-            </Typography>
+             {/* Month Navigation */} 
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                 <Button onClick={handlePrevMonth}>上個月</Button>
+                 <Button onClick={handleNextMonth}>下個月</Button>
+            </Box>
+            {loadingSchedule && <CircularProgress />} 
+            {errorSchedule && <Alert severity="error" sx={{ mb: 2 }}>{errorSchedule}</Alert>}
+            
+            {/* Basic Calendar Grid (Replace with a proper Calendar component) */} 
+            <Grid container spacing={1} sx={{ mb: 3 }}>
+                {['日', '一', '二', '三', '四', '五', '六'].map(day => (
+                    <Grid item xs={12/7} key={day} textAlign="center"><Typography variant="caption">{day}</Typography></Grid>
+                ))}
+                {calendarDays.map((day, index) => {
+                    const dateStr = day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
+                    const daySchedule = dateStr ? schedule[dateStr] : null;
+                    const hasAvailable = daySchedule?.availableSlots?.length > 0;
+                    const hasBooked = daySchedule?.bookedSlots && Object.keys(daySchedule.bookedSlots).length > 0;
+                    return (
+                        <Grid item xs={12/7} key={index} sx={{ height: 80, border: '1px solid lightgray', p: 0.5 }}>
+                        {day && (
+                            <Button 
+                                fullWidth 
+                                variant="outlined" 
+                                size="small"
+                                onClick={() => handleEditDate(dateStr)}
+                                sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-start' }}
+                            >
+                            <Typography variant="body2" component="div">{day}</Typography>
+                            {/* Display indicators or slot count */} 
+                            {hasAvailable && <Chip size="small" label="可預約" color="success" sx={{mt:0.5}} />} 
+                            {hasBooked && <Chip size="small" label="已預約" color="warning" sx={{mt:0.5}} />}
+                            </Button>
+                        )}
+                        </Grid>
+                    );
+                })}
+            </Grid>
 
-            {/* Single Slot Management */}
-            <Card sx={{ borderRadius: 2, mt: 3, mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
-                  管理單日可用時段
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-                    <TextField
-                        label="選擇日期"
-                        type="date"
-                        value={selectedDateForSlots}
-                        onChange={handleDateChangeForSlots}
-                        InputLabelProps={{
-                            shrink: true,
-                        }}
-                        sx={{ minWidth: 180 }}
-                    />
-                     <IconButton onClick={() => fetchSlots(selectedDateForSlots)} aria-label="刷新時段">
-                        <RefreshIcon />
-                    </IconButton>
-                </Box>
-
-                {loadingSlots ? <CircularProgress sx={{my: 2}} /> : (
-                    <> 
-                    {errorSlots && <Alert severity="error" sx={{ mb: 2 }}>{errorSlots}</Alert>}
-                    <Typography variant="subtitle1" sx={{mb: 1}}> {selectedDateForSlots} 的可用時段:</Typography>
-                    {slots[selectedDateForSlots] && slots[selectedDateForSlots].length > 0 ? (
-                        <List dense>
-                            {slots[selectedDateForSlots].map(slot => (
-                                <ListItem 
-                                    key={slot._id} 
-                                    sx={{ borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}
-                                    secondaryAction={
-                                        <IconButton 
-                                            edge="end" 
-                                            aria-label="delete slot" 
-                                            onClick={() => handleRemoveSlot(slot._id)}
-                                            disabled={deletingSlotId === slot._id}
-                                            color="error"
-                                        >
-                                            {deletingSlotId === slot._id ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
-                                        </IconButton>
-                                    }
-                                >
-                                    <ListItemText primary={slot.time} />
-                                </ListItem>
-                            ))}
-                        </List>
-                    ) : (
-                        <Typography color="text.secondary" sx={{my: 2}}>此日期沒有可用的時段。</Typography>
-                    )}
-                    </>
-                )}
-
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle1" sx={{mb: 1}}>新增時段:</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <TextField
-                        label="時間 (HH:MM)"
-                        value={newSlotTime}
-                        onChange={(e) => setNewSlotTime(e.target.value)}
-                        placeholder="例如 10:30"
-                        size="small"
-                        sx={{ width: 150 }}
-                    />
-                    <Button 
-                        variant="contained" 
-                        onClick={handleAddSlot} 
-                        disabled={loadingSlots || !newSlotTime}
-                        startIcon={<AddIcon />}
-                    >
-                        新增
+            {/* Schedule Editor Dialog/Section */} 
+            {editingDate && (
+                 <Paper sx={{ p: 2, mt: 2 }}>
+                    <Typography variant="h6">編輯 {editingDate} 的可用時段</Typography>
+                    {availableSlotsForEdit.map((slot, index) => (
+                         <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                            <TextField 
+                                type="time" 
+                                size="small" 
+                                value={slot} 
+                                onChange={(e) => handleSlotInputChange(index, e.target.value)}
+                                sx={{ mr: 1 }}
+                            />
+                            <IconButton size="small" onClick={() => handleRemoveSlotFromEdit(index)} color="error">
+                                <DeleteIcon />
+                            </IconButton>
+                         </Box>
+                    ))}
+                    <Button startIcon={<AddIcon />} onClick={handleAddSlotToEdit} sx={{ mr: 1 }}>
+                        添加時段
                     </Button>
-                </Box>
-              </CardContent>
-            </Card>
-
-            {/* Bulk Slot Generation */}
-            <Card sx={{ borderRadius: 2, mt: 3 }}>
-              <CardContent>
-                <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
-                  批量生成時段
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  為指定日期範圍和星期生成可用時段。
-                </Typography>
-                {bulkError && <Alert severity="error" sx={{ mb: 2 }}>{bulkError}</Alert>}
-                {bulkSuccess && <Alert severity="success" sx={{ mb: 2 }}>{bulkSuccess}</Alert>}
-                <Box component="form" onSubmit={handleBulkGenerate}>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="開始日期"
-                                type="date"
-                                value={bulkStartDate}
-                                onChange={(e) => setBulkStartDate(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                fullWidth
-                                required
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="結束日期"
-                                type="date"
-                                value={bulkEndDate}
-                                onChange={(e) => setBulkEndDate(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                fullWidth
-                                required
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="開始時間 (HH:MM)"
-                                type="time"
-                                value={bulkStartTime}
-                                onChange={(e) => setBulkStartTime(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                fullWidth
-                                required
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="結束時間 (HH:MM)"
-                                type="time"
-                                value={bulkEndTime}
-                                onChange={(e) => setBulkEndTime(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                fullWidth
-                                required
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="時間間隔 (分鐘)"
-                                type="number"
-                                value={bulkInterval}
-                                onChange={(e) => setBulkInterval(e.target.value)}
-                                InputProps={{ inputProps: { min: 1 } }}
-                                fullWidth
-                                required
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            {/* Simple Day of Week Selection (Improve with Checkboxes later) */}
-                            <TextField
-                                label="星期幾 (0-6, 逗號分隔)"
-                                value={bulkDaysOfWeek.join(',')}
-                                onChange={(e) => setBulkDaysOfWeek(e.target.value.split(',').map(d => d.trim()).filter(d => d !== ''))}
-                                placeholder="例如 1,2,3,4,5"
-                                fullWidth
-                                required
-                            />
-                             <Typography variant="caption" color="text.secondary">0=週日, 1=週一, ..., 6=週六</Typography>
-                        </Grid>
-                    </Grid>
-                    <Button
-                        type="submit"
-                        variant="contained"
-                        color="primary"
-                        startIcon={bulkLoading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
-                        disabled={bulkLoading}
-                        sx={{ mt: 2 }}
-                        >
-                        批量生成
+                    <Button variant="contained" onClick={handleSaveScheduleForDate} disabled={loadingSchedule}>
+                        {loadingSchedule ? <CircularProgress size={20}/> : '保存排班'}
                     </Button>
-                </Box>
-              </CardContent>
-            </Card>
+                    <Button variant="outlined" onClick={() => { setEditingDate(null); setAvailableSlotsForEdit([]); }} sx={{ ml: 1 }}>
+                        取消
+                    </Button>
+                 </Paper>
+            )}
+            
+            {/* Removed Bulk Generate Section */} 
+
           </Box>
         );
       case 2: // Appointments List
