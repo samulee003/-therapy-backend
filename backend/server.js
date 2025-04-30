@@ -447,19 +447,27 @@ app.put("/api/appointments/:id/cancel", (req, res) => {
 });
 
 // --- Serve React Frontend --- 
-// Serve static files from the React build directory, which is one level up
-app.use(express.static(path.join(__dirname, "..", "dist"))); // Assuming 'dist' is your build output folder in the root
+const staticPath = path.resolve(__dirname, "..", "dist");
+console.log(`Serving static files from: ${staticPath}`); // Add log
+app.use(express.static(staticPath));
 
 // Handle client-side routing (catch-all for non-API routes)
-// This ensures that refreshing a page like /login doesn't result in a 404
 app.get("*", (req, res) => {
     // Check if the request looks like an API call or a file request
     if (req.path.startsWith("/api/") || req.path.includes(".")) { 
         // If it's an API call or likely a file, let previous routes handle or 404
         return res.status(404).send("Not Found");
     }
-    // Otherwise, serve the main index.html from the root's dist folder
-    res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+    // Otherwise, serve the main index.html from the resolved static path
+    const indexPath = path.resolve(staticPath, "index.html"); // Use resolve here too
+    console.log(`Attempting to send file: ${indexPath}`); // Add log
+    res.sendFile(indexPath, (err) => { // Add callback to log errors
+        if (err) {
+            console.error(`Error sending file ${indexPath}:`, err);
+            // Send the error status back to the client, or a generic 500
+            res.status(err.status || 500).send("Internal Server Error or File Not Found"); 
+        }
+    });
 });
 
 // --- Start Server Function ---
