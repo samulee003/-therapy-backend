@@ -42,8 +42,8 @@ apiClient.interceptors.request.use(
 // Backend expects { password }, frontend might send { username, password }
 // The calling component might need adjustment if username is not needed by backend.
 export const loginUser = (credentials) => {
-  // Sending only password as backend expects { password }
-  return apiClient.post('/api/login', { password: credentials.password });
+  // Sending the full credentials object as backend requires both username and password
+  return apiClient.post('/api/login', credentials); // Send the whole credentials object
 };
 
 // --- Settings --- //
