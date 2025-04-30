@@ -13,7 +13,7 @@ import {
   useMediaQuery
 } from '@mui/material';
 import { ArrowBackIosNew, ArrowForwardIos } from '@mui/icons-material';
-import { getAvailableSlots, bookAppointment } from '../services/api'; // Import API functions
+import { getScheduleForMonth, bookAppointment } from '../services/api'; // Import API functions (Changed getAvailableSlots to getScheduleForMonth)
 import { AuthContext } from '../context/AuthContext'; // Import AuthContext
 
 // Helper function to get days in month
@@ -55,17 +55,22 @@ const AppointmentBookingPage = () => {
       try {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth() + 1; // API expects 1-12
-        const monthString = String(month).padStart(2, '0');
-        const startDate = `${year}-${monthString}-01`;
-        const lastDay = getDaysInMonth(year, currentMonth);
-        const endDate = `${year}-${monthString}-${String(lastDay).padStart(2, '0')}`;
         
-        console.log(`Fetching slots for ${startDate} to ${endDate}`);
-        const response = await getAvailableSlots(startDate, endDate);
-        console.log('Received slots response:', response);
-        // Assuming API returns data in response.data which is an object like: 
-        // { 'YYYY-MM-DD': ['HH:MM', 'HH:MM'], ... }
-        setAvailableSlots(response.data || {}); 
+        console.log(`Fetching schedule for ${year}-${month}`);
+        const response = await getScheduleForMonth(year, month); // Changed from getAvailableSlots
+        console.log('Received schedule response:', response);
+        
+        // Extract only the available slots for each date from the schedule object
+        const slotsData = {};
+        if (response.data && response.data.schedule) {
+          for (const dateStr in response.data.schedule) {
+            if (response.data.schedule[dateStr].availableSlots) {
+              slotsData[dateStr] = response.data.schedule[dateStr].availableSlots;
+            }
+          }
+        }
+        console.log('Processed available slots:', slotsData);
+        setAvailableSlots(slotsData); 
       } catch (err) {
         console.error('Failed to fetch available slots:', err);
         setError(err.response?.data?.message || err.message || '無法加載可預約時段，請稍後再試。');
@@ -92,7 +97,8 @@ const AppointmentBookingPage = () => {
     // Add actual days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const isAvailable = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
+      // Check if slots exist and the array is not empty for this date
+      const isAvailable = availableSlots[dateStr] && availableSlots[dateStr].length > 0; 
       days.push({ key: dateStr, day, isAvailable, dateStr });
     }
     setCalendarDays(days);
@@ -107,7 +113,9 @@ const AppointmentBookingPage = () => {
   };
 
   const handleDateClick = (dateStr) => {
-    if (dateStr && availableSlots[dateStr] && availableSlots[dateStr].length > 0) {
+    // Use the isAvailable flag derived from the slots data
+    const dayInfo = calendarDays.find(d => d.dateStr === dateStr);
+    if (dayInfo && dayInfo.isAvailable) { 
       setSelectedDate(dateStr);
       setSelectedSlot(null); 
       setBookingError('');
@@ -146,12 +154,15 @@ const AppointmentBookingPage = () => {
       setBookingSuccess(`預約成功！您的預約時間是 ${selectedDate} ${selectedSlot}。`);
       setSelectedSlot(null); // Clear selection after successful booking
       
-      // Refresh available slots for the selected date
-      const updatedSlotsForDate = availableSlots[selectedDate].filter(s => s !== selectedSlot);
-      setAvailableSlots(prevSlots => ({
-        ...prevSlots,
-        [selectedDate]: updatedSlotsForDate
-      }));
+      // Refresh available slots for the selected date by filtering the booked slot
+      // The availableSlots state already holds the correct structure: { 'YYYY-MM-DD': [...] }
+      setAvailableSlots(prevSlots => {
+        const updatedSlotsForDate = (prevSlots[selectedDate] || []).filter(s => s !== selectedSlot);
+        return {
+          ...prevSlots,
+          [selectedDate]: updatedSlotsForDate
+        };
+      });
 
     } catch (err) {
       console.error('Booking failed:', err);
