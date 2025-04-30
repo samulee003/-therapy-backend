@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     token,
-    isAuthenticated: !!token,
+    isAuthenticated: !!user,
     isLoading: loading,
     login,
     logout,
