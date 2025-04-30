@@ -51,9 +51,9 @@ const LoginPage = () => {
       console.log('Login successful:', response.data);
       
       // Use the login function from AuthContext
-      // Assuming response.data contains { user: { id, username, role, ... }, token: '...' }
-      if (response.data && response.data.token && response.data.user) {
-        login(response.data.user, response.data.token);
+      // Check if the user object exists in the response
+      if (response.data && response.data.user) { // Changed condition to only check for user
+        login(response.data.user, null); // Pass user data, token is null for now
         
         // Redirect based on user role
         if (response.data.user.role === 'doctor' || response.data.user.role === 'admin') {
@@ -62,8 +62,8 @@ const LoginPage = () => {
           navigate('/patient-dashboard');
         }
       } else {
-        // Handle cases where token or user data is missing in response
-        throw new Error('登入回應格式不正確。');
+        // This case should ideally not happen if backend sends { success: true, user: ... }
+        throw new Error('登入成功，但未收到用戶資料。'); // More accurate error message
       }
 
     } catch (err) {
