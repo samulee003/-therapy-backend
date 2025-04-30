@@ -1,19 +1,31 @@
 import axios from 'axios';
 
 // Determine the base URL based on the environment
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'; // Default to relative /api
+// IMPORTANT: Set VITE_API_BASE_URL in your frontend service environment variables on Zeabur
+// to your backend service URL (e.g., https://psy-backend.zeabur.app)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // Default to empty string, forcing env var usage
+
+// If API_BASE_URL is empty after checking env var, log an error or throw, 
+// because relative paths won't work correctly with separate frontend/backend services.
+if (!API_BASE_URL) {
+  console.error("ERROR: VITE_API_BASE_URL is not set. API calls will likely fail.");
+  // Optionally throw an error to prevent the app from running with incorrect config
+  // throw new Error("VITE_API_BASE_URL environment variable is not set.");
+}
 
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL, // Use the backend URL
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add a request interceptor to include the token in headers
+// Add a request interceptor to include the token (if any)
+// NOTE: Current backend does not use token authentication after login.
+// This interceptor remains for potential future use but won't affect current backend.
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token'); // Currently unused by backend
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -26,119 +38,78 @@ apiClient.interceptors.request.use(
 
 // --- Authentication --- //
 
-// User Registration
-export const registerUser = (userData) => {
-  // userData should contain { username, password, role, name, email, phone (optional) }
-  return apiClient.post('/auth/register', userData);
-};
-
-// User Login
+// User Login (Matches POST /api/login)
+// Backend expects { password }, frontend might send { username, password }
+// The calling component might need adjustment if username is not needed by backend.
 export const loginUser = (credentials) => {
-  // credentials should contain { username, password }
-  return apiClient.post('/auth/login', credentials);
+  // Sending only password as backend expects { password }
+  return apiClient.post('/api/login', { password: credentials.password });
 };
 
-// Get User Profile (Example)
-export const getUserProfile = () => {
-  return apiClient.get('/auth/profile'); // Assuming a /profile endpoint exists
-};
+// --- Settings --- //
 
-// --- Slots & Calendar (Shared) --- //
-
-// Get available slots within a date range
-export const getAvailableSlots = (startDate, endDate) => {
-  // API expects YYYY-MM-DD format
-  return apiClient.get('/slots/available', {
-    params: {
-      start_date: startDate,
-      end_date: endDate,
-    },
-  });
-};
-
-// --- Patient Specific --- //
-
-// Book an appointment
-export const bookAppointment = (appointmentDetails) => {
-  // appointmentDetails should contain { date, time } (patientId is inferred from token)
-  return apiClient.post('/appointments/book', appointmentDetails);
-};
-
-// Get appointments for the logged-in patient
-export const getPatientAppointments = () => {
-  return apiClient.get('/appointments/patient');
-};
-
-// Cancel an appointment (by patient)
-export const cancelPatientAppointment = (appointmentId) => {
-  return apiClient.put(`/appointments/${appointmentId}/cancel-patient`);
-};
-
-// --- Doctor Specific --- //
-
-// Get appointments for the logged-in doctor
-export const getDoctorAppointments = (startDate, endDate) => {
-  return apiClient.get('/appointments/doctor', {
-    params: {
-      start_date: startDate,
-      end_date: endDate,
-    },
-  });
-};
-
-// Get slots managed by the logged-in doctor
-export const getDoctorSlots = (startDate, endDate) => {
-  return apiClient.get('/slots/doctor', {
-    params: {
-      start_date: startDate,
-      end_date: endDate,
-    },
-  });
-};
-
-// Add a new available slot (by doctor)
-export const addDoctorSlot = (slotData) => {
-  // slotData should contain { date, time }
-  return apiClient.post('/slots/doctor', slotData);
-};
-
-// Remove an available slot (by doctor)
-export const removeDoctorSlot = (slotId) => {
-  return apiClient.delete(`/slots/doctor/${slotId}`);
-};
-
-// Bulk generate slots (by doctor)
-export const bulkGenerateDoctorSlots = (generationData) => {
-  // generationData might include { startDate, endDate, startTime, endTime, interval, daysOfWeek[] }
-  return apiClient.post('/slots/doctor/bulk-generate', generationData);
-};
-
-// --- Admin Specific (Example - Keep or Modify) --- //
-
-// Function to get settings (if needed)
+// Get Settings (Matches GET /api/settings)
 export const getSettings = () => {
-  return apiClient.get('/admin/settings');
+  return apiClient.get('/api/settings');
 };
 
-// Function to update settings (if needed)
+// Update Settings (Matches PUT /api/settings)
 export const updateSettings = (settingsData) => {
-  return apiClient.put('/admin/settings', settingsData);
+  return apiClient.put('/api/settings', settingsData);
 };
 
-// Function to get all appointments (for admin)
+// --- Schedule --- //
+
+// Get Schedule for a specific month (Matches GET /api/schedule/:year/:month)
+export const getScheduleForMonth = (year, month) => {
+  // Ensure month is zero-padded if necessary, though backend seems to handle it.
+  const paddedMonth = String(month).padStart(2, '0');
+  return apiClient.get(`/api/schedule/${year}/${paddedMonth}`);
+};
+
+// Save schedule for a specific date (Matches POST /api/schedule)
+// Backend expects { date, availableSlots: string[] }
+export const saveScheduleForDate = (date, availableSlots) => {
+  return apiClient.post('/api/schedule', { date, availableSlots });
+};
+
+
+// --- Appointments --- //
+
+// Get All Appointments (Matches GET /api/appointments)
+// Backend returns all appointments, frontend might need to filter.
 export const getAllAppointments = () => {
-  return apiClient.get('/admin/appointments');
+  return apiClient.get('/api/appointments');
+};
+// Aliases for different roles, pointing to the same backend endpoint
+export const getPatientAppointments = getAllAppointments;
+export const getDoctorAppointments = getAllAppointments;
+
+
+// Book an Appointment (Matches POST /api/appointments)
+// Backend expects { date, time, patientName, patientPhone, patientEmail, ... }
+export const bookAppointment = (appointmentDetails) => {
+  return apiClient.post('/api/appointments', appointmentDetails);
 };
 
-// Function to cancel any appointment (by admin)
-export const cancelAdminAppointment = (appointmentId) => {
-  return apiClient.put(`/admin/appointments/${appointmentId}/cancel`);
+// Cancel an Appointment (Matches PUT /api/appointments/:id/cancel)
+// Backend endpoint doesn't differentiate roles for cancellation
+export const cancelAppointment = (appointmentId) => {
+  return apiClient.put(`/api/appointments/${appointmentId}/cancel`);
 };
+// Aliases for different roles
+export const cancelPatientAppointment = cancelAppointment;
+export const cancelAdminAppointment = cancelAppointment; // Assuming admin uses the same endpoint
 
-// Function for admin login (if separate from user login)
-export const loginAdmin = (credentials) => {
-  return apiClient.post('/auth/admin/login', credentials);
-};
+
+// --- Removed Functions (Backend doesn't support these) --- //
+// registerUser
+// getUserProfile
+// getAvailableSlots (replaced by getScheduleForMonth)
+// addDoctorSlot (replaced by saveScheduleForDate)
+// removeDoctorSlot
+// bulkGenerateDoctorSlots
+// loginAdmin
 
 
 export default apiClient;
