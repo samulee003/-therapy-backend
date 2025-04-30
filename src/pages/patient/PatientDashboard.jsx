@@ -1,0 +1,434 @@
+import React, { useState, useEffect, useContext } from 'react'; // Added useEffect, useContext
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Container,
+  Grid,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  Button,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Chip,
+  IconButton,
+  useTheme,
+  useMediaQuery,
+  CircularProgress, // Added
+  Alert // Added
+} from '@mui/material';
+import { 
+  Dashboard as DashboardIcon,
+  CalendarMonth as CalendarIcon,
+  EventNote as AppointmentIcon,
+  Settings as SettingsIcon,
+  AccessTime as TimeIcon,
+  Cancel as CancelIcon,
+  Refresh as RefreshIcon // Added
+} from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext'; // Corrected path
+import { getPatientAppointments, cancelPatientAppointment } from '../../services/api'; // Corrected path assuming api is in src/services
+
+// Removed mock data
+
+const PatientDashboard = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { user, isLoading: authLoading } = useContext(AuthContext); // Added
+  const [tabValue, setTabValue] = useState(0);
+  const [appointments, setAppointments] = useState([]); // State for appointments
+  const [loading, setLoading] = useState(false); // State for loading appointments
+  const [error, setError] = useState(''); // State for errors
+  const [cancellingId, setCancellingId] = useState(null); // State for cancellation loading
+
+  const fetchAppointments = async () => {
+    if (!user) return; // Don't fetch if user is not loaded
+    setLoading(true);
+    setError('');
+    try {
+      const response = await getPatientAppointments();
+      // Assuming API returns appointments sorted by date/time
+      setAppointments(response.data || []); 
+    } catch (err) {
+      console.error('Failed to fetch appointments:', err);
+      setError(err.response?.data?.message || err.message || '無法加載您的預約記錄。');
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch appointments when component mounts or user changes
+  useEffect(() => {
+    if (!authLoading) { // Only fetch when auth state is determined
+        fetchAppointments();
+    }
+  }, [user, authLoading]);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  const handleCancelAppointment = async (appointmentId) => {
+    if (!window.confirm('您確定要取消這個預約嗎？')) {
+      return;
+    }
+    setCancellingId(appointmentId);
+    setError('');
+    try {
+      await cancelPatientAppointment(appointmentId);
+      // Refresh appointments list after cancellation
+      setAppointments(prev => prev.filter(app => app._id !== appointmentId)); // Assuming _id is the identifier
+      alert('預約已成功取消。');
+    } catch (err) {
+      console.error('Failed to cancel appointment:', err);
+      setError(err.response?.data?.message || err.message || '取消預約失敗，請稍後再試。');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  // Filter upcoming and past appointments (example logic, adjust based on API data)
+  const now = new Date();
+  const upcomingAppointments = appointments.filter(app => new Date(`${app.date}T${app.time.split(' - ')[0]}`) >= now);
+  const pastAppointments = appointments.filter(app => new Date(`${app.date}T${app.time.split(' - ')[0]}`) < now);
+
+  // Sidebar menu items
+  const menuItems = [
+    { icon: <DashboardIcon />, label: '儀表板', value: 0 },
+    // { icon: <CalendarIcon />, label: '預約時段', value: 1 }, // Link directly instead
+    { icon: <AppointmentIcon />, label: '我的預約', value: 1 }, // Adjusted value
+    { icon: <SettingsIcon />, label: '設置', value: 2 }, // Adjusted value
+  ];
+
+  // Render dashboard content
+  const renderDashboardContent = () => {
+    if (authLoading || loading) {
+        return <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress /></Box>;
+    }
+    if (error) {
+        return <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>;
+    }
+
+    switch (tabValue) {
+      case 0: // Dashboard Overview
+        return (
+          <Box>
+            <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
+              患者儀表板
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              歡迎回來，{user?.name || user?.username}！在這裡管理您的預約。
+            </Typography>
+            
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              {/* Stat Cards */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Card sx={{ height: '100%', borderRadius: 2 }}>
+                  <CardContent>
+                    <Typography color="text.secondary" gutterBottom>
+                      即將到來的預約
+                    </Typography>
+                    <Typography variant="h4" component="div" color="primary" fontWeight="medium">
+                      {upcomingAppointments.length}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={4}>
+                <Card sx={{ height: '100%', borderRadius: 2 }}>
+                  <CardContent>
+                    <Typography color="text.secondary" gutterBottom>
+                      歷史預約
+                    </Typography>
+                    <Typography variant="h4" component="div" color="primary" fontWeight="medium">
+                      {pastAppointments.length}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={4}>
+                 <Card sx={{ height: '100%', borderRadius: 2, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                  <CardContent sx={{textAlign: 'center'}}>
+                     <Typography color="text.secondary" gutterBottom>
+                      需要新的預約？
+                    </Typography>
+                    <Button 
+                        variant="contained"
+                        color="secondary"
+                        component={RouterLink} 
+                        to="/appointment" 
+                        startIcon={<CalendarIcon />}
+                        sx={{mt: 1}}
+                      >
+                        前往預約
+                      </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              {/* Upcoming Appointments Preview */}
+              <Grid item xs={12}>
+                <Card sx={{ borderRadius: 2, mt: 2 }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" component="h3" fontWeight="medium">
+                        即將到來的預約
+                      </Typography>
+                      <Button 
+                        onClick={() => setTabValue(1)} // Switch to 'My Appointments' tab
+                        color="primary"
+                        endIcon={<AppointmentIcon />}
+                      >
+                        查看全部
+                      </Button>
+                    </Box>
+                    <Divider sx={{ mb: 2 }} />
+                    {upcomingAppointments.length === 0 ? (
+                        <Typography color="text.secondary">您目前沒有即將到來的預約。</Typography>
+                    ) : (
+                        <List>
+                        {upcomingAppointments.slice(0, 3).map((appointment) => (
+                            <ListItem
+                            key={appointment._id} // Use _id from MongoDB
+                            secondaryAction={
+                                appointment.status !== 'cancelled' && (
+                                <IconButton 
+                                    edge="end" 
+                                    aria-label="cancel" 
+                                    color="error"
+                                    onClick={() => handleCancelAppointment(appointment._id)}
+                                    disabled={cancellingId === appointment._id}
+                                >
+                                    {cancellingId === appointment._id ? <CircularProgress size={20} color="inherit" /> : <CancelIcon />}
+                                </IconButton>
+                                )
+                            }
+                            sx={{ 
+                                borderBottom: '1px solid',
+                                borderColor: 'divider',
+                                '&:last-child': {
+                                borderBottom: 'none'
+                                }
+                            }}
+                            >
+                            <ListItemAvatar>
+                                <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                                {/* Assuming doctor info is populated or available */}
+                                {appointment.doctor?.name?.charAt(0) || '醫'}
+                                </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                                primary={
+                                <Typography variant="body1" fontWeight="medium">
+                                    {appointment.doctor?.name || '醫生'} {/* Adjust based on actual data structure */}
+                                </Typography>
+                                }
+                                secondary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                                    <Chip 
+                                    size="small" 
+                                    label={appointment.date} 
+                                    sx={{ bgcolor: 'background.paper' }}
+                                    />
+                                    <Chip 
+                                    size="small" 
+                                    icon={<TimeIcon fontSize="small" />} 
+                                    label={appointment.time} 
+                                    sx={{ bgcolor: 'background.paper' }}
+                                    />
+                                    <Chip 
+                                    size="small" 
+                                    label={appointment.status === 'confirmed' ? '已確認' : (appointment.status === 'cancelled' ? '已取消' : '待確認')} 
+                                    color={appointment.status === 'confirmed' ? 'success' : (appointment.status === 'cancelled' ? 'default' : 'warning')} 
+                                    variant="outlined"
+                                    />
+                                </Box>
+                                }
+                            />
+                            </ListItem>
+                        ))}
+                        </List>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Box>
+        );
+      case 1: // My Appointments
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h5" component="h2" fontWeight="medium">
+                我的預約
+                </Typography>
+                <IconButton onClick={fetchAppointments} aria-label="刷新預約">
+                    <RefreshIcon />
+                </IconButton>
+            </Box>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              查看和管理您的所有預約。
+            </Typography>
+            
+            <Card sx={{ borderRadius: 2, mt: 3 }}>
+              <CardContent>
+                <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
+                  所有預約記錄
+                </Typography>
+                 {appointments.length === 0 ? (
+                    <Typography color="text.secondary">您目前沒有任何預約記錄。</Typography>
+                 ) : (
+                    <List>
+                    {appointments.map((appointment) => (
+                        <ListItem
+                        key={appointment._id}
+                        secondaryAction={
+                            appointment.status !== 'cancelled' && new Date(`${appointment.date}T${appointment.time.split(' - ')[0]}`) >= now && (
+                            <Button
+                                variant="outlined"
+                                color="error"
+                                startIcon={cancellingId === appointment._id ? <CircularProgress size={16} color="inherit" /> : <CancelIcon />}
+                                size="small"
+                                onClick={() => handleCancelAppointment(appointment._id)}
+                                disabled={cancellingId === appointment._id}
+                            >
+                                取消預約
+                            </Button>
+                            )
+                        }
+                        sx={{ 
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            '&:last-child': {
+                            borderBottom: 'none'
+                            }
+                        }}
+                        >
+                        <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                            {appointment.doctor?.name?.charAt(0) || '醫'}
+                            </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                            primary={
+                            <Typography variant="body1" fontWeight="medium">
+                                {appointment.doctor?.name || '醫生'}
+                            </Typography>
+                            }
+                            secondary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                                <Chip 
+                                size="small" 
+                                label={appointment.date} 
+                                sx={{ bgcolor: 'background.paper' }}
+                                />
+                                <Chip 
+                                size="small" 
+                                icon={<TimeIcon fontSize="small" />} 
+                                label={appointment.time} 
+                                sx={{ bgcolor: 'background.paper' }}
+                                />
+                                <Chip 
+                                size="small" 
+                                label={appointment.status === 'confirmed' ? '已確認' : (appointment.status === 'cancelled' ? '已取消' : '待確認')} 
+                                color={appointment.status === 'confirmed' ? 'success' : (appointment.status === 'cancelled' ? 'default' : 'warning')} 
+                                variant="outlined"
+                                />
+                            </Box>
+                            }
+                        />
+                        </ListItem>
+                    ))}
+                    </List>
+                 )}
+              </CardContent>
+            </Card>
+          </Box>
+        );
+      case 2: // Settings
+        return (
+          <Box>
+            <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
+              設置
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              管理您的帳號和通知設置。
+            </Typography>
+            
+            <Card sx={{ borderRadius: 2, mt: 3 }}>
+              <CardContent>
+                <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
+                  個人資料
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  姓名: {user?.name || '未提供'}
+                </Typography>
+                 <Typography variant="body2" color="text.secondary" paragraph>
+                  用戶名/郵箱: {user?.username || '未提供'}
+                </Typography>
+                 <Typography variant="body2" color="text.secondary" paragraph>
+                  角色: {user?.role === 'patient' ? '患者' : user?.role}
+                </Typography>
+                {/* Add button to edit profile if needed */}
+                {/* <Button variant="outlined" sx={{mt: 1}}>編輯資料</Button> */}
+              </CardContent>
+            </Card>
+            {/* Add other settings sections like notifications, password change etc. */}
+          </Box>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Grid container spacing={3}>
+        {/* Sidebar */}
+        <Grid item xs={12} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 2 }}>
+            <Tabs
+              orientation={isMobile ? "horizontal" : "vertical"}
+              variant={isMobile ? "scrollable" : "standard"}
+              value={tabValue}
+              onChange={handleTabChange}
+              aria-label="Patient dashboard tabs"
+              sx={{ borderRight: isMobile ? 0 : 1, borderBottom: isMobile ? 1 : 0, borderColor: 'divider' }}
+            >
+              {menuItems.map((item) => (
+                <Tab 
+                  key={item.value} 
+                  icon={item.icon} 
+                  iconPosition="start" 
+                  label={item.label} 
+                  value={item.value} 
+                  sx={{ justifyContent: 'flex-start', alignItems: 'center', textTransform: 'none', mb: isMobile ? 0 : 1 }} 
+                />
+              ))}
+            </Tabs>
+          </Paper>
+        </Grid>
+
+        {/* Main Content */}
+        <Grid item xs={12} md={9}>
+          <Paper sx={{ p: isMobile ? 2 : 3, borderRadius: 2 }}>
+            {renderDashboardContent()}
+          </Paper>
+        </Grid>
+      </Grid>
+    </Container>
+  );
+};
+
+export default PatientDashboard;
+

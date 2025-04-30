@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心理治療預約系統</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- <link rel="stylesheet" href="/styles.css">  Removed as likely handled by Vite/React -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- WordPress整合修復 (保留，可能仍有用於特定場景) -->
+    <!-- Note: Inline scripts might need refactoring into React components if they manipulate the DOM managed by React -->
+    <script>
+        // Check URL params for doctor mode (Consider moving this logic into a React effect if possible)
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mode = urlParams.get('mode');
+            const auth = urlParams.get('auth');
+            
+            if (mode === 'doctor') {
+                console.log('Doctor mode detected from URL param');
+                // Attempt to switch mode immediately (this might conflict with React's rendering)
+                const doctorMode = document.getElementById('doctorMode');
+                const patientMode = document.getElementById('patientMode');
+                const doctorModeBtn = document.getElementById('doctorModeBtn');
+                const patientModeBtn = document.getElementById('patientModeBtn');
+                
+                if (doctorMode && patientMode && doctorModeBtn && patientModeBtn) {
+                    patientMode.classList.remove('active');
+                    doctorMode.classList.add('active');
+                    patientModeBtn.classList.remove('active');
+                    doctorModeBtn.classList.add('active');
+                    
+                    // 如果有認證參數，嘗試自動登入
+                    if (auth) {
+                        try {
+                            const password = atob(auth);
+                            const passwordInput = document.getElementById('doctorPassword');
+                            if (passwordInput) {
+                                passwordInput.value = password;
+                                // 觸發登入表單提交
+                                const loginForm = document.getElementById('doctorLoginForm');
+                                if (loginForm) {
+                                    // 確保登入函數已定義
+                                    if (typeof handleDoctorLogin === 'function') {
+                                        handleDoctorLogin(new Event('submit')); // 直接調用處理函數
+                                    } else {
+                                        console.warn('handleDoctorLogin function not found for auto-login.');
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error decoding auth parameter:', e);
+                        }
+                    }
+                } else {
+                    console.warn('Mode switch elements not found immediately after DOMContentLoaded.');
+                }
+            }
+        });
+    </script>
+</head>
+<body>
+    <!-- Assuming React mounts here -->
+    <div id="root"></div> 
+
+    <!-- Removed the explicit script tag for /script.js -->
+    <!-- Vite will inject the bundled script here -->
+    <script type="module" src="/src/main.jsx"></script> 
+</body>
+</html>

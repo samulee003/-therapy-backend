@@ -1,0 +1,30 @@
+# Node.js / General
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.*
+!.env.example
+database.db
+database.db-*
+*.sqlite
+*.sqlite-*
+
+# Vite / React Build output
+/dist/
+
+# IDE / OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.user
+
+# Log files
+logs
+*.log
+
+# Coverage directory used by tools like istanbul
+coverage/ 
