@@ -4,6 +4,7 @@ const cors = require("cors");
 const sqlite3 = require("sqlite3").verbose();
 const bcrypt = require("bcrypt");
 const path = require("path");
+const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 3000; // Use PORT from env variable if available (for platforms like Zeabur)
@@ -447,9 +448,20 @@ app.put("/api/appointments/:id/cancel", (req, res) => {
 });
 
 // --- Serve React Frontend --- 
-const staticPath = path.resolve(__dirname, "..", "dist");
-console.log(`Serving static files from: ${staticPath}`); // Add log
-app.use(express.static(staticPath));
+// Explicitly go up one level from backend directory to find workspace root
+const workspaceRoot = path.resolve(__dirname, '..'); 
+const staticPath = path.join(workspaceRoot, "dist"); // Construct path like /workspace/dist
+console.log(`Workspace root detected as: ${workspaceRoot}`);
+console.log(`Serving static files from: ${staticPath}`);
+
+// Check if static path exists
+if (!fs.existsSync(staticPath)) {
+    console.error(`Static path does not exist: ${staticPath}`);
+} else {
+    console.log(`Static path confirmed to exist: ${staticPath}`);
+    // Only serve static files if the directory exists
+    app.use(express.static(staticPath));
+}
 
 // Handle client-side routing (catch-all for non-API routes)
 app.get("*", (req, res) => {
@@ -458,9 +470,15 @@ app.get("*", (req, res) => {
         // If it's an API call or likely a file, let previous routes handle or 404
         return res.status(404).send("Not Found");
     }
-    // Otherwise, serve the main index.html from the resolved static path
-    const indexPath = path.resolve(staticPath, "index.html"); // Use resolve here too
-    console.log(`Attempting to send file: ${indexPath}`); // Add log
+    // Otherwise, serve the main index.html from the explicitly constructed path
+    const indexPath = path.join(staticPath, "index.html"); // Use join for consistency
+    console.log(`Attempting to send file: ${indexPath}`);
+    // Check if index.html exists before sending
+    if (!fs.existsSync(indexPath)) {
+        console.error(`index.html not found at: ${indexPath}`);
+        return res.status(404).send("Client entry point not found.");
+    }
+
     res.sendFile(indexPath, (err) => { // Add callback to log errors
         if (err) {
             console.error(`Error sending file ${indexPath}:`, err);
