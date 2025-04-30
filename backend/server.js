@@ -4,7 +4,6 @@ const cors = require("cors");
 const sqlite3 = require("sqlite3").verbose();
 const bcrypt = require("bcrypt");
 const path = require("path");
-const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 3000; // Use PORT from env variable if available (for platforms like Zeabur)
@@ -444,65 +443,6 @@ app.put("/api/appointments/:id/cancel", (req, res) => {
                 });
             });
         });
-    });
-});
-
-// --- Serve React Frontend --- 
-const currentWorkingDirectory = process.cwd();
-console.log(`Current Working Directory (process.cwd()): ${currentWorkingDirectory}`);
-
-// Attempt to construct static path relative to CWD
-// Since CWD seems to be /src, go up one level and then into dist.
-const staticPath = path.resolve(currentWorkingDirectory, "..", "dist"); 
-console.log(`Serving static files from (based on cwd + ..): ${staticPath}`);
-
-// Check if static path exists
-if (!fs.existsSync(staticPath)) {
-    console.error(`Static path does not exist: ${staticPath}`);
-    // Try listing contents of CWD for debugging
-    try {
-        const cwdContents = fs.readdirSync(currentWorkingDirectory);
-        console.error(`Contents of CWD (${currentWorkingDirectory}):`, cwdContents);
-        // Also list contents of parent directory (potential workspace root)
-        const parentDir = path.resolve(currentWorkingDirectory, '..');
-        const parentDirContents = fs.readdirSync(parentDir);
-        console.error(`Contents of Parent Dir (${parentDir}):`, parentDirContents);
-    } catch (e) {
-        console.error(`Could not read contents of CWD or Parent Dir`);
-    }
-} else {
-    console.log(`Static path confirmed to exist: ${staticPath}`);
-    // Only serve static files if the directory exists
-    app.use(express.static(staticPath));
-}
-
-// Handle client-side routing (catch-all for non-API routes)
-app.get("*", (req, res) => {
-    // Check if the request looks like an API call or a file request
-    if (req.path.startsWith("/api/") || req.path.includes(".")) { 
-        return res.status(404).send("Not Found");
-    }
-    
-    const indexPath = path.join(staticPath, "index.html"); 
-    console.log(`Attempting to send file: ${indexPath}`);
-    // Check if index.html exists before sending
-    if (!fs.existsSync(indexPath)) {
-        console.error(`index.html not found at: ${indexPath}`);
-        // Try listing contents of staticPath for debugging
-        try {
-            const staticDirContents = fs.readdirSync(staticPath);
-            console.error(`Contents of static directory (${staticPath}):`, staticDirContents);
-        } catch (e) {
-             console.error(`Could not read contents of static directory (${staticPath})`);
-        }
-        return res.status(404).send("Client entry point not found.");
-    }
-
-    res.sendFile(indexPath, (err) => { 
-        if (err) {
-            console.error(`Error sending file ${indexPath}:`, err);
-            res.status(err.status || 500).send("Internal Server Error or File Not Found"); 
-        }
     });
 });
 
