@@ -142,27 +142,47 @@ db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, 
 
 // Authentication
 app.post("/api/login", async (req, res) => {
-    const { password } = req.body;
-    if (!password) {
-        return res.status(400).json({ success: false, message: "Password is required." });
+    const { username, password } = req.body; // Expect username (email) and password
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Username and password are required." });
     }
 
-    db.get("SELECT adminPassword FROM settings WHERE id = 1", async (err, row) => {
+    // Find user by username (email) in the users table
+    const sql = "SELECT * FROM users WHERE username = ?";
+    db.get(sql, [username], async (err, user) => {
         if (err) {
-            console.error("Error fetching admin password:", err);
+            console.error("Error fetching user during login:", err);
             return res.status(500).json({ success: false, message: "Database error during login." });
         }
-        if (!row || !row.adminPassword) {
-            return res.status(401).json({ success: false, message: "Admin password not set or found." });
+
+        // User not found
+        if (!user) {
+            return res.status(401).json({ success: false, message: "Invalid username or password." }); // Generic message
         }
 
+        // User found, compare password
         try {
-            const match = await bcrypt.compare(password, row.adminPassword);
+            const match = await bcrypt.compare(password, user.password); // Compare with hashed password from DB
             if (match) {
-                // In a real app, generate and return a JWT token here
-                res.json({ success: true, message: "Login successful." });
+                // Login successful
+                // IMPORTANT: In a real app, generate and return a JWT token here
+                // For now, just return success and basic user info (excluding password)
+                const userInfo = {
+                    id: user.id,
+                    username: user.username,
+                    name: user.name,
+                    role: user.role
+                };
+                res.json({ 
+                    success: true, 
+                    message: "Login successful.",
+                    user: userInfo // Send back basic user info
+                    // token: generatedToken // TODO: Add JWT token later
+                });
             } else {
-                res.status(401).json({ success: false, message: "Invalid password." });
+                // Password doesn't match
+                res.status(401).json({ success: false, message: "Invalid username or password." }); // Generic message
             }
         } catch (compareError) {
             console.error("Error comparing password:", compareError);
