@@ -452,9 +452,9 @@ const currentWorkingDirectory = process.cwd();
 console.log(`Current Working Directory (process.cwd()): ${currentWorkingDirectory}`);
 
 // Attempt to construct static path relative to CWD
-// Assuming CWD is the workspace root (/workspace)
-const staticPath = path.resolve(currentWorkingDirectory, "dist"); 
-console.log(`Serving static files from (based on cwd): ${staticPath}`);
+// Since CWD seems to be /src, go up one level and then into dist.
+const staticPath = path.resolve(currentWorkingDirectory, "..", "dist"); 
+console.log(`Serving static files from (based on cwd + ..): ${staticPath}`);
 
 // Check if static path exists
 if (!fs.existsSync(staticPath)) {
@@ -463,8 +463,12 @@ if (!fs.existsSync(staticPath)) {
     try {
         const cwdContents = fs.readdirSync(currentWorkingDirectory);
         console.error(`Contents of CWD (${currentWorkingDirectory}):`, cwdContents);
+        // Also list contents of parent directory (potential workspace root)
+        const parentDir = path.resolve(currentWorkingDirectory, '..');
+        const parentDirContents = fs.readdirSync(parentDir);
+        console.error(`Contents of Parent Dir (${parentDir}):`, parentDirContents);
     } catch (e) {
-        console.error(`Could not read contents of CWD (${currentWorkingDirectory})`);
+        console.error(`Could not read contents of CWD or Parent Dir`);
     }
 } else {
     console.log(`Static path confirmed to exist: ${staticPath}`);
