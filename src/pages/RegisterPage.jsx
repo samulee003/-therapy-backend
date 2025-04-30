@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Typography, 
@@ -20,7 +21,9 @@ import {
   Step,
   StepLabel,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -31,6 +34,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PhoneIcon from '@mui/icons-material/Phone';
+import { registerUser } from '../services/api';
 
 const RegisterPage = () => {
   const theme = useTheme();
@@ -39,15 +43,17 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
-  // 表單數據
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'patient' // 默認為患者
+    role: 'patient' 
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -73,10 +79,39 @@ const RegisterPage = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    // 這裡將來會添加實際的註冊邏輯
-    console.log('Registration data:', formData);
+    setError('');
+    setLoading(true);
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('密碼和確認密碼不匹配。');
+      setLoading(false);
+      return;
+    }
+
+    const registrationData = {
+      username: formData.email,
+      password: formData.password,
+      name: formData.name,
+      role: formData.role,
+    };
+
+    console.log('Attempting registration with:', registrationData);
+
+    try {
+      const response = await registerUser(registrationData);
+      console.log('Registration successful:', response.data);
+      alert('註冊成功！請使用您的帳號登入。'); 
+      navigate('/login'); 
+
+    } catch (err) {
+      console.error('Registration failed:', err);
+      setError(err.response?.data?.message || err.message || '註冊失敗，請稍後再試。');
+
+    } finally {
+      setLoading(false);
+    }
   };
 
   const steps = ['基本信息', '帳號設置', '完成註冊'];
@@ -227,51 +262,35 @@ const RegisterPage = () => {
             <Typography variant="h6" gutterBottom>
               確認您的註冊信息
             </Typography>
-            <Grid container spacing={2} sx={{ mt: 2, textAlign: 'left' }}>
-              <Grid item xs={4}>
-                <Typography variant="body2" color="text.secondary">
-                  姓名:
-                </Typography>
-              </Grid>
-              <Grid item xs={8}>
-                <Typography variant="body1">
-                  {formData.name}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={4}>
-                <Typography variant="body2" color="text.secondary">
-                  電子郵件:
-                </Typography>
-              </Grid>
-              <Grid item xs={8}>
-                <Typography variant="body1">
-                  {formData.email}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={4}>
-                <Typography variant="body2" color="text.secondary">
-                  電話號碼:
-                </Typography>
-              </Grid>
-              <Grid item xs={8}>
-                <Typography variant="body1">
-                  {formData.phone}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={4}>
-                <Typography variant="body2" color="text.secondary">
-                  註冊身份:
-                </Typography>
-              </Grid>
-              <Grid item xs={8}>
-                <Typography variant="body1">
-                  {formData.role === 'patient' ? '患者' : '醫生'}
-                </Typography>
-              </Grid>
+            <Grid container spacing={1.5} sx={{ mt: 2, textAlign: 'left', maxWidth: 400, mx: 'auto' }}> 
+              <Grid item xs={5}><Typography variant="body2" color="text.secondary">姓名:</Typography></Grid>
+              <Grid item xs={7}><Typography variant="body1">{formData.name}</Typography></Grid>
+              <Grid item xs={5}><Typography variant="body2" color="text.secondary">電子郵件:</Typography></Grid>
+              <Grid item xs={7}><Typography variant="body1">{formData.email}</Typography></Grid>
+              <Grid item xs={5}><Typography variant="body2" color="text.secondary">電話號碼:</Typography></Grid>
+              <Grid item xs={7}><Typography variant="body1">{formData.phone}</Typography></Grid>
+              <Grid item xs={5}><Typography variant="body2" color="text.secondary">註冊身份:</Typography></Grid>
+              <Grid item xs={7}><Typography variant="body1" sx={{ textTransform: 'capitalize' }}>{formData.role}</Typography></Grid>
             </Grid>
+
+            {error && <Alert severity="error" sx={{ mt: 3, mb: 1, textAlign: 'left' }}>{error}</Alert>}
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSubmit} 
+              disabled={loading}   
+              sx={{ mt: 3, minWidth: 120 }}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : '完成註冊'}
+            </Button>
+             <Button
+                disabled={loading}
+                onClick={handleBack}
+                sx={{ mt: 3, ml: 1 }}
+             >
+                上一步
+              </Button>
           </Box>
         );
       default:

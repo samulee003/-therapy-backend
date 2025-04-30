@@ -46,6 +46,12 @@ export const loginUser = (credentials) => {
   return apiClient.post('/api/login', credentials); // Send the whole credentials object
 };
 
+// ADDED: User Registration (Matches POST /api/register)
+export const registerUser = (registrationData) => {
+  // registrationData should contain { username, password, name, role }
+  return apiClient.post('/api/register', registrationData);
+};
+
 // --- Settings --- //
 
 // Get Settings (Matches GET /api/settings)

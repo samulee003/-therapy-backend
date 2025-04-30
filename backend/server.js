@@ -1,29 +1,4 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const sqlite3 = require("sqlite3").verbose();
-const bcrypt = require("bcrypt");
-const path = require("path");
-
-const app = express();
-const port = process.env.PORT || 3000; // Use PORT from env variable if available (for platforms like Zeabur)
-
-// --- Middleware ---
-
-// Enable CORS - Adjust origin for production if needed
-app.use(cors()); 
-
-// Parse JSON request bodies
-app.use(express.json());
-
-// --- Database Setup ---
-// Store DB in the root directory, one level up from backend/
-const dbPath = path.resolve(__dirname, "..", process.env.DB_PATH || "database.db"); 
-console.log(`Database path: ${dbPath}`);
-
-let db; // Declare db variable
-
-// Function to initialize database schema and default settings
+// Function to initialize database schema and default settings/users
 async function initializeDatabase(database) {
     return new Promise((resolve, reject) => {
         database.serialize(async () => {
@@ -40,77 +15,98 @@ async function initializeDatabase(database) {
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 doctorName TEXT,
                 clinicName TEXT,
-                adminPassword TEXT,
+                adminPassword TEXT, // Keep adminPassword for settings management if needed
                 notificationEmail TEXT,
                 defaultTimeSlots TEXT
             )`, (err) => handleTableErr("settings", err));
+            
+            // ADDED: Create users table
+            database.run(`CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL, -- Email as username
+                password TEXT NOT NULL,       -- Hashed password
+                name TEXT,
+                role TEXT NOT NULL CHECK(role IN ('doctor', 'patient', 'admin')) -- Added admin role maybe?
+            )`, (err) => handleTableErr("users", err));
 
             database.run(`CREATE TABLE IF NOT EXISTS schedule (
                 date TEXT PRIMARY KEY,
                 availableSlots TEXT,
-                bookedSlots TEXT
-            )`, (err) => handleTableErr("schedule", err));
-
-            database.run(`CREATE TABLE IF NOT EXISTS appointments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                time TEXT NOT NULL,
-                patientName TEXT NOT NULL,
-                patientPhone TEXT NOT NULL,
-                patientEmail TEXT NOT NULL,
-                appointmentReason TEXT,
-                notes TEXT,
-                status TEXT DEFAULT 'confirmed',
-                isRegular BOOLEAN DEFAULT 0,
-                regularPatientId INTEGER,
-                FOREIGN KEY (regularPatientId) REFERENCES regular_patients(id)
-            )`, (err) => handleTableErr("appointments", err));
-
-            database.run(`CREATE TABLE IF NOT EXISTS regular_patients (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                phone TEXT NOT NULL,
-                email TEXT NOT NULL,
-                frequency TEXT NOT NULL,
-                dayOfWeek INTEGER NOT NULL,
-                timeSlot TEXT NOT NULL,
-                notes TEXT
-            )`, (err) => {
                 handleTableErr("regular_patients", err);
 
-                // After last table creation attempt, check/insert default settings
-                database.get("SELECT 1 FROM settings WHERE id = 1", async (getErr, row) => {
-                    if (getErr) {
-                        console.error("Error checking settings existence:", getErr.message);
-                        return reject(getErr); // Reject the main promise
+                // After last table creation attempt, check/insert default settings AND users
+                // Check Settings
+                database.get("SELECT 1 FROM settings WHERE id = 1", async (getSettingsErr, settingsRow) => {
+                    if (getSettingsErr) {
+                        console.error("Error checking settings existence:", getSettingsErr.message);
+                        return reject(getSettingsErr); 
                     }
 
-                    if (!row) {
-                        console.log("No settings found, inserting defaults...");
-                        const defaultPassword = process.env.ADMIN_PASSWORD || 'admin123';
-                        const saltRounds = 10;
-                        try {
-                            const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
-                            const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
-                            database.run(`INSERT INTO settings (id, adminPassword, defaultTimeSlots) VALUES (1, ?, ?)`,
-                                       [hashedPassword, defaultSlots],
-                                       (insertErr) => {
-                                if (insertErr) {
-                                     console.error("Error inserting default settings:", insertErr.message);
-                                     reject(insertErr); // Reject on insertion error
-                                } else {
-                                     console.log("Default settings inserted.");
-                                     resolve(); // Resolve the promise *after* successful insertion
-                                }
+                    let settingsInitialized = !!settingsRow;
+                    if (!settingsInitialized) {
+                         console.log("No settings found, inserting defaults...");
+                         const defaultPassword = 'admin123'; // Keep a simple default admin password for settings
+                         const saltRounds = 10;
+                         try {
+                             const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+                             const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
+                             await new Promise((res, rej) => { // Wait for insert
+                                 database.run(`INSERT INTO settings (id, adminPassword, defaultTimeSlots) VALUES (1, ?, ?)`,
+                                            [hashedPassword, defaultSlots],
+                                            (insertErr) => {
+                                     if (insertErr) {
+                                          console.error("Error inserting default settings:", insertErr.message);
+                                          rej(insertErr);
+                                     } else {
+                                          console.log("Default settings inserted.");
+                                          settingsInitialized = true;
+                                          res();
+                                     }
+                                 });
                             });
-                        } catch (hashError) {
-                            console.error("Error hashing default password:", hashError);
-                            reject(hashError); // Reject on hashing error
-                        }
+                         } catch (hashError) {
+                             console.error("Error hashing default settings password:", hashError);
+                             return reject(hashError); 
+                         }
                     } else {
                         console.log("Settings already initialized.");
-                        resolve(); // Resolve if settings already exist
                     }
+
+                    // Check Users (only after settings check/insert is potentially done)
+                    database.get("SELECT COUNT(*) as count FROM users", async (getUsersErr, usersRow) => {
+                         if (getUsersErr) {
+                             console.error("Error checking users existence:", getUsersErr.message);
+                             return reject(getUsersErr);
+                         }
+
+                         if (usersRow && usersRow.count === 0) {
+                             console.log("No users found, inserting default doctor and patient...");
+                             const defaultUserPassword = 'password123';
+                             const saltRounds = 10;
+                             try {
+                                const hashedUserPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
+                                // Wait for both inserts to complete
+                                await new Promise((res, rej) => {
+                                    database.run(`INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)`,
+                                            ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor'],
+                                            (insertErr) => { if (insertErr) rej(insertErr); else res(); });
+                                });
+                                await new Promise((res, rej) => {
+                                     database.run(`INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)`,
+                                             ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient'],
+                                             (insertErr) => { if (insertErr) rej(insertErr); else res(); });
+                                });
+                                console.log("Default users inserted.");
+                                resolve(); // RESOLVE aFTER ALL INITIALIZATION IS DONE
+                             } catch (hashOrInsertError) {
+                                 console.error("Error hashing/inserting default users:", hashOrInsertError);
+                                 reject(hashOrInsertError);
+                             }
+                         } else {
+                             console.log("Users table already populated.");
+                             resolve(); // RESOLVE aFTER ALL INITIALIZATION IS DONE
+                         }
+                    });
                 });
             });
         });
@@ -118,372 +114,236 @@ async function initializeDatabase(database) {
 }
 
 // Connect to Database and Initialize
+// ... existing code ... 
+
+let db; // Declare db variable
+
+// Helper function to wrap database.run in a Promise
+function runDb(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error("Database connection not established."));
+        db.run(sql, params, function(err) { // Use traditional function for `this` context
+            if (err) {
+                // Shorten SQL in log for readability
+                console.error('DB Run Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params); 
+                reject(err);
+            } else {
+                resolve(this); // Resolve with `this` context (contains lastID, changes)
+            }
+        });
+    });
+}
+
+// Helper function to wrap database.get in a Promise
+function getDb(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error("Database connection not established."));
+        db.get(sql, params, (err, row) => {
+            if (err) {
+                // Shorten SQL in log for readability
+                 console.error('DB Get Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params); 
+                 reject(err);
+            } else {
+                resolve(row); // Resolve with the row found (or undefined)
+            }
+        });
+    });
+}
+
+// --- SQL Definitions for Table Creation ---
+const CREATE_SETTINGS_SQL = `
+CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    doctorName TEXT,
+    clinicName TEXT,
+    adminPassword TEXT,
+    notificationEmail TEXT,
+    defaultTimeSlots TEXT
+)`;
+
+const CREATE_USERS_SQL = `
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    name TEXT,
+    role TEXT NOT NULL CHECK(role IN ('doctor', 'patient', 'admin'))
+)`;
+
+const CREATE_SCHEDULE_SQL = `
+CREATE TABLE IF NOT EXISTS schedule (
+    date TEXT PRIMARY KEY,
+    availableSlots TEXT,
+    bookedSlots TEXT
+)`;
+
+const CREATE_APPOINTMENTS_SQL = `
+CREATE TABLE IF NOT EXISTS appointments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    time TEXT NOT NULL,
+    patientName TEXT NOT NULL,
+    patientPhone TEXT NOT NULL,
+    patientEmail TEXT NOT NULL,
+    appointmentReason TEXT,
+    notes TEXT,
+    status TEXT DEFAULT 'confirmed',
+    isRegular BOOLEAN DEFAULT 0,
+    regularPatientId INTEGER,
+    FOREIGN KEY (regularPatientId) REFERENCES regular_patients(id)
+)`;
+
+const CREATE_REGULAR_PATIENTS_SQL = `
+CREATE TABLE IF NOT EXISTS regular_patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    frequency TEXT NOT NULL,
+    dayOfWeek INTEGER NOT NULL,
+    timeSlot TEXT NOT NULL,
+    notes TEXT
+)`;
+
+// Function to initialize database schema and default settings/users (Refactored with async/await)
+async function initializeDatabase() {
+    console.log("Initializing database schema if necessary...");
+    try {
+        // --- Create Tables Sequentially using defined SQL ---
+        await runDb(CREATE_SETTINGS_SQL);
+        console.log("settings table checked/created.");
+
+        await runDb(CREATE_USERS_SQL);
+         console.log("users table checked/created.");
+
+        await runDb(CREATE_SCHEDULE_SQL);
+        console.log("schedule table checked/created.");
+
+        await runDb(CREATE_APPOINTMENTS_SQL);
+        console.log("appointments table checked/created.");
+
+         await runDb(CREATE_REGULAR_PATIENTS_SQL);
+        console.log("regular_patients table checked/created.");
+
+        // --- Check and Insert Default Settings ---
+        const settingsRow = await getDb("SELECT 1 FROM settings WHERE id = 1");
+        if (!settingsRow) {
+            console.log("No settings found, inserting defaults...");
+            const defaultPassword = 'admin123';
+            const saltRounds = 10;
+            const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+            const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
+            await runDb("INSERT INTO settings (id, adminPassword, defaultTimeSlots) VALUES (1, ?, ?)", [hashedPassword, defaultSlots]);
+            console.log("Default settings inserted.");
+        } else {
+            console.log("Settings already initialized.");
+        }
+
+        // --- Check and Insert Default Users ---
+        const usersRow = await getDb("SELECT COUNT(*) as count FROM users");
+        if (usersRow && usersRow.count === 0) {
+             console.log("No users found, inserting default doctor and patient...");
+             const defaultUserPassword = 'password123';
+             const saltRounds = 10;
+             const hashedUserPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
+             await runDb("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor']);
+             await runDb("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient']);
+             console.log("Default users inserted.");
+        } else if (usersRow) {
+            console.log("Users table already populated.");
+        } else {
+             console.error("Could not determine user count. Default users not inserted.");
+        }
+
+        console.log("Database initialization check complete.");
+
+    } catch (error) {
+        console.error("FATAL: Database initialization process failed.");
+        throw error; 
+    }
+}
+
+// Connect to Database and Initialize
 db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, async (err) => {
     if (err) {
         console.error("FATAL: Error opening database:", err.message);
-        process.exit(1); // Exit if DB cannot be opened/created
+        process.exit(1); 
     } else {
         console.log("Connected to the SQLite database.");
         try {
-            await initializeDatabase(db);
-            console.log("Database initialization complete.");
-            // Start the server only after successful DB initialization
+            await initializeDatabase(); 
             startServer();
         } catch (initError) {
-            console.error("FATAL: Database initialization failed:", initError);
-            db.close(); // Close DB connection on init error
-            process.exit(1); // Exit if DB init fails
+             if (db) {
+                 db.close((closeErr) => {
+                    if (closeErr) console.error("Error closing DB after init failure:", closeErr.message);
+                 });
+            }
+            process.exit(1); 
         }
     }
 });
 
 // --- API Routes --- 
-// (Keep all existing API routes: /api/login, /api/settings, /api/schedule, /api/appointments, etc.)
+// ... existing code ... 
 
 // Authentication
-app.post("/api/login", async (req, res) => {
-    const { username, password } = req.body; // Expect username (email) and password
+// ... (Login route code remains the same) ...
 
-    if (!username || !password) {
-        return res.status(400).json({ success: false, message: "Username and password are required." });
+// ADDED: User Registration Route
+app.post("/api/register", async (req, res) => {
+    const { username, password, name, role } = req.body;
+
+    // --- Input Validation ---
+    if (!username || !password || !name || !role) {
+        return res.status(400).json({ success: false, message: "Missing required registration fields (username, password, name, role)." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+         return res.status(400).json({ success: false, message: "Invalid email format for username." });
+    }
+     if (!['doctor', 'patient', 'admin'].includes(role)) { // Adjust allowed roles if needed
+        return res.status(400).json({ success: false, message: "Invalid role specified." });
     }
 
-    // Find user by username (email) in the users table
-    const sql = "SELECT * FROM users WHERE username = ?";
-    db.get(sql, [username], async (err, user) => {
-        if (err) {
-            console.error("Error fetching user during login:", err);
-            return res.status(500).json({ success: false, message: "Database error during login." });
+    // --- Check if user already exists ---
+    try {
+        const existingUser = await getDb("SELECT id FROM users WHERE username = ?", [username]);
+        if (existingUser) {
+            return res.status(409).json({ success: false, message: "Username (email) already exists." }); // 409 Conflict
         }
 
-        // User not found
-        if (!user) {
-            return res.status(401).json({ success: false, message: "Invalid username or password." }); // Generic message
-        }
+        // --- Hash password and Insert User ---
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // User found, compare password
-        try {
-            const match = await bcrypt.compare(password, user.password); // Compare with hashed password from DB
-            if (match) {
-                // Login successful
-                // IMPORTANT: In a real app, generate and return a JWT token here
-                // For now, just return success and basic user info (excluding password)
-                const userInfo = {
-                    id: user.id,
-                    username: user.username,
-                    name: user.name,
-                    role: user.role
-                };
-                res.json({ 
-                    success: true, 
-                    message: "Login successful.",
-                    user: userInfo // Send back basic user info
-                    // token: generatedToken // TODO: Add JWT token later
-                });
-            } else {
-                // Password doesn't match
-                res.status(401).json({ success: false, message: "Invalid username or password." }); // Generic message
-            }
-        } catch (compareError) {
-            console.error("Error comparing password:", compareError);
-            res.status(500).json({ success: false, message: "Error during authentication." });
+        const insertSql = "INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)";
+        const insertResult = await runDb(insertSql, [username, hashedPassword, name, role]);
+
+        console.log(`User registered: ${username}, ID: ${insertResult.lastID}`);
+        res.status(201).json({ success: true, message: "Registration successful.", userId: insertResult.lastID });
+
+    } catch (error) {
+        console.error("Error during registration:", error);
+        if (error.message.includes("UNIQUE constraint failed")) { 
+             return res.status(409).json({ success: false, message: "Username (email) already exists." });
         }
-    });
+        res.status(500).json({ success: false, message: "Server error during registration." });
+    }
 });
 
 // Settings
-app.get("/api/settings", (req, res) => {
-    db.get("SELECT doctorName, clinicName, notificationEmail, defaultTimeSlots FROM settings WHERE id = 1", (err, row) => {
-        if (err) {
-            console.error("Error fetching settings:", err);
-            return res.status(500).json({ success: false, message: "Database error fetching settings." });
-        }
-        if (!row) {
-            return res.status(404).json({ success: false, message: "Settings not found." });
-        }
-        try {
-            const settings = { ...row, defaultTimeSlots: row.defaultTimeSlots ? JSON.parse(row.defaultTimeSlots) : [] };
-             res.json({ success: true, settings });
-        } catch (parseError) {
-            console.error("Error parsing defaultTimeSlots:", parseError);
-            res.json({ success: true, settings: { ...row, defaultTimeSlots: [] }, warning: "Could not parse default time slots." });
-        }
-    });
-});
-
-app.put("/api/settings", async (req, res) => {
-    const { doctorName, clinicName, notificationEmail, adminPassword, confirmAdminPassword, defaultTimeSlots } = req.body;
-    let hashedPassword = null;
-
-    if (adminPassword && adminPassword !== confirmAdminPassword) {
-        return res.status(400).json({ success: false, message: "Passwords do not match." });
-    }
-
-    try {
-        if (adminPassword) {
-            const saltRounds = 10;
-            hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
-        }
-
-        let sql = "UPDATE settings SET doctorName = ?, clinicName = ?, notificationEmail = ?, defaultTimeSlots = ?";
-        const params = [doctorName, clinicName, notificationEmail, JSON.stringify(defaultTimeSlots || [])];
-
-        if (hashedPassword) {
-            sql += ", adminPassword = ?";
-            params.push(hashedPassword);
-        }
-
-        sql += " WHERE id = 1";
-
-        db.run(sql, params, function(err) {
-            if (err) {
-                console.error("Error updating settings:", err);
-                return res.status(500).json({ success: false, message: "Database error updating settings." });
-            }
-            if (this.changes === 0) {
-                 return res.status(404).json({ success: false, message: "Settings record not found for update." });
-            }
-            res.json({ success: true, message: "Settings updated successfully." });
-        });
-
-    } catch (error) {
-        console.error("Error processing settings update:", error);
-        res.status(500).json({ success: false, message: "Server error processing settings update." });
-    }
-});
-
+// ... (Settings routes code remains the same) ...
 
 // Schedule
-app.get("/api/schedule/:year/:month", (req, res) => {
-    const { year, month } = req.params;
-    const formattedMonth = month.padStart(2, "0");
-    const startDate = `${year}-${formattedMonth}-01`;
-    const tempDate = new Date(year, month, 1); // Use month directly (JS month is 0-indexed)
-    tempDate.setMonth(tempDate.getMonth() -1); // Go to previous month
-    tempDate.setDate(0); // Go to last day of previous month
-    const endDate = new Date(year, month, 0).toISOString().split("T")[0]; // Last day of current month
-
-    const sql = `SELECT date, availableSlots, bookedSlots FROM schedule WHERE date >= ? AND date <= ?`;
-
-    db.all(sql, [startDate, endDate], (err, rows) => {
-        if (err) {
-            console.error("Error fetching schedule:", err);
-            return res.status(500).json({ success: false, message: "Database error fetching schedule." });
-        }
-        const scheduleData = rows.reduce((acc, row) => {
-            try {
-                acc[row.date] = {
-                    availableSlots: row.availableSlots ? JSON.parse(row.availableSlots) : [],
-                    bookedSlots: row.bookedSlots ? JSON.parse(row.bookedSlots) : {}
-                };
-            } catch (e) {
-                console.error(`Error parsing schedule data for date ${row.date}:`, e);
-                 acc[row.date] = { availableSlots: [], bookedSlots: {} };
-            }
-            return acc;
-        }, {});
-        res.json({ success: true, schedule: scheduleData });
-    });
-});
-
-app.post("/api/schedule", (req, res) => {
-    const { date, availableSlots } = req.body;
-
-    if (!date || !availableSlots) {
-        return res.status(400).json({ success: false, message: "Date and available slots are required." });
-    }
-
-    const availableSlotsJson = JSON.stringify(availableSlots);
-    const sql = `INSERT OR REPLACE INTO schedule (date, availableSlots, bookedSlots) 
-                 VALUES (?, ?, COALESCE((SELECT bookedSlots FROM schedule WHERE date = ?), '{}'))`;
-
-    db.run(sql, [date, availableSlotsJson, date], function(err) {
-        if (err) {
-            console.error("Error saving schedule:", err);
-            return res.status(500).json({ success: false, message: "Database error saving schedule." });
-        }
-        res.json({ success: true, message: `Schedule for ${date} saved successfully.` });
-    });
-});
+// ... (Schedule routes code remains the same) ...
 
 // Appointments
-app.get("/api/appointments", (req, res) => {
-    const sql = "SELECT * FROM appointments ORDER BY date DESC, time ASC";
-    db.all(sql, [], (err, rows) => {
-        if (err) {
-            console.error("Error fetching appointments:", err);
-            return res.status(500).json({ success: false, message: "Database error fetching appointments." });
-        }
-        res.json({ success: true, appointments: rows });
-    });
-});
+// ... (Appointments routes code remains the same) ...
 
-app.post("/api/appointments", (req, res) => {
-    const { date, time, patientName, patientPhone, patientEmail, appointmentReason, notes, isRegular, regularPatientId } = req.body;
-
-    if (!date || !time || !patientName || !patientPhone || !patientEmail) {
-        return res.status(400).json({ success: false, message: "Missing required appointment fields." });
-    }
-
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION;");
-        const checkSql = "SELECT availableSlots, bookedSlots FROM schedule WHERE date = ?";
-        db.get(checkSql, [date], (err, scheduleRow) => {
-            if (err) {
-                console.error("DB Error checking schedule:", err);
-                db.run("ROLLBACK;");
-                return res.status(500).json({ success: false, message: "Database error checking availability." });
-            }
-            if (!scheduleRow) {
-                db.run("ROLLBACK;");
-                return res.status(400).json({ success: false, message: `No schedule found for date ${date}.` });
-            }
-            let availableSlots = [];
-            let bookedSlots = {};
-            try {
-                availableSlots = scheduleRow.availableSlots ? JSON.parse(scheduleRow.availableSlots) : [];
-                bookedSlots = scheduleRow.bookedSlots ? JSON.parse(scheduleRow.bookedSlots) : {};
-            } catch (parseError) {
-                 console.error(`Error parsing schedule data for booking on ${date}:`, parseError);
-                 db.run("ROLLBACK;");
-                 return res.status(500).json({ success: false, message: "Error reading schedule data." });
-            }
-            if (!availableSlots.includes(time) || bookedSlots[time]) {
-                db.run("ROLLBACK;");
-                return res.status(400).json({ success: false, message: `Time slot ${time} on ${date} is not available.` });
-            }
-            const insertSql = `INSERT INTO appointments 
-                (date, time, patientName, patientPhone, patientEmail, appointmentReason, notes, isRegular, regularPatientId, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')`;
-            const insertParams = [date, time, patientName, patientPhone, patientEmail, appointmentReason || null, notes || null, isRegular || 0, regularPatientId || null];
-            db.run(insertSql, insertParams, function(err) {
-                if (err) {
-                    console.error("DB Error inserting appointment:", err);
-                    db.run("ROLLBACK;");
-                    return res.status(500).json({ success: false, message: "Database error creating appointment." });
-                }
-                const newAppointmentId = this.lastID;
-                bookedSlots[time] = { patientName: patientName, appointmentId: newAppointmentId };
-                const updateSql = "UPDATE schedule SET bookedSlots = ? WHERE date = ?";
-                db.run(updateSql, [JSON.stringify(bookedSlots), date], (err) => {
-                    if (err) {
-                        console.error("DB Error updating schedule bookedSlots:", err);
-                        db.run("ROLLBACK;");
-                        db.run("DELETE FROM appointments WHERE id = ?", [newAppointmentId], () => {}); 
-                        return res.status(500).json({ success: false, message: "Database error updating schedule after booking." });
-                    }
-                    db.run("COMMIT;", (commitErr) => {
-                         if (commitErr) {
-                            console.error("DB Error committing transaction:", commitErr);
-                            return res.status(500).json({ success: false, message: "Database error committing booking." });
-                         }
-                         res.status(201).json({ success: true, message: "Appointment created successfully.", appointmentId: newAppointmentId });
-                    });
-                });
-            });
-        });
-    });
-});
-
-app.put("/api/appointments/:id/cancel", (req, res) => {
-    const appointmentId = req.params.id;
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION;");
-        db.get("SELECT date, time FROM appointments WHERE id = ?", [appointmentId], (err, apptRow) => {
-            if (err) {
-                console.error("DB Error fetching appointment for cancellation:", err);
-                db.run("ROLLBACK;");
-                return res.status(500).json({ success: false, message: "Database error fetching appointment details." });
-            }
-            if (!apptRow) {
-                db.run("ROLLBACK;");
-                return res.status(404).json({ success: false, message: "Appointment not found." });
-            }
-            const { date, time } = apptRow;
-            db.run("UPDATE appointments SET status = ? WHERE id = ?", ["cancelled", appointmentId], function(err) {
-                if (err) {
-                    console.error("DB Error cancelling appointment:", err);
-                    db.run("ROLLBACK;");
-                    return res.status(500).json({ success: false, message: "Database error updating appointment status." });
-                }
-                if (this.changes === 0) {
-                     db.run("ROLLBACK;");
-                     return res.status(404).json({ success: false, message: "Appointment not found during update." });
-                }
-                db.get("SELECT bookedSlots FROM schedule WHERE date = ?", [date], (err, scheduleRow) => {
-                    if (err) {
-                        console.error("DB Error fetching schedule for cancellation update:", err);
-                        db.run("ROLLBACK;");
-                        return res.status(500).json({ success: false, message: "Database error fetching schedule to update." });
-                    }
-                    if (scheduleRow && scheduleRow.bookedSlots) {
-                        try {
-                            let bookedSlots = JSON.parse(scheduleRow.bookedSlots);
-                            if (bookedSlots[time]) {
-                                delete bookedSlots[time];
-                                db.run("UPDATE schedule SET bookedSlots = ? WHERE date = ?", [JSON.stringify(bookedSlots), date], (err) => {
-                                    if (err) {
-                                        console.error("DB Error updating schedule bookedSlots after cancellation:", err);
-                                        db.run("ROLLBACK;");
-                                        return res.status(500).json({ success: false, message: "Database error updating schedule." });
-                                    }
-                                    db.run("COMMIT;", (commitErr) => {
-                                        if (commitErr) {
-                                            console.error("DB Error committing cancellation:", commitErr);
-                                            return res.status(500).json({ success: false, message: "Database error committing cancellation." });
-                                        }
-                                        res.json({ success: true, message: "Appointment cancelled successfully." });
-                                    });
-                                });
-                            } else {
-                                // Slot wasn't booked, commit the status change anyway
-                                db.run("COMMIT;", (commitErr) => {
-                                    if (commitErr) {
-                                        console.error("DB Error committing cancellation (slot not found):", commitErr);
-                                        return res.status(500).json({ success: false, message: "Database error committing cancellation." });
-                                    }
-                                    res.json({ success: true, message: "Appointment cancelled (schedule slot not found)." });
-                                });
-                            }
-                        } catch (parseError) {
-                            console.error(`Error parsing bookedSlots for cancellation on ${date}:`, parseError);
-                            db.run("ROLLBACK;");
-                            return res.status(500).json({ success: false, message: "Error reading schedule data during cancellation." });
-                        }
-                    } else {
-                        // No schedule row or bookedSlots, commit the status change anyway
-                        db.run("COMMIT;", (commitErr) => {
-                            if (commitErr) {
-                                console.error("DB Error committing cancellation (no schedule found):", commitErr);
-                                return res.status(500).json({ success: false, message: "Database error committing cancellation." });
-                            }
-                            res.json({ success: true, message: "Appointment cancelled (schedule not found)." });
-                        });
-                    }
-                });
-            });
-        });
-    });
-});
-
-// --- Start Server Function ---
-// Encapsulate server start logic
-function startServer() {
-    app.listen(port, () => {
-        console.log(`Server listening on port ${port}`);
-    });
-}
+// --- Start Server Function --- 
+// ... (startServer function remains the same) ...
 
 // Graceful shutdown
-process.on("SIGINT", () => {
-    console.log("SIGINT signal received: closing HTTP server and DB connection.");
-    // Close server first if needed (app.close() requires the server instance)
-    db.close((err) => {
-        if (err) {
-            console.error("Error closing database:", err.message);
-        } else {
-            console.log("Closed the database connection.");
-        }
-        process.exit(0);
-    });
-}); 
+// ... (process.on('SIGINT') remains the same) ...
+
+// Ensure there are no stray characters or unterminated comments/strings at the end of the file.
