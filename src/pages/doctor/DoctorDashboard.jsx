@@ -487,7 +487,10 @@ const DoctorDashboard = () => {
                 {loadingAppointments ? <CircularProgress sx={{my: 2}} /> : (
                     <> 
                     {errorAppointments && <Alert severity="error" sx={{ mb: 2 }}>{errorAppointments}</Alert>}
-                    {appointments.length === 0 ? (
+                    {/* Defensive check: Ensure appointments is an array before mapping */}
+                    {!Array.isArray(appointments) ? (
+                        <Typography color="text.secondary">預約記錄正在加載或不可用。</Typography>
+                    ) : appointments.length === 0 ? (
                         <Typography color="text.secondary">本月沒有預約記錄。</Typography>
                     ) : (
                         <List>
