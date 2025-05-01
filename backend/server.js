@@ -3,8 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const path = require('path');
-const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const cookieParser = require('cookie-parser');
 
 // --- 基本設置 ---
 const app = express();
@@ -25,40 +24,49 @@ app.use(cors({
     }
   },
   credentials: true, // 允許憑證（Cookies）
+  exposedHeaders: ['set-cookie'], // 明確暴露 Set-Cookie 標頭
 }));
 app.use(express.json()); // 解析 JSON 請求
+app.use(cookieParser()); // 解析 Cookie
 
-// --- Session 配置 ---
-app.use(session({
-  store: new SQLiteStore({ db: 'sessions.sqlite', dir: __dirname }), // 將 session 儲存在與 server.js 同級的目錄
-  secret: process.env.SESSION_SECRET || 'a-very-strong-secret-key-please-change', // 強烈建議在環境變數中設置
-  resave: false, // 除非 session 有更改，否則不重新儲存
-  saveUninitialized: false, // 不儲存未初始化的 session
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // 在生產環境中僅使用 HTTPS
-    maxAge: 24 * 60 * 60 * 1000, // Session 有效期：24 小時
-    httpOnly: true, // 防止客戶端腳本訪問 cookie
-    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax', // SameSite 策略，'lax' 通常足夠
-  }
-}));
+// --- 環境變數 ---
+const isProduction = process.env.NODE_ENV === 'production';
+console.log(`伺服器環境: ${isProduction ? '生產環境' : '開發環境'}`);
 
 // --- 身份驗證中間件 ---
 const isAuthenticated = (req, res, next) => {
-  if (req.session && req.session.userId) {
+  try {
+    // 從 cookie 讀取用戶信息
+    const userCookie = req.cookies['therapy.userinfo'];
+    if (!userCookie) {
+      return res.status(401).json({ success: false, message: "未授權：請先登入。" });
+    }
+    
+    // 解析 JSON cookie
+    const userInfo = JSON.parse(userCookie);
+    if (!userInfo || !userInfo.userId) {
+      return res.status(401).json({ success: false, message: "無效的認證信息，請重新登入。" });
+    }
+    
+    // 將用戶信息附加到請求對象，供後續路由使用
+    req.user = userInfo;
     return next();
+    
+  } catch (error) {
+    console.error("身份驗證錯誤:", error);
+    res.status(401).json({ success: false, message: "認證過程中出錯，請重新登入。" });
   }
-  res.status(401).json({ success: false, message: "未授權：請先登入。" });
 };
 
 const isDoctor = (req, res, next) => {
-  if (req.session && req.session.userId && req.session.role === 'doctor') {
+  if (req.user && req.user.role === 'doctor') {
     return next();
   }
   res.status(403).json({ success: false, message: "禁止訪問：此操作需要醫生權限。" });
 };
 
 const isPatient = (req, res, next) => {
-  if (req.session && req.session.userId && req.session.role === 'patient') {
+  if (req.user && req.user.role === 'patient') {
     return next();
   }
   res.status(403).json({ success: false, message: "禁止訪問：此操作需要病人權限。" });
@@ -111,7 +119,7 @@ function allDb(sql, params = []) {
   });
 }
 
-// --- 資料庫表結構定義 (修正 Linter 錯誤) ---
+// --- 資料庫表結構定義 ---
 // 使用分號結束每個 SQL 語句，並確保字符串格式正確
 const CREATE_SETTINGS_SQL = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -171,7 +179,7 @@ CREATE TABLE IF NOT EXISTS regular_patients (
     notes TEXT
 );`;
 
-// --- 資料庫初始化函數 (重構和修正) ---
+// --- 資料庫初始化函數 ---
 async function initializeDatabase() {
   console.log("正在初始化資料庫架構...");
   try {
@@ -253,15 +261,40 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ success: false, message: "用戶名或密碼不正確。" });
     }
 
-    // 密碼驗證成功，設置 Session
-    req.session.userId = user.id;
-    req.session.username = user.username;
-    req.session.role = user.role;
-    req.session.name = user.name; // 添加 name 到 session
+    // 不再使用 session，改用直接設置 cookie
+    const userInfo = {
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name
+    };
 
-    console.log(`用戶 ${user.username} 已登入, Session ID: ${req.sessionID}`);
+    // 設置一個包含用戶資訊的 JSON 字符串 cookie
+    const userInfoStr = JSON.stringify(userInfo);
+    
+    // 設置 cookie（永遠使用 SameSite=None 和 Secure=true）
+    res.cookie('therapy.userinfo', userInfoStr, {
+      maxAge: 24 * 60 * 60 * 1000, // 24小時
+      httpOnly: true,
+      secure: true, // Zeabur 是 HTTPS
+      sameSite: 'none'
+    });
 
-    // 返回用戶基本信息（不含密碼）
+    // 設置一個普通的測試 cookie
+    res.cookie('therapy.test', 'simple-test-value', {
+      maxAge: 60 * 1000, // 1分鐘
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none'
+    });
+
+    // 檢查設置的標頭
+    console.log('=== Cookie 設置情況 ===');
+    console.log('已設置兩個 cookie: therapy.userinfo 和 therapy.test');
+    console.log('response headers:', res.getHeaders());
+    console.log('=== Cookie 設置完成 ===');
+
+    // 返回用戶資訊
     res.json({
       success: true,
       user: {
@@ -269,10 +302,9 @@ app.post('/api/login', async (req, res) => {
         username: user.username,
         name: user.name,
         role: user.role,
-        phone: user.phone // 返回 phone
+        phone: user.phone
       }
     });
-
   } catch (error) {
     console.error("登入錯誤:", error);
     res.status(500).json({ success: false, message: "伺服器內部錯誤，登入失敗。" });
@@ -280,17 +312,32 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-  const username = req.session.username; // 記錄登出的用戶
-  req.session.destroy(err => {
-    if (err) {
-      console.error("登出錯誤:", err);
-      return res.status(500).json({ success: false, message: "登出失敗，請稍後再試。" });
+  // 從 cookie 獲取用戶名（如果存在的話）
+  let username = '(未知)';
+  try {
+    const userCookie = req.cookies['therapy.userinfo'];
+    if (userCookie) {
+      const userInfo = JSON.parse(userCookie);
+      username = userInfo.username || username;
     }
-    // 清除客戶端的 session cookie
-    res.clearCookie('connect.sid'); // connect.sid 是 express-session 的預設 cookie 名稱
-    console.log(`用戶 ${username || '(未知)'} 已登出`);
-    res.json({ success: true, message: "登出成功。" });
+  } catch (e) {
+    console.error('登出時解析用戶 cookie 出錯:', e);
+  }
+
+  // 清除 cookie
+  res.clearCookie('therapy.userinfo', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
   });
+  res.clearCookie('therapy.test', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+  });
+
+  console.log(`用戶 ${username} 已登出`);
+  res.json({ success: true, message: "登出成功。" });
 });
 
 app.post('/api/register', async (req, res) => {
@@ -340,15 +387,18 @@ app.post('/api/register', async (req, res) => {
 // 獲取當前登入用戶信息
 app.get('/api/me', isAuthenticated, async (req, res) => {
   try {
-    // 從 Session 中獲取用戶 ID
-    const user = await getDb("SELECT id, username, name, role, phone FROM users WHERE id = ?", [req.session.userId]);
+    // 從 req.user 獲取用戶 ID (由 isAuthenticated 中間件設置)
+    const user = await getDb("SELECT id, username, name, role, phone FROM users WHERE id = ?", [req.user.userId]);
     if (!user) {
-      // 如果 Session 中的 userId 在資料庫中找不到（理論上不應發生）
-      console.error(`無法找到 ID 為 ${req.session.userId} 的用戶 (來自 Session)。`);
-      // 清除無效的 session
-      req.session.destroy();
-      res.clearCookie('connect.sid');
-      return res.status(404).json({ success: false, message: "用戶不存在或 Session 無效，請重新登入。" });
+      // 如果用戶不存在（理論上不應發生，因為 Cookie 中的用戶 ID 應該有效）
+      console.error(`無法找到 ID 為 ${req.user.userId} 的用戶 (來自 Cookie)。`);
+      // 清除無效的 cookie
+      res.clearCookie('therapy.userinfo', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none'
+      });
+      return res.status(404).json({ success: false, message: "用戶不存在或認證信息無效，請重新登入。" });
     }
     res.json({ success: true, user });
   } catch (error) {
@@ -485,17 +535,16 @@ app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
   }
 });
 
-
 // --- 預約 ---
 
 // 新增預約 (需要病人登入)
 app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
   const { date, time, appointmentReason, notes } = req.body;
-  const patientId = req.session.userId;
-  const patientEmail = req.session.username; // 從 session 獲取
-  const patientName = req.session.name; // 從 session 獲取
+  const patientId = req.user.userId;
+  const patientEmail = req.user.username; // 從 req.user 獲取
+  const patientName = req.user.name; // 從 req.user 獲取
 
-  // 從資料庫獲取病人電話 (因為 session 可能沒有)
+  // 從資料庫獲取病人電話 (因為 user 對象可能沒有)
   let patientPhone = '';
   try {
     const patientInfo = await getDb("SELECT phone FROM users WHERE id = ?", [patientId]);
@@ -596,9 +645,9 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
 app.get('/api/appointments/my', isAuthenticated, async (req, res) => {
   try {
     let appointments;
-    const userId = req.session.userId;
-    const userRole = req.session.role;
-    const userEmail = req.session.username;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    const userEmail = req.user.username;
 
     if (userRole === 'patient') {
       // 病人只能查看自己的預約 (通過 email 關聯)
@@ -633,13 +682,12 @@ app.get('/api/appointments/all', isAuthenticated, isDoctor, async (req, res) => 
   }
 });
 
-
 // 取消預約 (病人取消自己的，醫生取消任意的)
 app.put('/api/appointments/:id/cancel', isAuthenticated, async (req, res) => {
   const appointmentId = parseInt(req.params.id, 10);
-  const userId = req.session.userId;
-  const userRole = req.session.role;
-  const userEmail = req.session.username;
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+  const userEmail = req.user.username;
 
   if (isNaN(appointmentId)) {
     return res.status(400).json({ success: false, message: "無效的預約 ID。" });
@@ -717,16 +765,13 @@ app.put('/api/appointments/:id/cancel', isAuthenticated, async (req, res) => {
   }
 });
 
-
 // --- 其他路由 (可以根據需要添加，例如 regular_patients 的管理) ---
-
 
 // --- 伺服器啟動函數 ---
 function startServer() {
   app.listen(port, () => {
     console.log(`後端伺服器運行在 http://localhost:${port}`);
     console.log(`資料庫文件位於: ${dbPath}`);
-    console.log(`Session 文件位於: ${path.join(__dirname, 'sessions.sqlite')}`);
   });
 }
 
@@ -791,4 +836,4 @@ process.on('uncaughtException', (error) => {
   process.emit('SIGINT');
   // 在記錄錯誤後退出是個好主意
   // process.exit(1);
-});
+}); 

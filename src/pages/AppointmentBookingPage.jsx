@@ -10,7 +10,15 @@ import {
   Button, 
   IconButton,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Divider,
+  Card,
+  CardContent
 } from '@mui/material';
 import { ArrowBackIosNew, ArrowForwardIos } from '@mui/icons-material';
 import { getScheduleForMonth, bookAppointment } from '../services/api'; // Import API functions (Changed getAvailableSlots to getScheduleForMonth)
@@ -40,6 +48,13 @@ const AppointmentBookingPage = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState('');
+  
+  // 新增用於表單模態框的狀態
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [appointmentReason, setAppointmentReason] = useState('');
+  const [appointmentNotes, setAppointmentNotes] = useState('');
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [appointmentDetails, setAppointmentDetails] = useState(null);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-11
@@ -139,11 +154,26 @@ const AppointmentBookingPage = () => {
     setSelectedSlot(slot);
     setBookingError('');
     setBookingSuccess('');
+    // 打開表單模態框
+    setFormModalOpen(true);
+  };
+
+  const handleFormClose = () => {
+    setFormModalOpen(false);
+  };
+
+  const handleSuccessModalClose = () => {
+    setSuccessModalOpen(false);
+    // 清除預約詳情
+    setSelectedSlot(null);
+    setAppointmentReason('');
+    setAppointmentNotes('');
   };
 
   const handleBooking = async () => {
     if (!selectedDate || !selectedSlot || !user) {
       setBookingError('請先選擇日期和時段，並確保您已登入。');
+      setFormModalOpen(false);
       return;
     }
 
@@ -152,31 +182,44 @@ const AppointmentBookingPage = () => {
     setBookingSuccess('');
 
     try {
-      const appointmentDetails = {
+      const bookingDetails = {
         date: selectedDate,
         time: selectedSlot,
-        // Add patient details from context
+        appointmentReason: appointmentReason,
+        notes: appointmentNotes,
         patientName: user?.name, 
-        patientEmail: user?.username, // Assuming username is email
-        patientPhone: user?.phone // ADDED PHONE
+        patientEmail: user?.username,
+        patientPhone: user?.phone
       };
 
       // Basic check for missing user details before sending
-      if (!appointmentDetails.patientName || !appointmentDetails.patientEmail || !appointmentDetails.patientPhone) { // Added phone check
+      if (!bookingDetails.patientName || !bookingDetails.patientEmail || !bookingDetails.patientPhone) {
           console.error('Missing user data for booking:', { name: user?.name, email: user?.username, phone: user?.phone });
           throw new Error("無法獲取完整的用戶資訊 (姓名/郵箱/電話)，請檢查您的個人資料或重新登入後再試。");
       }
 
-      console.log("Sending booking details:", appointmentDetails);
-      const response = await bookAppointment(appointmentDetails);
+      console.log("Sending booking details:", bookingDetails);
+      const response = await bookAppointment(bookingDetails);
       console.log('Booking successful:', response.data);
+      
+      // 設置詳細的預約信息用於顯示成功訊息
+      setAppointmentDetails({
+        date: selectedDate,
+        time: selectedSlot,
+        reason: appointmentReason || '(未提供)',
+        notes: appointmentNotes || '(未提供)',
+        patientName: user.name,
+        patientEmail: user.username,
+        patientPhone: user.phone,
+        appointmentId: response.data.appointmentId
+      });
+      
       setBookingSuccess(`預約成功！您的預約時間是 ${selectedDate} ${selectedSlot}。`);
-      setSelectedSlot(null); // Clear selection after successful booking
+      setFormModalOpen(false);
+      setSuccessModalOpen(true);
       
       // Refresh available slots for the selected date by filtering the booked slot
-      // The availableSlots state already holds the correct structure: { 'YYYY-MM-DD': [...] }
       setAvailableSlots(prevSlots => {
-        // Ensure prevSlots[selectedDate] is an array before filtering
         const updatedSlotsForDate = Array.isArray(prevSlots[selectedDate]) 
                                     ? prevSlots[selectedDate].filter(s => s !== selectedSlot)
                                     : [];
@@ -189,6 +232,7 @@ const AppointmentBookingPage = () => {
     } catch (err) {
       console.error('Booking failed:', err);
       setBookingError(err.response?.data?.message || err.message || '預約失敗，該時段可能已被預約，請重試或選擇其他時段。');
+      setFormModalOpen(false);
     } finally {
       setBookingLoading(false);
     }
@@ -256,7 +300,6 @@ const AppointmentBookingPage = () => {
           </Grid>
         )}
 
-        {/* Available Slots */}
         {selectedDate && (
           <Box mt={4}>
             <Typography variant="h6" gutterBottom>
@@ -284,24 +327,124 @@ const AppointmentBookingPage = () => {
           </Box>
         )}
 
-        {/* Booking Action */} 
-        {selectedDate && selectedSlot && (
-          <Box mt={3} textAlign="center">
-            {bookingError && <Alert severity="error" sx={{ mb: 2 }}>{bookingError}</Alert>}
-            {bookingSuccess && <Alert severity="success" sx={{ mb: 2 }}>{bookingSuccess}</Alert>}
-            <Button
-              variant="contained"
-              color="secondary"
-              size="large"
-              onClick={handleBooking}
-              disabled={bookingLoading || !!bookingSuccess} // Disable if loading or already succeeded
-              sx={{ minWidth: 150 }}
+        {/* 預約表單模態框 */}
+        <Dialog open={formModalOpen} onClose={handleFormClose} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: 'white' }}>
+            填寫預約詳情
+          </DialogTitle>
+          <DialogContent sx={{ pt: 2, mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              預約時間：{selectedDate} {selectedSlot}
+            </Typography>
+            <TextField
+              autoFocus
+              margin="dense"
+              id="appointmentReason"
+              label="預約原因"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={appointmentReason}
+              onChange={(e) => setAppointmentReason(e.target.value)}
+              placeholder="例如：情緒困擾、壓力管理、人際關係問題等"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              id="appointmentNotes"
+              label="備註"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={appointmentNotes}
+              onChange={(e) => setAppointmentNotes(e.target.value)}
+              placeholder="其他需要告知醫生的事項"
+              multiline
+              rows={4}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button onClick={handleFormClose} color="inherit">取消</Button>
+            <Button 
+              onClick={handleBooking} 
+              variant="contained" 
+              color="primary"
+              disabled={bookingLoading}
             >
-              {bookingLoading ? <CircularProgress size={24} color="inherit" /> : '確認預約'}
+              {bookingLoading ? <CircularProgress size={24} /> : '確認預約'}
             </Button>
-          </Box>
-        )}
+          </DialogActions>
+        </Dialog>
 
+        {/* 預約成功模態框 */}
+        <Dialog 
+          open={successModalOpen} 
+          onClose={handleSuccessModalClose} 
+          maxWidth="sm" 
+          fullWidth
+        >
+          <DialogTitle sx={{ bgcolor: theme.palette.success.main, color: 'white' }}>
+            預約成功！
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity="success" sx={{ my: 2 }}>
+              您的預約已成功建立，請保存以下預約詳情（可截圖保存）。
+            </Alert>
+            
+            <Card variant="outlined" sx={{ mb: 2, mt: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  預約詳情
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">預約編號：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.appointmentId || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">預約日期：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.date || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">預約時間：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.time || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">患者姓名：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.patientName || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">預約原因：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.reason || '未提供'}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">備註：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.notes || '無'}</Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              請您準時赴約。如需更改或取消預約，請提前聯繫我們或在「我的預約」中操作。
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={handleSuccessModalClose} 
+              variant="contained" 
+              color="primary"
+            >
+              確定
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Booking Action - 移除原有的預約按鈕，改由模態框處理 */}
+        {bookingError && <Alert severity="error" sx={{ mt: 2 }}>{bookingError}</Alert>}
+        {bookingSuccess && <Alert severity="success" sx={{ mt: 2 }}>{bookingSuccess}</Alert>}
       </Paper>
     </Container>
   );
