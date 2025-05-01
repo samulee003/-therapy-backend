@@ -138,10 +138,10 @@ const RegisterPage = () => {
                 required
                 fullWidth
                 id="email"
-                label="電子郵件 (Email/Username)"
-                name="username"
+                label="電子郵件 (Email)"
+                name="email"
                 type="email"
-                value={formData.username}
+                value={formData.email}
                 onChange={handleChange}
               />
             </Grid>
@@ -221,7 +221,7 @@ const RegisterPage = () => {
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h6">註冊資訊確認</Typography>
             <Typography>姓名: {formData.name}</Typography>
-            <Typography>郵箱: {formData.username}</Typography>
+            <Typography>郵箱: {formData.email}</Typography>
             <Typography>電話: {formData.phone}</Typography>
             <Typography>身份: {formData.role === 'patient' ? '患者' : '醫生'}</Typography>
             <Typography>請確認以上資訊無誤。</Typography>
