@@ -23,7 +23,7 @@ app.use(express.json());
 const dbPath = path.resolve(__dirname, "..", process.env.DB_PATH || "database.db");
 console.log(`Database path: ${dbPath}`);
 
-let db; // Declare db variable
+let db; // Declare db variable globally
 
 // Helper function to wrap database.run in a Promise
 function runDb(sql, params = []) {
@@ -59,6 +59,22 @@ function getDb(sql, params = []) {
     });
 }
 
+// Helper function to wrap database.all in a Promise
+function allDb(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error("Database connection not established."));
+        db.all(sql, params, (err, rows) => {
+            if (err) {
+                console.error('DB All Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params);
+                reject(err);
+            } else {
+                resolve(rows); // Resolve with the array of rows
+            }
+        });
+    });
+}
+
+
 // --- SQL Definitions for Table Creation ---
 const CREATE_SETTINGS_SQL = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -76,7 +92,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     name TEXT,
-    role TEXT NOT NULL CHECK(role IN ('doctor', 'patient', 'admin'))
+    role TEXT NOT NULL CHECK(role IN ('doctor', 'patient', 'admin')),
+    phone TEXT
 )`;
 
 const CREATE_SCHEDULE_SQL = `
@@ -139,7 +156,7 @@ async function initializeDatabase() {
         const settingsRow = await getDb("SELECT 1 FROM settings WHERE id = 1");
         if (!settingsRow) {
             console.log("No settings found, inserting defaults...");
-            const defaultPassword = 'admin123';
+            const defaultPassword = 'admin123'; // Default password for settings management
             const saltRounds = 10;
             const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
             const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
@@ -156,12 +173,13 @@ async function initializeDatabase() {
              const defaultUserPassword = 'password123';
              const saltRounds = 10;
              const hashedUserPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
-             await runDb("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor']);
-             await runDb("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient']);
+             await runDb("INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)", ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor', '1234567890']);
+             await runDb("INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)", ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient', '0987654321']);
              console.log("Default users inserted.");
         } else if (usersRow) {
-            console.log("Users table already populated.");
+             console.log(`Users table already populated (${usersRow.count} users).`);
         } else {
+             // This case handles if getDb returned undefined for the count query, indicating an issue.
              console.error("Could not determine user count. Default users not inserted.");
         }
 
@@ -169,6 +187,7 @@ async function initializeDatabase() {
 
     } catch (error) {
         console.error("FATAL: Database initialization process failed.");
+        // Re-throw the error so the main connection logic catches it and exits
         throw error;
     }
 }
@@ -182,20 +201,20 @@ db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, 
         console.log("Connected to the SQLite database.");
         try {
             await initializeDatabase();
-            startServer();
+            startServer(); // Start server only after DB init is successful
         } catch (initError) {
+             // Error is already logged in initializeDatabase
              if (db) {
                  db.close((closeErr) => {
                     if (closeErr) console.error("Error closing DB after init failure:", closeErr.message);
                  });
             }
-            process.exit(1);
+            process.exit(1); // Exit if DB init fails
         }
     }
 });
 
 // --- API Routes ---
-// (Keep all existing API routes...)
 
 // Authentication
 // Implements multi-user login based on users table
@@ -207,68 +226,117 @@ app.post("/api/login", async (req, res) => {
     }
 
     // Find user by username (email) in the users table
-    const sql = "SELECT * FROM users WHERE username = ?";
-    db.get(sql, [username], async (err, user) => {
-        if (err) {
-            console.error("Error fetching user during login:", err);
-            return res.status(500).json({ success: false, message: "Database error during login." });
-        }
+    try {
+        const user = await getDb("SELECT id, username, password as hashedPassword, name, role, phone FROM users WHERE username = ?", [username]);
 
         // User not found
         if (!user) {
             // Use a generic message for security (don't reveal if username exists)
+            console.log(`Login attempt failed: User not found - ${username}`);
             return res.status(401).json({ success: false, message: "Invalid username or password." });
         }
 
         // User found, compare password
-        try {
-            const match = await bcrypt.compare(password, user.password); // Compare with hashed password from DB
-            if (match) {
-                // Login successful
-                // IMPORTANT: In a real app, generate and return a JWT token here
-                // For now, just return success and basic user info (excluding password)
-                const userInfo = {
-                    id: user.id,
-                    username: user.username,
-                    name: user.name,
-                    role: user.role
-                };
-                res.json({
-                    success: true,
-                    message: "Login successful.",
-                    user: userInfo // Send back basic user info
-                    // token: generatedToken // TODO: Add JWT token later
-                });
-            } else {
-                // Password doesn't match
-                res.status(401).json({ success: false, message: "Invalid username or password." }); // Generic message
-            }
-        } catch (compareError) {
-            console.error("Error comparing password:", compareError);
-            res.status(500).json({ success: false, message: "Error during authentication." });
+        const match = await bcrypt.compare(password, user.hashedPassword);
+        if (match) {
+            // Login successful
+            // IMPORTANT: In a real app, generate and return a JWT token here
+            console.log(`Login successful: ${username}`);
+            const userInfo = {
+                id: user.id,
+                username: user.username,
+                name: user.name,
+                role: user.role,
+                phone: user.phone
+            };
+            res.json({
+                success: true,
+                message: "Login successful.",
+                user: userInfo // Send back basic user info
+                // token: generatedToken // TODO: Add JWT token later
+            });
+        } else {
+            // Password doesn't match
+            console.log(`Login attempt failed: Invalid password - ${username}`);
+            res.status(401).json({ success: false, message: "Invalid username or password." }); // Generic message
         }
-    });
+    } catch (error) {
+        console.error("Error during login process:", error);
+        res.status(500).json({ success: false, message: "Server error during login." });
+    }
 });
 
-// Settings
-app.get("/api/settings", (req, res) => {
-    db.get("SELECT doctorName, clinicName, notificationEmail, defaultTimeSlots FROM settings WHERE id = 1", (err, row) => {
-        if (err) {
-            console.error("Error fetching settings:", err);
-            return res.status(500).json({ success: false, message: "Database error fetching settings." });
+// User Registration Route
+app.post("/api/register", async (req, res) => {
+    const { username, password, name, role, phone } = req.body;
+
+    // --- Input Validation ---
+    if (!username || !password || !name || !role || !phone) {
+        return res.status(400).json({ success: false, message: "Missing required registration fields (username, password, name, role, phone)." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+         return res.status(400).json({ success: false, message: "Invalid email format for username." });
+    }
+     if (!['doctor', 'patient', 'admin'].includes(role)) { // Adjust allowed roles if needed
+        return res.status(400).json({ success: false, message: "Invalid role specified." });
+    }
+    // Add password strength check if desired (e.g., minimum length)
+    if (password.length < 6) {
+         return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+    }
+
+    // --- Process Registration ---
+    try {
+        // Check if user already exists (using await on getDb)
+        const existingUser = await getDb("SELECT id FROM users WHERE username = ?", [username]);
+        if (existingUser) {
+            console.log(`Registration attempt failed: Username already exists - ${username}`);
+            return res.status(409).json({ success: false, message: "Username (email) already exists." }); // 409 Conflict
         }
+
+        // Hash password and Insert User (using await on bcrypt and runDb)
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        const insertSql = "INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)";
+        const insertResult = await runDb(insertSql, [username, hashedPassword, name, role, phone]);
+
+        console.log(`User registered: ${username}, ID: ${insertResult.lastID}`);
+        res.status(201).json({ success: true, message: "Registration successful.", userId: insertResult.lastID });
+
+    } catch (error) {
+        console.error("Error during registration:", error);
+        // Handle specific errors like UNIQUE constraint (which might be caught by the earlier check, but good fallback)
+        if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes("UNIQUE")) {
+             return res.status(409).json({ success: false, message: "Username (email) already exists." });
+        }
+        res.status(500).json({ success: false, message: "Server error during registration." });
+    }
+});
+
+
+// Settings
+app.get("/api/settings", async (req, res) => { // Made async
+    try {
+        const row = await getDb("SELECT doctorName, clinicName, notificationEmail, defaultTimeSlots FROM settings WHERE id = 1");
         if (!row) {
             return res.status(404).json({ success: false, message: "Settings not found." });
         }
-        try {
-            const settings = { ...row, defaultTimeSlots: row.defaultTimeSlots ? JSON.parse(row.defaultTimeSlots) : [] };
-             res.json({ success: true, settings });
-        } catch (parseError) {
-            console.error("Error parsing defaultTimeSlots:", parseError);
-            // Return row data even if slots parsing fails, with a warning
-            res.json({ success: true, settings: { ...row, defaultTimeSlots: [] }, warning: "Could not parse default time slots." });
+        // Safely parse JSON, provide default empty array if parsing fails or field is null/missing
+        let defaultTimeSlots = [];
+        if (row.defaultTimeSlots) {
+            try {
+                defaultTimeSlots = JSON.parse(row.defaultTimeSlots);
+            } catch (parseError) {
+                 console.error("Error parsing defaultTimeSlots:", parseError);
+                 // Optionally return a warning in the response
+            }
         }
-    });
+        res.json({ success: true, settings: { ...row, defaultTimeSlots } });
+    } catch (error) {
+         console.error("Error fetching settings:", error);
+         res.status(500).json({ success: false, message: "Database error fetching settings." });
+    }
 });
 
 app.put("/api/settings", async (req, res) => {
@@ -289,43 +357,42 @@ app.put("/api/settings", async (req, res) => {
         }
     }
 
+    try {
+        // Build the SQL query dynamically
+        let sql = "UPDATE settings SET doctorName = ?, clinicName = ?, notificationEmail = ?, defaultTimeSlots = ?";
+        // Use null for missing optional fields, ensure defaultTimeSlots is stringified array
+        const params = [
+            doctorName || null,
+            clinicName || null,
+            notificationEmail || null,
+            JSON.stringify(Array.isArray(defaultTimeSlots) ? defaultTimeSlots : [])
+        ];
 
-    // Build the SQL query dynamically based on whether password is being updated
-    let sql = "UPDATE settings SET doctorName = ?, clinicName = ?, notificationEmail = ?, defaultTimeSlots = ?";
-    const params = [
-        doctorName || null, // Use null if undefined/empty
-        clinicName || null,
-        notificationEmail || null,
-        JSON.stringify(defaultTimeSlots || []) // Ensure it's always valid JSON string
-    ];
-
-    if (hashedPassword) {
-        sql += ", adminPassword = ?";
-        params.push(hashedPassword);
-    }
-
-    sql += " WHERE id = 1";
-
-    db.run(sql, params, function(err) {
-        if (err) {
-            console.error("Error updating settings:", err);
-            return res.status(500).json({ success: false, message: "Database error updating settings." });
+        if (hashedPassword) {
+            sql += ", adminPassword = ?";
+            params.push(hashedPassword);
         }
-        if (this.changes === 0) {
-                // This might happen if the settings row doesn't exist (id=1)
-                return res.status(404).json({ success: false, message: "Settings record not found for update." });
+        sql += " WHERE id = 1";
+
+        const result = await runDb(sql, params);
+
+        if (result.changes === 0) {
+            // This might happen if the settings row doesn't exist (id=1)
+            return res.status(404).json({ success: false, message: "Settings record not found for update." });
         }
         res.json({ success: true, message: "Settings updated successfully." });
-    });
 
+    } catch (error) {
+         console.error("Error updating settings:", error);
+         res.status(500).json({ success: false, message: "Database error updating settings." });
+    }
 });
 
 
 // Schedule
-app.get("/api/schedule/:year/:month", (req, res) => {
+app.get("/api/schedule/:year/:month", async (req, res) => { // Made async
     const { year, month } = req.params;
 
-    // Validate year and month
     const yearNum = parseInt(year, 10);
     const monthNum = parseInt(month, 10);
     if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
@@ -334,107 +401,110 @@ app.get("/api/schedule/:year/:month", (req, res) => {
 
     const formattedMonth = String(monthNum).padStart(2, "0");
     const startDate = `${yearNum}-${formattedMonth}-01`;
-    // Calculate end date correctly (last day of the given month)
-    const endDate = new Date(yearNum, monthNum, 0).toISOString().split("T")[0];
+    const endDate = new Date(yearNum, monthNum, 0).toISOString().split("T")[0]; // Last day
 
     const sql = `SELECT date, availableSlots, bookedSlots FROM schedule WHERE date >= ? AND date <= ?`;
 
-    db.all(sql, [startDate, endDate], (err, rows) => {
-        if (err) {
-            console.error("Error fetching schedule:", err);
-            return res.status(500).json({ success: false, message: "Database error fetching schedule." });
-        }
+    try {
+        const rows = await allDb(sql, [startDate, endDate]); // Use allDb helper
         const scheduleData = rows.reduce((acc, row) => {
+            let availableSlots = [];
+            let bookedSlots = {};
             try {
-                // Ensure availableSlots and bookedSlots are parsed correctly, default to empty if null/invalid
-                acc[row.date] = {
-                    availableSlots: row.availableSlots ? JSON.parse(row.availableSlots) : [],
-                    bookedSlots: row.bookedSlots ? JSON.parse(row.bookedSlots) : {}
-                };
-            } catch (e) {
-                console.error(`Error parsing schedule data for date ${row.date}:`, e);
-                 // Provide default empty structure on parsing error
-                 acc[row.date] = { availableSlots: [], bookedSlots: {} };
-            }
+                if (row.availableSlots) availableSlots = JSON.parse(row.availableSlots);
+            } catch (e) { console.error(`Error parsing availableSlots for date ${row.date}:`, e); }
+             try {
+                if (row.bookedSlots) bookedSlots = JSON.parse(row.bookedSlots);
+            } catch (e) { console.error(`Error parsing bookedSlots for date ${row.date}:`, e); }
+
+            acc[row.date] = { availableSlots, bookedSlots };
             return acc;
         }, {});
         res.json({ success: true, schedule: scheduleData });
-    });
+    } catch (error) {
+         console.error("Error fetching schedule:", error);
+         res.status(500).json({ success: false, message: "Database error fetching schedule." });
+    }
 });
 
-app.post("/api/schedule", (req, res) => {
+app.post("/api/schedule", async (req, res) => { // Made async
     const { date, availableSlots } = req.body;
 
-    // Basic validation
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(availableSlots)) {
         return res.status(400).json({ success: false, message: "Valid date (YYYY-MM-DD) and available slots array are required." });
     }
 
-    // Validate time format within availableSlots
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
     if (!availableSlots.every(slot => typeof slot === 'string' && timeRegex.test(slot))) {
          return res.status(400).json({ success: false, message: "All available slots must be strings in HH:MM format." });
     }
 
-    const availableSlotsJson = JSON.stringify(availableSlots.sort()); // Sort slots before saving
-    // Use INSERT OR REPLACE to handle existing dates. Preserve existing bookedSlots.
-    const sql = `INSERT OR REPLACE INTO schedule (date, availableSlots, bookedSlots)
-                 VALUES (?, ?, COALESCE((SELECT bookedSlots FROM schedule WHERE date = ?), '{}'))`;
+    const availableSlotsJson = JSON.stringify(availableSlots.sort());
+    // Preserve existing bookedSlots when updating availableSlots
+    const sql = `INSERT INTO schedule (date, availableSlots, bookedSlots)
+                 VALUES (?, ?, '{}')
+                 ON CONFLICT(date) DO UPDATE SET
+                 availableSlots = excluded.availableSlots`; // Only update availableSlots
 
-    db.run(sql, [date, availableSlotsJson, date], function(err) {
-        if (err) {
-            console.error("Error saving schedule:", err);
-            return res.status(500).json({ success: false, message: "Database error saving schedule." });
-        }
+    try {
+        await runDb(sql, [date, availableSlotsJson]);
         res.json({ success: true, message: `Schedule for ${date} saved successfully.` });
-    });
+    } catch (error) {
+        console.error("Error saving schedule:", error);
+        res.status(500).json({ success: false, message: "Database error saving schedule." });
+    }
 });
 
 // Appointments
-app.get("/api/appointments", (req, res) => {
-    // Consider adding filtering options (e.g., by date range, status) via query parameters later
+app.get("/api/appointments", async (req, res) => { // Made async
     const sql = "SELECT * FROM appointments ORDER BY date DESC, time ASC";
-    db.all(sql, [], (err, rows) => {
-        if (err) {
-            console.error("Error fetching appointments:", err);
-            return res.status(500).json({ success: false, message: "Database error fetching appointments." });
-        }
+    try {
+        const rows = await allDb(sql); // Use allDb helper
         res.json({ success: true, appointments: rows });
-    });
+    } catch (error) {
+        console.error("Error fetching appointments:", error);
+        res.status(500).json({ success: false, message: "Database error fetching appointments." });
+    }
 });
 
-app.post("/api/appointments", (req, res) => {
-    // Destructure expected fields, provide defaults for optional ones
+app.post("/api/appointments", async (req, res) => { // Made async
     const {
         date, time, patientName, patientPhone, patientEmail,
         appointmentReason = null, notes = null, isRegular = 0, regularPatientId = null
     } = req.body;
 
-    // Strict validation for required fields
     if (!date || !time || !patientName || !patientPhone || !patientEmail) {
         return res.status(400).json({ success: false, message: "Missing required appointment fields (date, time, name, phone, email)." });
     }
-    // Validate date and time format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
          return res.status(400).json({ success: false, message: "Invalid date or time format." });
     }
 
+    // Use transaction for atomicity - wrap in a promise for easier async/await
+    const runTransaction = (actions) => {
+        return new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run("BEGIN TRANSACTION;");
+                actions()
+                    .then(() => {
+                        db.run("COMMIT;", (commitErr) => {
+                            if (commitErr) reject(commitErr); else resolve();
+                        });
+                    })
+                    .catch((err) => {
+                        db.run("ROLLBACK;", () => reject(err)); // Rollback on error
+                    });
+            });
+        });
+    };
 
-    // Use transaction for atomicity
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION;");
 
-        const checkSql = "SELECT availableSlots, bookedSlots FROM schedule WHERE date = ?";
-        db.get(checkSql, [date], (err, scheduleRow) => {
-            if (err) {
-                console.error("DB Error checking schedule:", err);
-                db.run("ROLLBACK;");
-                return res.status(500).json({ success: false, message: "Database error checking availability." });
-            }
+    try {
+        await runTransaction(async () => {
+            const scheduleRow = await getDb("SELECT availableSlots, bookedSlots FROM schedule WHERE date = ?", [date]);
 
             if (!scheduleRow) {
-                db.run("ROLLBACK;");
-                return res.status(400).json({ success: false, message: `No schedule found for date ${date}. Cannot book.` });
+                throw new Error(`No schedule found for date ${date}. Cannot book.`); // Throw error to trigger rollback
             }
 
             let availableSlots = [];
@@ -444,167 +514,135 @@ app.post("/api/appointments", (req, res) => {
                 bookedSlots = scheduleRow.bookedSlots ? JSON.parse(scheduleRow.bookedSlots) : {};
             } catch (parseError) {
                  console.error(`Error parsing schedule data for booking on ${date}:`, parseError);
-                 db.run("ROLLBACK;");
-                 return res.status(500).json({ success: false, message: "Error reading schedule data." });
+                 throw new Error("Error reading schedule data."); // Throw error to trigger rollback
             }
 
-            // Check if the slot is available AND not already booked
             if (!availableSlots.includes(time) || bookedSlots[time]) {
-                db.run("ROLLBACK;");
-                return res.status(400).json({ success: false, message: `Time slot ${time} on ${date} is not available or already booked.` });
+                throw new Error(`Time slot ${time} on ${date} is not available or already booked.`); // Throw error
             }
 
-            // Slot is available, proceed to insert appointment
             const insertSql = `INSERT INTO appointments
                 (date, time, patientName, patientPhone, patientEmail, appointmentReason, notes, isRegular, regularPatientId, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')`;
             const insertParams = [date, time, patientName, patientPhone, patientEmail, appointmentReason, notes, isRegular, regularPatientId];
+            const insertResult = await runDb(insertSql, insertParams); // Await insertion
 
-            db.run(insertSql, insertParams, function(err) {
-                if (err) {
-                    console.error("DB Error inserting appointment:", err);
-                    db.run("ROLLBACK;");
-                    return res.status(500).json({ success: false, message: "Database error creating appointment." });
-                }
+            const newAppointmentId = insertResult.lastID;
 
-                const newAppointmentId = this.lastID;
+            bookedSlots[time] = { patientName: patientName, appointmentId: newAppointmentId };
+            const updateSql = "UPDATE schedule SET bookedSlots = ? WHERE date = ?";
+            await runDb(updateSql, [JSON.stringify(bookedSlots), date]); // Await update
 
-                // Update the bookedSlots in the schedule
-                bookedSlots[time] = { patientName: patientName, appointmentId: newAppointmentId }; // Add booking info
-                const updateSql = "UPDATE schedule SET bookedSlots = ? WHERE date = ?";
-
-                db.run(updateSql, [JSON.stringify(bookedSlots), date], (updateErr) => {
-                    if (updateErr) {
-                        console.error("DB Error updating schedule bookedSlots:", updateErr);
-                        // Attempt to rollback the appointment insertion
-                        db.run("ROLLBACK;", () => {
-                             // Log or handle rollback error if necessary
-                             res.status(500).json({ success: false, message: "Database error updating schedule after booking. Booking rolled back." });
-                         });
-                        return; // Stop execution here
-                    }
-
-                    // If schedule update is successful, commit the transaction
-                    db.run("COMMIT;", (commitErr) => {
-                         if (commitErr) {
-                            console.error("DB Error committing transaction:", commitErr);
-                            // This state is problematic - appointment inserted but transaction failed commit
-                            return res.status(500).json({ success: false, message: "Database error committing booking." });
-                         }
-                         res.status(201).json({ success: true, message: "Appointment created successfully.", appointmentId: newAppointmentId });
-                    });
-                });
-            });
+            // If we reach here, all DB operations in the transaction were successful
+             // Send the success response INSIDE the transaction completion if possible,
+             // or signal success upwards. For simplicity, sending here directly BEFORE commit.
+             // Note: It's safer to send response AFTER commit resolves.
+             // A better pattern might be needed if the response relies on commit success.
+            res.status(201).json({ success: true, message: "Appointment created successfully.", appointmentId: newAppointmentId });
         });
-    });
+         // If runTransaction resolves without error, the response was already sent.
+         // If it rejects, the catch block handles the error response.
+
+    } catch (error) {
+         console.error("Error during appointment booking transaction:", error.message);
+         // Determine status code based on error type if possible
+         // Only send error response if headers haven't been sent yet
+         if (!res.headersSent) {
+             if (error.message.includes("No schedule found") || error.message.includes("not available")) {
+                 res.status(400).json({ success: false, message: error.message });
+             } else {
+                 res.status(500).json({ success: false, message: "Server error creating appointment." });
+             }
+         }
+    }
 });
 
 
-app.put("/api/appointments/:id/cancel", (req, res) => {
+app.put("/api/appointments/:id/cancel", async (req, res) => { // Made async
     const appointmentId = req.params.id;
 
     if (isNaN(parseInt(appointmentId, 10))) {
          return res.status(400).json({ success: false, message: "Invalid appointment ID." });
     }
 
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION;");
-
-        // Get appointment details before cancelling
-        db.get("SELECT date, time, status FROM appointments WHERE id = ?", [appointmentId], (err, apptRow) => {
-            if (err) {
-                console.error("DB Error fetching appointment for cancellation:", err);
-                db.run("ROLLBACK;");
-                return res.status(500).json({ success: false, message: "Database error fetching appointment details." });
-            }
-            if (!apptRow) {
-                db.run("ROLLBACK;");
-                return res.status(404).json({ success: false, message: "Appointment not found." });
-            }
-            if (apptRow.status === 'cancelled') {
-                 db.run("ROLLBACK;");
-                 return res.status(400).json({ success: false, message: "Appointment is already cancelled." });
-            }
-
-            const { date, time } = apptRow;
-
-            // Update appointment status
-            db.run("UPDATE appointments SET status = ? WHERE id = ?", ["cancelled", appointmentId], function(updateErr) {
-                if (updateErr) {
-                    console.error("DB Error cancelling appointment:", updateErr);
-                    db.run("ROLLBACK;");
-                    return res.status(500).json({ success: false, message: "Database error updating appointment status." });
-                }
-                if (this.changes === 0) {
-                     // Should not happen due to the check above, but good practice
-                     db.run("ROLLBACK;");
-                     return res.status(404).json({ success: false, message: "Appointment not found during update." });
-                }
-
-                // Update schedule to remove the booking from bookedSlots
-                db.get("SELECT bookedSlots FROM schedule WHERE date = ?", [date], (getScheduleErr, scheduleRow) => {
-                    if (getScheduleErr) {
-                        console.error("DB Error fetching schedule for cancellation update:", getScheduleErr);
-                        db.run("ROLLBACK;"); // Rollback status change if we can't update schedule
-                        return res.status(500).json({ success: false, message: "Database error fetching schedule to update." });
-                    }
-
-                    // Only update schedule if it exists and has booked slots
-                    if (scheduleRow && scheduleRow.bookedSlots) {
-                        try {
-                            let bookedSlots = JSON.parse(scheduleRow.bookedSlots);
-                            // Only update if the specific time slot was indeed booked
-                            if (bookedSlots[time]) {
-                                delete bookedSlots[time]; // Remove the booking for this slot
-                                db.run("UPDATE schedule SET bookedSlots = ? WHERE date = ?", [JSON.stringify(bookedSlots), date], (updateScheduleErr) => {
-                                    if (updateScheduleErr) {
-                                        console.error("DB Error updating schedule bookedSlots after cancellation:", updateScheduleErr);
-                                        db.run("ROLLBACK;"); // Rollback status change
-                                        return res.status(500).json({ success: false, message: "Database error updating schedule." });
-                                    }
-                                    // Commit only if schedule update was successful
-                                    db.run("COMMIT;", (commitErr) => {
-                                        if (commitErr) {
-                                            console.error("DB Error committing cancellation:", commitErr);
-                                            return res.status(500).json({ success: false, message: "Database error committing cancellation." });
-                                        }
-                                        res.json({ success: true, message: "Appointment cancelled successfully." });
-                                    });
-                                });
-                            } else {
-                                // Slot wasn't in bookedSlots, just commit the status change
-                                db.run("COMMIT;", (commitErr) => {
-                                    if (commitErr) { /* Handle commit error */ }
-                                    res.json({ success: true, message: "Appointment cancelled (schedule slot was not marked as booked)." });
-                                });
-                            }
-                        } catch (parseError) {
-                            console.error(`Error parsing bookedSlots for cancellation on ${date}:`, parseError);
-                            db.run("ROLLBACK;");
-                            return res.status(500).json({ success: false, message: "Error reading schedule data during cancellation." });
-                        }
-                    } else {
-                        // No schedule row or no bookedSlots, just commit the status change
-                        db.run("COMMIT;", (commitErr) => {
-                            if (commitErr) { /* Handle commit error */ }
-                            res.json({ success: true, message: "Appointment cancelled (schedule not found or no booked slots)." });
+    const runTransaction = (actions) => {
+        // Transaction helper that passes result back up
+        return new Promise((resolve, reject) => {
+            if (!db) return reject(new Error("DB connection lost before transaction"));
+            db.serialize(() => {
+                db.run("BEGIN TRANSACTION;", (beginErr) => {
+                    if (beginErr) return reject(beginErr);
+                    actions()
+                        .then((result) => { // Get result from actions
+                            db.run("COMMIT;", (commitErr) => {
+                                if (commitErr) {
+                                    console.error("Commit failed during cancel:", commitErr);
+                                    db.run("ROLLBACK;", () => reject(commitErr));
+                                } else resolve(result); // Resolve with the result
+                            });
+                        })
+                        .catch((err) => {
+                            console.error("Cancel action failed, rolling back:", err);
+                            db.run("ROLLBACK;", () => reject(err));
                         });
-                    }
                 });
             });
         });
-    });
+    };
+
+    try {
+        const resultMessage = await runTransaction(async () => { // Await the transaction promise
+            const apptRow = await getDb("SELECT date, time, status FROM appointments WHERE id = ?", [appointmentId]);
+
+            if (!apptRow) throw new Error("Appointment not found.");
+            if (apptRow.status === 'cancelled') throw new Error("Appointment is already cancelled.");
+
+            const { date, time } = apptRow;
+
+            const updateResult = await runDb("UPDATE appointments SET status = ? WHERE id = ?", ["cancelled", appointmentId]);
+            if (updateResult.changes === 0) throw new Error("Appointment not found during update.");
+
+            const scheduleRow = await getDb("SELECT bookedSlots FROM schedule WHERE date = ?", [date]);
+
+            if (scheduleRow && scheduleRow.bookedSlots) {
+                 let bookedSlots = {};
+                 try { bookedSlots = JSON.parse(scheduleRow.bookedSlots); } catch(e) { console.warn("Error parsing bookedSlots during cancel:", e); }
+
+                 if (bookedSlots[time]) {
+                     delete bookedSlots[time];
+                     await runDb("UPDATE schedule SET bookedSlots = ? WHERE date = ?", [JSON.stringify(bookedSlots), date]);
+                     return "Appointment cancelled and schedule updated."; // Return result message
+                 } else {
+                    return "Appointment cancelled (schedule slot was not marked as booked)."; // Return result message
+                 }
+            } else {
+                 return "Appointment cancelled (schedule not found for date to update)."; // Return result message
+            }
+        });
+         res.json({ success: true, message: resultMessage }); // Send response after transaction succeeds
+
+    } catch (error) {
+        console.error("Error during appointment cancellation transaction:", error.message);
+         if (!res.headersSent) { // Check if response already sent (unlikely here but good practice)
+             if (error.message.includes("not found") || error.message.includes("already cancelled")) {
+                 res.status(404).json({ success: false, message: error.message });
+             } else {
+                 res.status(500).json({ success: false, message: "Server error cancelling appointment." });
+             }
+         }
+    }
 });
 
 
 // --- Start Server Function ---
 // Encapsulate server start logic
 function startServer() {
-    const server = app.listen(port, () => { // Store server instance
+    // Store server instance to potentially close it later during graceful shutdown
+    const server = app.listen(port, () => {
         console.log(`Server listening on port ${port}`);
     });
 
-    // Handle server errors e.g., EADDRINUSE
+    // Handle common server errors
     server.on('error', (error) => {
         if (error.syscall !== 'listen') {
             throw error;
@@ -622,27 +660,39 @@ function startServer() {
                 throw error;
         }
     });
+
+    // Optional: Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      // Application specific logging, throwing an error, or other logic here
+    });
 }
 
 // Graceful shutdown
 process.on("SIGINT", () => {
     console.log("SIGINT signal received: closing HTTP server and DB connection.");
-    // Close server first if needed (requires server instance)
-    // Assuming 'server' variable is accessible or handle differently
+    // Ideally, close the server first before closing DB
+    // For simplicity here, just closing DB
     console.log("Closing DB connection...");
-    db.close((err) => {
-        if (err) {
-            console.error("Error closing database:", err.message);
-            process.exit(1); // Exit with error if DB close fails
-        } else {
-            console.log("Closed the database connection.");
-            process.exit(0); // Exit cleanly after DB close
-        }
-    });
+    if (db) {
+        db.close((err) => {
+            if (err) {
+                console.error("Error closing database:", err.message);
+                process.exit(1); // Exit with error if DB close fails
+            } else {
+                console.log("Closed the database connection.");
+                process.exit(0); // Exit cleanly after DB close
+            }
+        });
+    } else {
+        process.exit(0); // Exit if DB wasn't even opened
+    }
+
     // Add a timeout to force exit if DB close hangs
     setTimeout(() => {
         console.error("Database close timed out, forcing exit.");
         process.exit(1);
     }, 5000); // 5 seconds timeout
 });
-// Ensure there are no stray characters or unterminated comments/strings at the end of the file.
+
+// Make sure there are no stray characters or code after this point
