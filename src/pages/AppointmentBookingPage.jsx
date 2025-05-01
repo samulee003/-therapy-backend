@@ -18,8 +18,20 @@ import {
   TextField,
   Divider,
   Card,
-  CardContent
+  CardContent,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Radio,
+  RadioGroup,
+  Switch,
+  InputLabel,
+  MenuItem,
+  Select
 } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { zhTW } from 'date-fns/locale';
 import { ArrowBackIosNew, ArrowForwardIos } from '@mui/icons-material';
 import { getScheduleForMonth, bookAppointment } from '../services/api'; // Import API functions (Changed getAvailableSlots to getScheduleForMonth)
 import { AuthContext } from '../context/AuthContext'; // Import AuthContext
@@ -55,6 +67,13 @@ const AppointmentBookingPage = () => {
   const [appointmentNotes, setAppointmentNotes] = useState('');
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [appointmentDetails, setAppointmentDetails] = useState(null);
+  
+  // 新增病患資料欄位
+  const [patientName, setPatientName] = useState('');
+  const [patientGender, setPatientGender] = useState('');
+  const [patientBirthday, setPatientBirthday] = useState(null);
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
+  const [useAccountInfo, setUseAccountInfo] = useState(true);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-11
@@ -154,6 +173,12 @@ const AppointmentBookingPage = () => {
     setSelectedSlot(slot);
     setBookingError('');
     setBookingSuccess('');
+    
+    // 設置預設值為目前登入用戶資料
+    if (user) {
+      setPatientName(user.name || '');
+    }
+    
     // 打開表單模態框
     setFormModalOpen(true);
   };
@@ -168,6 +193,23 @@ const AppointmentBookingPage = () => {
     setSelectedSlot(null);
     setAppointmentReason('');
     setAppointmentNotes('');
+    setPatientName('');
+    setPatientGender('');
+    setPatientBirthday(null);
+    setIsFirstVisit(true);
+    setUseAccountInfo(true);
+  };
+
+  // 處理使用帳戶資訊的切換
+  const handleUseAccountInfoChange = (event) => {
+    const useAccount = event.target.checked;
+    setUseAccountInfo(useAccount);
+    
+    if (useAccount && user) {
+      setPatientName(user.name || '');
+    } else {
+      setPatientName('');
+    }
   };
 
   const handleBooking = async () => {
@@ -177,25 +219,49 @@ const AppointmentBookingPage = () => {
       return;
     }
 
+    // 驗證病患資料
+    if (!patientName) {
+      setBookingError('請填寫病患姓名。');
+      return;
+    }
+    if (!patientGender) {
+      setBookingError('請選擇病患性別。');
+      return;
+    }
+    if (!patientBirthday) {
+      setBookingError('請選擇病患出生日期。');
+      return;
+    }
+
     setBookingLoading(true);
     setBookingError('');
     setBookingSuccess('');
 
     try {
+      // 格式化生日
+      const formattedBirthday = patientBirthday ? 
+        `${patientBirthday.getFullYear()}-${String(patientBirthday.getMonth() + 1).padStart(2, '0')}-${String(patientBirthday.getDate()).padStart(2, '0')}` : '';
+
       const bookingDetails = {
         date: selectedDate,
         time: selectedSlot,
         appointmentReason: appointmentReason,
         notes: appointmentNotes,
-        patientName: user?.name, 
-        patientEmail: user?.username,
-        patientPhone: user?.phone
+        // 預約者資訊 (登入用戶)
+        accountName: user?.name,
+        accountEmail: user?.username,
+        accountPhone: user?.phone,
+        // 病患資訊 (可能是登入用戶本人或其他人)
+        patientName: patientName,
+        patientGender: patientGender,
+        patientBirthday: formattedBirthday,
+        isFirstVisit: isFirstVisit
       };
 
-      // Basic check for missing user details before sending
-      if (!bookingDetails.patientName || !bookingDetails.patientEmail || !bookingDetails.patientPhone) {
-          console.error('Missing user data for booking:', { name: user?.name, email: user?.username, phone: user?.phone });
-          throw new Error("無法獲取完整的用戶資訊 (姓名/郵箱/電話)，請檢查您的個人資料或重新登入後再試。");
+      // Basic check for missing account details
+      if (!bookingDetails.accountName || !bookingDetails.accountEmail || !bookingDetails.accountPhone) {
+        console.error('Missing account data for booking:', { name: user?.name, email: user?.username, phone: user?.phone });
+        throw new Error("無法獲取完整的用戶資訊 (姓名/郵箱/電話)，請檢查您的個人資料或重新登入後再試。");
       }
 
       console.log("Sending booking details:", bookingDetails);
@@ -208,9 +274,13 @@ const AppointmentBookingPage = () => {
         time: selectedSlot,
         reason: appointmentReason || '(未提供)',
         notes: appointmentNotes || '(未提供)',
-        patientName: user.name,
-        patientEmail: user.username,
-        patientPhone: user.phone,
+        accountName: user.name,
+        accountEmail: user.username,
+        accountPhone: user.phone,
+        patientName: patientName,
+        patientGender: patientGender === 'male' ? '男' : patientGender === 'female' ? '女' : '其他',
+        patientBirthday: formattedBirthday,
+        isFirstVisit: isFirstVisit ? '是' : '否',
         appointmentId: response.data.appointmentId
       });
       
@@ -336,32 +406,117 @@ const AppointmentBookingPage = () => {
             <Typography variant="subtitle1" gutterBottom>
               預約時間：{selectedDate} {selectedSlot}
             </Typography>
-            <TextField
-              autoFocus
-              margin="dense"
-              id="appointmentReason"
-              label="預約原因"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={appointmentReason}
-              onChange={(e) => setAppointmentReason(e.target.value)}
-              placeholder="例如：情緒困擾、壓力管理、人際關係問題等"
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              margin="dense"
-              id="appointmentNotes"
-              label="備註"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={appointmentNotes}
-              onChange={(e) => setAppointmentNotes(e.target.value)}
-              placeholder="其他需要告知醫生的事項"
-              multiline
-              rows={4}
-            />
+            
+            <Box sx={{ mb: 3, mt: 2 }}>
+              <Typography variant="h6" gutterBottom color="primary">
+                病患資料
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <FormControlLabel
+                control={
+                  <Switch 
+                    checked={useAccountInfo} 
+                    onChange={handleUseAccountInfoChange}
+                  />
+                }
+                label="使用登入帳戶資料"
+                sx={{ mb: 2 }}
+              />
+
+              <TextField
+                margin="dense"
+                id="patientName"
+                label="病患姓名"
+                type="text"
+                fullWidth
+                variant="outlined"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                required
+                sx={{ mb: 2 }}
+                disabled={useAccountInfo}
+              />
+              
+              <FormControl fullWidth required sx={{ mb: 2 }}>
+                <FormLabel id="gender-label">性別</FormLabel>
+                <RadioGroup
+                  row
+                  aria-labelledby="gender-label"
+                  name="gender"
+                  value={patientGender}
+                  onChange={(e) => setPatientGender(e.target.value)}
+                >
+                  <FormControlLabel value="male" control={<Radio />} label="男" />
+                  <FormControlLabel value="female" control={<Radio />} label="女" />
+                  <FormControlLabel value="other" control={<Radio />} label="其他" />
+                </RadioGroup>
+              </FormControl>
+              
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={zhTW}>
+                <DatePicker
+                  label="出生日期"
+                  value={patientBirthday}
+                  onChange={(newValue) => setPatientBirthday(newValue)}
+                  renderInput={(params) => 
+                    <TextField 
+                      {...params} 
+                      fullWidth 
+                      required 
+                      sx={{ mb: 2 }}
+                    />
+                  }
+                />
+              </LocalizationProvider>
+              
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <FormLabel id="visit-type-label">是否為初診</FormLabel>
+                <RadioGroup
+                  row
+                  aria-labelledby="visit-type-label"
+                  name="visitType"
+                  value={isFirstVisit}
+                  onChange={(e) => setIsFirstVisit(e.target.value === 'true')}
+                >
+                  <FormControlLabel value={true} control={<Radio />} label="是" />
+                  <FormControlLabel value={false} control={<Radio />} label="否" />
+                </RadioGroup>
+              </FormControl>
+            </Box>
+            
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="h6" gutterBottom color="primary">
+                預約內容
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <TextField
+                margin="dense"
+                id="appointmentReason"
+                label="預約原因"
+                type="text"
+                fullWidth
+                variant="outlined"
+                value={appointmentReason}
+                onChange={(e) => setAppointmentReason(e.target.value)}
+                placeholder="例如：情緒困擾、壓力管理、人際關係問題等"
+                sx={{ mb: 2 }}
+              />
+              
+              <TextField
+                margin="dense"
+                id="appointmentNotes"
+                label="備註"
+                type="text"
+                fullWidth
+                variant="outlined"
+                value={appointmentNotes}
+                onChange={(e) => setAppointmentNotes(e.target.value)}
+                placeholder="其他需要告知醫生的事項"
+                multiline
+                rows={4}
+              />
+            </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3 }}>
             <Button onClick={handleFormClose} color="inherit">取消</Button>
@@ -412,8 +567,24 @@ const AppointmentBookingPage = () => {
                     <Typography variant="body1" gutterBottom>{appointmentDetails?.time || '未知'}</Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2">患者姓名：</Typography>
+                    <Typography variant="subtitle2">預約者：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.accountName || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">病患姓名：</Typography>
                     <Typography variant="body1" gutterBottom>{appointmentDetails?.patientName || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">病患性別：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.patientGender || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">出生日期：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.patientBirthday || '未知'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">是否初診：</Typography>
+                    <Typography variant="body1" gutterBottom>{appointmentDetails?.isFirstVisit || '未知'}</Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle2">預約原因：</Typography>
@@ -428,7 +599,7 @@ const AppointmentBookingPage = () => {
             </Card>
             
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              請您準時赴約。如需更改或取消預約，請提前聯繫我們或在「我的預約」中操作。
+              請您準時赴約。如需更改或取消預約，請提前聯繫診所或向醫師說明。
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -442,7 +613,7 @@ const AppointmentBookingPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Booking Action - 移除原有的預約按鈕，改由模態框處理 */}
+        {/* 顯示錯誤和成功訊息 */}
         {bookingError && <Alert severity="error" sx={{ mt: 2 }}>{bookingError}</Alert>}
         {bookingSuccess && <Alert severity="success" sx={{ mt: 2 }}>{bookingSuccess}</Alert>}
       </Paper>
