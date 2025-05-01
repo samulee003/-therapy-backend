@@ -6,227 +6,113 @@ const path = require('path');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 
-// --- Express 設置 ---
+// --- 基本設置 ---
 const app = express();
 const port = process.env.PORT || 5000;
+const dbPath = path.join(__dirname, 'database.sqlite'); // 定義資料庫路徑
+const saltRounds = 10; // 用於密碼哈希
 
-// 中間件
+// --- 中間件 ---
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://therapy-booking.zeabur.app'], // 允許的來源
+  // 注意：對於生產環境，最好明確列出允許的來源
+  origin: (origin, callback) => {
+    // 允許來自 Zeabur 部署和本地開發的請求
+    const allowedOrigins = ['https://therapy-booking.zeabur.app', 'http://localhost:3000'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true, // 允許憑證（Cookies）
 }));
 app.use(express.json()); // 解析 JSON 請求
 
-// 添加 Session 中間件
+// --- Session 配置 ---
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.sqlite' }), // 將 session 儲存在 SQLite 資料庫
-  secret: 'your-secret-key', // 用於簽名 Session ID cookie 的密鑰
-  resave: false, // 不強制儲存未修改的 session
+  store: new SQLiteStore({ db: 'sessions.sqlite', dir: __dirname }), // 將 session 儲存在與 server.js 同級的目錄
+  secret: process.env.SESSION_SECRET || 'a-very-strong-secret-key-please-change', // 強烈建議在環境變數中設置
+  resave: false, // 除非 session 有更改，否則不重新儲存
   saveUninitialized: false, // 不儲存未初始化的 session
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production', // 僅在 HTTPS 下使用 secure cookies
-    maxAge: 24 * 60 * 60 * 1000, // 24 小時過期
-    httpOnly: true, // 防止客戶端 JavaScript 訪問 cookie
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // 在生產環境中僅使用 HTTPS
+    maxAge: 24 * 60 * 60 * 1000, // Session 有效期：24 小時
+    httpOnly: true, // 防止客戶端腳本訪問 cookie
+    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax', // SameSite 策略，'lax' 通常足夠
   }
 }));
 
 // --- 身份驗證中間件 ---
-
-// 檢查用戶是否已登入
 const isAuthenticated = (req, res, next) => {
   if (req.session && req.session.userId) {
-    next(); // 用戶已登入，繼續
-  } else {
-    res.status(401).json({ success: false, message: "請先登入。" });
+    return next();
   }
+  res.status(401).json({ success: false, message: "未授權：請先登入。" });
 };
 
-// 檢查用戶是否具有醫生角色
 const isDoctor = (req, res, next) => {
   if (req.session && req.session.userId && req.session.role === 'doctor') {
-    next(); // 用戶是醫生，繼續
-  } else {
-    res.status(403).json({ success: false, message: "此操作需要醫生權限。" });
+    return next();
   }
+  res.status(403).json({ success: false, message: "禁止訪問：此操作需要醫生權限。" });
 };
 
-// 檢查用戶是否具有病人角色
 const isPatient = (req, res, next) => {
   if (req.session && req.session.userId && req.session.role === 'patient') {
-    next(); // 用戶是病人，繼續
-  } else {
-    res.status(403).json({ success: false, message: "此操作需要病人權限。" });
+    return next();
   }
+  res.status(403).json({ success: false, message: "禁止訪問：此操作需要病人權限。" });
 };
 
-// Function to initialize database schema and default settings/users
-async function initializeDatabase(database) {
-    return new Promise((resolve, reject) => {
-        database.serialize(async () => {
-            console.log("Initializing database schema if necessary...");
+// --- 資料庫實例 ---
+// 將 db 的初始化移到 try...catch 塊外部，以便在 startServer 和關閉處理程序中使用
+let db;
 
-            // Helper for logging table creation errors/success
-            const handleTableErr = (tableName, err) => {
-                if (err) console.error(`Error creating/checking ${tableName}:`, err.message);
-                else console.log(`${tableName} table checked/created.`);
-            };
-
-            // Create tables
-            database.run(`CREATE TABLE IF NOT EXISTS settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                doctorName TEXT,
-                clinicName TEXT,
-                adminPassword TEXT, // Keep adminPassword for settings management if needed
-                notificationEmail TEXT,
-                defaultTimeSlots TEXT
-            )`, (err) => handleTableErr("settings", err));
-            
-            // ADDED: Create users table
-            database.run(`CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL, -- Email as username
-                password TEXT NOT NULL,       -- Hashed password
-                name TEXT,
-                role TEXT NOT NULL CHECK(role IN ('doctor', 'patient', 'admin')) -- Added admin role maybe?
-            )`, (err) => handleTableErr("users", err));
-
-            database.run(`CREATE TABLE IF NOT EXISTS schedule (
-                date TEXT PRIMARY KEY,
-                availableSlots TEXT,
-                handleTableErr("regular_patients", err);
-
-                // After last table creation attempt, check/insert default settings AND users
-                // Check Settings
-                database.get("SELECT 1 FROM settings WHERE id = 1", async (getSettingsErr, settingsRow) => {
-                    if (getSettingsErr) {
-                        console.error("Error checking settings existence:", getSettingsErr.message);
-                        return reject(getSettingsErr); 
-                    }
-
-                    let settingsInitialized = !!settingsRow;
-                    if (!settingsInitialized) {
-                         console.log("No settings found, inserting defaults...");
-                         const defaultPassword = 'admin123'; // Keep a simple default admin password for settings
-                         const saltRounds = 10;
-                         try {
-                             const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
-                             const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
-                             await new Promise((res, rej) => { // Wait for insert
-                                 database.run(`INSERT INTO settings (id, adminPassword, defaultTimeSlots) VALUES (1, ?, ?)`,
-                                            [hashedPassword, defaultSlots],
-                                            (insertErr) => {
-                                     if (insertErr) {
-                                          console.error("Error inserting default settings:", insertErr.message);
-                                          rej(insertErr);
-                                     } else {
-                                          console.log("Default settings inserted.");
-                                          settingsInitialized = true;
-                                          res();
-                                     }
-                                 });
-                            });
-                         } catch (hashError) {
-                             console.error("Error hashing default settings password:", hashError);
-                             return reject(hashError); 
-                         }
-                    } else {
-                        console.log("Settings already initialized.");
-                    }
-
-                    // Check Users (only after settings check/insert is potentially done)
-                    database.get("SELECT COUNT(*) as count FROM users", async (getUsersErr, usersRow) => {
-                         if (getUsersErr) {
-                             console.error("Error checking users existence:", getUsersErr.message);
-                             return reject(getUsersErr);
-                         }
-
-                         if (usersRow && usersRow.count === 0) {
-                             console.log("No users found, inserting default doctor and patient...");
-                             const defaultUserPassword = 'password123';
-                             const saltRounds = 10;
-                             try {
-                                const hashedUserPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
-                                // Wait for both inserts to complete
-                                await new Promise((res, rej) => {
-                                    database.run(`INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)`,
-                                            ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor'],
-                                            (insertErr) => { if (insertErr) rej(insertErr); else res(); });
-                                });
-                                await new Promise((res, rej) => {
-                                     database.run(`INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)`,
-                                             ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient'],
-                                             (insertErr) => { if (insertErr) rej(insertErr); else res(); });
-                                });
-                                console.log("Default users inserted.");
-                                resolve(); // RESOLVE aFTER ALL INITIALIZATION IS DONE
-                             } catch (hashOrInsertError) {
-                                 console.error("Error hashing/inserting default users:", hashOrInsertError);
-                                 reject(hashOrInsertError);
-                             }
-                         } else {
-                             console.log("Users table already populated.");
-                             resolve(); // RESOLVE aFTER ALL INITIALIZATION IS DONE
-                         }
-                    });
-                });
-            });
-        });
-    });
-}
-
-// Connect to Database and Initialize
-// ... existing code ... 
-
-let db; // Declare db variable
-
-// Helper function to wrap database.run in a Promise
+// --- 資料庫輔助函數 (Promise-based) ---
 function runDb(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        if (!db) return reject(new Error("Database connection not established."));
-        db.run(sql, params, function(err) { // Use traditional function for `this` context
-            if (err) {
-                // Shorten SQL in log for readability
-                console.error('DB Run Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params); 
-                reject(err);
-            } else {
-                resolve(this); // Resolve with `this` context (contains lastID, changes)
-            }
-        });
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("資料庫連接未建立。"));
+    db.run(sql, params, function (err) { // 使用傳統函數獲取 'this'
+      if (err) {
+        console.error('資料庫執行錯誤:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params);
+        reject(err);
+      } else {
+        resolve(this); // resolve with 'this' to get lastID, changes
+      }
     });
+  });
 }
 
-// Helper function to wrap database.get in a Promise
 function getDb(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        if (!db) return reject(new Error("Database connection not established."));
-        db.get(sql, params, (err, row) => {
-            if (err) {
-                // Shorten SQL in log for readability
-                 console.error('DB Get Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params); 
-                 reject(err);
-            } else {
-                resolve(row); // Resolve with the row found (or undefined)
-            }
-        });
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("資料庫連接未建立。"));
+    db.get(sql, params, (err, row) => {
+      if (err) {
+        console.error('資料庫查詢錯誤:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params);
+        reject(err);
+      } else {
+        resolve(row); // resolve with the row or undefined
+      }
     });
+  });
 }
 
-// Helper function to wrap database.all in a Promise (for getting multiple rows)
 function allDb(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        if (!db) return reject(new Error("Database connection not established."));
-        db.all(sql, params, (err, rows) => { // Use db.all to get all matching rows
-            if (err) {
-                console.error('DB All Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params);
-                reject(err);
-            } else {
-                resolve(rows); // Resolve with the array of rows found (or empty array)
-            }
-        });
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("資料庫連接未建立。"));
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('資料庫查詢所有錯誤:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params);
+        reject(err);
+      } else {
+        resolve(rows); // resolve with array of rows or empty array
+      }
     });
+  });
 }
 
-// --- SQL Definitions for Table Creation ---
+// --- 資料庫表結構定義 (修正 Linter 錯誤) ---
+// 使用分號結束每個 SQL 語句，並確保字符串格式正確
 const CREATE_SETTINGS_SQL = `
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -235,7 +121,7 @@ CREATE TABLE IF NOT EXISTS settings (
     adminPassword TEXT,
     notificationEmail TEXT,
     defaultTimeSlots TEXT
-)`;
+);`;
 
 const CREATE_USERS_SQL = `
 CREATE TABLE IF NOT EXISTS users (
@@ -243,263 +129,139 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     name TEXT,
+    phone TEXT, -- 添加 phone 欄位
     role TEXT NOT NULL CHECK(role IN ('doctor', 'patient', 'admin'))
-)`;
+);`;
 
 const CREATE_SCHEDULE_SQL = `
 CREATE TABLE IF NOT EXISTS schedule (
     date TEXT PRIMARY KEY,
     availableSlots TEXT,
-    bookedSlots TEXT
-)`;
+    bookedSlots TEXT -- 儲存已預約時段的詳細信息，例如 { "09:00": { patientId: 1, patientName: "..." } }
+);`;
 
 const CREATE_APPOINTMENTS_SQL = `
 CREATE TABLE IF NOT EXISTS appointments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
     time TEXT NOT NULL,
-    patientName TEXT NOT NULL,
-    patientPhone TEXT NOT NULL,
-    patientEmail TEXT NOT NULL,
+    patientId INTEGER NOT NULL, -- 使用 patientId 關聯用戶
+    patientName TEXT NOT NULL,  -- 冗餘儲存方便查詢，但應考慮是否必要
+    patientPhone TEXT,         -- 同上
+    patientEmail TEXT NOT NULL, -- 同上，並確保與 users 表的 username 關聯
     appointmentReason TEXT,
     notes TEXT,
-    status TEXT DEFAULT 'confirmed',
+    status TEXT DEFAULT 'confirmed' CHECK(status IN ('confirmed', 'cancelled', 'completed')), -- 添加 completed 狀態
     isRegular BOOLEAN DEFAULT 0,
     regularPatientId INTEGER,
-    FOREIGN KEY (regularPatientId) REFERENCES regular_patients(id)
-)`;
+    FOREIGN KEY (patientId) REFERENCES users(id), -- 外鍵關聯
+    FOREIGN KEY (regularPatientId) REFERENCES regular_patients(id),
+    UNIQUE(date, time) -- 同一時間只能有一個預約
+);`;
 
 const CREATE_REGULAR_PATIENTS_SQL = `
 CREATE TABLE IF NOT EXISTS regular_patients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
-    email TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE, -- 確保 email 唯一
     frequency TEXT NOT NULL,
     dayOfWeek INTEGER NOT NULL,
     timeSlot TEXT NOT NULL,
     notes TEXT
-)`;
+);`;
 
-// Function to initialize database schema and default settings/users (Refactored with async/await)
+// --- 資料庫初始化函數 (重構和修正) ---
 async function initializeDatabase() {
-    console.log("Initializing database schema if necessary...");
-    try {
-        // --- Create Tables Sequentially using defined SQL ---
-        await runDb(CREATE_SETTINGS_SQL);
-        console.log("settings table checked/created.");
+  console.log("正在初始化資料庫架構...");
+  try {
+    // 啟用外鍵約束 (對 SQLite 很重要)
+    await runDb('PRAGMA foreign_keys = ON;');
+    console.log("外鍵約束已啟用。");
 
-        await runDb(CREATE_USERS_SQL);
-         console.log("users table checked/created.");
+    // --- 依次創建表 ---
+    await runDb(CREATE_SETTINGS_SQL);
+    console.log("settings 表已檢查/創建。");
 
-        await runDb(CREATE_SCHEDULE_SQL);
-        console.log("schedule table checked/created.");
+    await runDb(CREATE_USERS_SQL);
+    console.log("users 表已檢查/創建。");
 
-        await runDb(CREATE_APPOINTMENTS_SQL);
-        console.log("appointments table checked/created.");
+    await runDb(CREATE_SCHEDULE_SQL);
+    console.log("schedule 表已檢查/創建。");
 
-         await runDb(CREATE_REGULAR_PATIENTS_SQL);
-        console.log("regular_patients table checked/created.");
+    await runDb(CREATE_APPOINTMENTS_SQL);
+    console.log("appointments 表已檢查/創建。");
 
-        // --- Check and Insert Default Settings ---
-        const settingsRow = await getDb("SELECT 1 FROM settings WHERE id = 1");
-        if (!settingsRow) {
-            console.log("No settings found, inserting defaults...");
-            const defaultPassword = 'admin123';
-            const saltRounds = 10;
-            const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
-            const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
-            await runDb("INSERT INTO settings (id, adminPassword, defaultTimeSlots) VALUES (1, ?, ?)", [hashedPassword, defaultSlots]);
-            console.log("Default settings inserted.");
-        } else {
-            console.log("Settings already initialized.");
-        }
+    await runDb(CREATE_REGULAR_PATIENTS_SQL);
+    console.log("regular_patients 表已檢查/創建。");
 
-        // --- Check and Insert Default Users ---
-        const usersRow = await getDb("SELECT COUNT(*) as count FROM users");
-        if (usersRow && usersRow.count === 0) {
-             console.log("No users found, inserting default doctor and patient...");
-             const defaultUserPassword = 'password123';
-             const saltRounds = 10;
-             const hashedUserPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
-             await runDb("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor']);
-             await runDb("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient']);
-             console.log("Default users inserted.");
-        } else if (usersRow) {
-            console.log("Users table already populated.");
-        } else {
-             console.error("Could not determine user count. Default users not inserted.");
-        }
-
-        console.log("Database initialization check complete.");
-
-    } catch (error) {
-        console.error("FATAL: Database initialization process failed.");
-        throw error; 
+    // --- 檢查並插入預設 Settings ---
+    const settingsRow = await getDb("SELECT 1 FROM settings WHERE id = 1");
+    if (!settingsRow) {
+      console.log("未找到設置，正在插入預設值...");
+      const defaultPassword = 'admin123'; // 考慮使用更安全的預設值或強制修改
+      const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+      const defaultSlots = JSON.stringify(["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]);
+      await runDb("INSERT INTO settings (id, adminPassword, defaultTimeSlots) VALUES (1, ?, ?)", [hashedPassword, defaultSlots]);
+      console.log("預設設置已插入。");
+    } else {
+      console.log("設置已初始化。");
     }
+
+    // --- 檢查並插入預設 Users ---
+    const usersRow = await getDb("SELECT COUNT(*) as count FROM users");
+    if (usersRow && usersRow.count === 0) {
+      console.log("未找到用戶，正在插入預設醫生和病人...");
+      const defaultUserPassword = 'password123';
+      const hashedUserPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
+      await runDb("INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)", ['doctor@example.com', hashedUserPassword, 'Dr. Demo', 'doctor', '12345678']);
+      await runDb("INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)", ['patient@example.com', hashedUserPassword, 'Patient Demo', 'patient', '87654321']);
+      console.log("預設用戶已插入。");
+    } else if (usersRow) {
+      console.log(`用戶表已存在 ${usersRow.count} 個用戶。`);
+    } else {
+      // 如果 getDb 返回 null 或 undefined，這是一個問題
+      console.error("無法確定用戶數量。未插入預設用戶。");
+    }
+
+    console.log("資料庫初始化檢查完成。");
+
+  } catch (error) {
+    console.error("資料庫初始化過程失敗:", error);
+    // 在初始化失敗時拋出錯誤，阻止伺服器啟動
+    throw error;
+  }
 }
 
-// Connect to Database and Initialize
-db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, async (err) => {
-    if (err) {
-        console.error("FATAL: Error opening database:", err.message);
-        process.exit(1); 
-    } else {
-        console.log("Connected to the SQLite database.");
-        try {
-            await initializeDatabase(); 
-            startServer();
-        } catch (initError) {
-             if (db) {
-                 db.close((closeErr) => {
-                    if (closeErr) console.error("Error closing DB after init failure:", closeErr.message);
-                 });
-            }
-            process.exit(1); 
-        }
-    }
-});
+// --- API 路由 ---
 
-// --- API Routes --- 
-// ... existing code ... 
-
-// Authentication
-// ... (Login route code remains the same) ...
-
-// ADDED: User Registration Route
-app.post("/api/register", async (req, res) => {
-    const { username, password, name, role } = req.body;
-
-    // --- Input Validation ---
-    if (!username || !password || !name || !role) {
-        return res.status(400).json({ success: false, message: "Missing required registration fields (username, password, name, role)." });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
-         return res.status(400).json({ success: false, message: "Invalid email format for username." });
-    }
-     if (!['doctor', 'patient', 'admin'].includes(role)) { // Adjust allowed roles if needed
-        return res.status(400).json({ success: false, message: "Invalid role specified." });
-    }
-
-    // --- Check if user already exists ---
-    try {
-        const existingUser = await getDb("SELECT id FROM users WHERE username = ?", [username]);
-        if (existingUser) {
-            return res.status(409).json({ success: false, message: "Username (email) already exists." }); // 409 Conflict
-        }
-
-        // --- Hash password and Insert User ---
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-        const insertSql = "INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)";
-        const insertResult = await runDb(insertSql, [username, hashedPassword, name, role]);
-
-        console.log(`User registered: ${username}, ID: ${insertResult.lastID}`);
-        res.status(201).json({ success: true, message: "Registration successful.", userId: insertResult.lastID });
-
-    } catch (error) {
-        console.error("Error during registration:", error);
-        if (error.message.includes("UNIQUE constraint failed")) { 
-             return res.status(409).json({ success: false, message: "Username (email) already exists." });
-        }
-        res.status(500).json({ success: false, message: "Server error during registration." });
-    }
-});
-
-// Settings
-// ... (Settings routes code remains the same) ...
-
-// Schedule
-// ... (Schedule routes code remains the same) ...
-
-// Appointments
-// ... (Appointments routes code remains the same) ...
-
-// --- Start Server Function --- 
-// ... (startServer function remains the same) ...
-
-// Graceful shutdown
-// ... (process.on('SIGINT') remains the same) ...
-
-// Ensure there are no stray characters or unterminated comments/strings at the end of the file.
-
-// --- NEW: API Routes for Fetching Appointments ---
-
-// GET Patient's Appointments (by email - INSECURE, needs proper auth)
-app.get('/api/appointments/patient/:email', async (req, res) => {
-    const patientEmail = req.params.email;
-    console.log(`Fetching appointments for patient email: ${patientEmail}`);
-    if (!patientEmail) {
-        return res.status(400).json({ message: "Patient email parameter is required." });
-    }
-    try {
-        const sql = "SELECT * FROM appointments WHERE patientEmail = ? ORDER BY date, time";
-        const appointments = await allDb(sql, [patientEmail]);
-        console.log(`Found ${appointments.length} appointments for ${patientEmail}`);
-        res.json(appointments);
-    } catch (error) {
-        console.error('Error fetching patient appointments:', error);
-        res.status(500).json({ message: 'Failed to fetch appointments.', error: error.message });
-    }
-});
-
-// GET All Appointments (for Doctor - INSECURE, needs role check)
-// WARNING: This endpoint currently returns ALL appointments without checking user role.
-// Implement proper authorization middleware before production use.
-app.get('/api/appointments/doctor/all', async (req, res) => {
-    console.log("Fetching all appointments for doctor view...");
-    try {
-        const sql = "SELECT * FROM appointments ORDER BY date, time";
-        const appointments = await allDb(sql);
-        console.log(`Found total ${appointments.length} appointments.`);
-        res.json(appointments);
-    } catch (error) {
-        console.error('Error fetching all appointments:', error);
-        res.status(500).json({ message: 'Failed to fetch all appointments.', error: error.message });
-    }
-});
-
-// Default route for testing
-app.get('/', (req, res) => {
-    res.send('Therapy Appointment API is running!');
-});
-
-// Error handling for database initialization should prevent server from starting without DB
-// No need for app.listen here as it's moved inside the db connection callback
-
-// Note: The app.listen call was moved inside the database connection callback
-// to ensure the database is ready before the server starts accepting requests.
-
-// 修改登入路由，加入 Session 支持
+// --- 身份驗證 ---
 app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: "請提供用戶名和密碼。" });
+  }
+
   try {
-    const { username, password } = req.body;
-    
-    // 基本輸入驗證
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: "請提供用戶名和密碼。" });
-    }
-    
-    // 從資料庫獲取用戶
     const user = await getDb("SELECT * FROM users WHERE username = ?", [username]);
     if (!user) {
       return res.status(401).json({ success: false, message: "用戶名或密碼不正確。" });
     }
-    
-    // 驗證密碼
+
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.status(401).json({ success: false, message: "用戶名或密碼不正確。" });
     }
-    
-    // 創建 Session
+
+    // 密碼驗證成功，設置 Session
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.role = user.role;
-    req.session.name = user.name;
-    
-    // 返回用戶資訊（不包含密碼）
+    req.session.name = user.name; // 添加 name 到 session
+
+    console.log(`用戶 ${user.username} 已登入, Session ID: ${req.sessionID}`);
+
+    // 返回用戶基本信息（不含密碼）
     res.json({
       success: true,
       user: {
@@ -507,117 +269,526 @@ app.post('/api/login', async (req, res) => {
         username: user.username,
         name: user.name,
         role: user.role,
-        phone: user.phone
+        phone: user.phone // 返回 phone
       }
     });
-    
+
   } catch (error) {
     console.error("登入錯誤:", error);
-    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+    res.status(500).json({ success: false, message: "伺服器內部錯誤，登入失敗。" });
   }
 });
 
-// 新增登出路由
 app.post('/api/logout', (req, res) => {
+  const username = req.session.username; // 記錄登出的用戶
   req.session.destroy(err => {
     if (err) {
       console.error("登出錯誤:", err);
       return res.status(500).json({ success: false, message: "登出失敗，請稍後再試。" });
     }
+    // 清除客戶端的 session cookie
+    res.clearCookie('connect.sid'); // connect.sid 是 express-session 的預設 cookie 名稱
+    console.log(`用戶 ${username || '(未知)'} 已登出`);
     res.json({ success: true, message: "登出成功。" });
   });
 });
 
-// 獲取當前登入用戶資訊
+app.post('/api/register', async (req, res) => {
+  const { username, password, name, role, phone } = req.body; // 包含 phone
+
+  // --- 輸入驗證 ---
+  if (!username || !password || !name || !role || !phone) {
+    return res.status(400).json({ success: false, message: "缺少必要的註冊欄位 (username, password, name, role, phone)。" });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+    return res.status(400).json({ success: false, message: "用戶名必須是有效的電子郵件格式。" });
+  }
+  // 簡單的電話號碼格式驗證 (例如，至少5位數字)
+  if (!/^\d{5,}$/.test(phone)) {
+       return res.status(400).json({ success: false, message: "無效的電話號碼格式。" });
+  }
+  if (!['doctor', 'patient'].includes(role)) { // 限制可註冊的角色
+    return res.status(400).json({ success: false, message: "無效的角色。" });
+  }
+
+  try {
+    // --- 檢查用戶是否存在 ---
+    const existingUser = await getDb("SELECT id FROM users WHERE username = ?", [username]);
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: "此電子郵件已被註冊。" }); // 409 Conflict
+    }
+
+    // --- 哈希密碼並插入用戶 ---
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const insertSql = "INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)";
+    const insertResult = await runDb(insertSql, [username, hashedPassword, name, role, phone]);
+
+    console.log(`用戶已註冊: ${username}, ID: ${insertResult.lastID}`);
+    // 註冊成功後不自動登入，讓用戶手動登入
+    res.status(201).json({ success: true, message: "註冊成功！請使用您的帳號密碼登入。", userId: insertResult.lastID });
+
+  } catch (error) {
+    console.error("註冊過程中出錯:", error);
+    if (error.message.includes("UNIQUE constraint failed")) {
+      // 理論上上面的檢查已經處理了這種情況，但作為雙重保險
+      return res.status(409).json({ success: false, message: "此電子郵件已被註冊。" });
+    }
+    res.status(500).json({ success: false, message: "伺服器錯誤，註冊失敗。" });
+  }
+});
+
+// 獲取當前登入用戶信息
 app.get('/api/me', isAuthenticated, async (req, res) => {
   try {
+    // 從 Session 中獲取用戶 ID
     const user = await getDb("SELECT id, username, name, role, phone FROM users WHERE id = ?", [req.session.userId]);
     if (!user) {
-      return res.status(404).json({ success: false, message: "用戶不存在。" });
+      // 如果 Session 中的 userId 在資料庫中找不到（理論上不應發生）
+      console.error(`無法找到 ID 為 ${req.session.userId} 的用戶 (來自 Session)。`);
+      // 清除無效的 session
+      req.session.destroy();
+      res.clearCookie('connect.sid');
+      return res.status(404).json({ success: false, message: "用戶不存在或 Session 無效，請重新登入。" });
     }
     res.json({ success: true, user });
   } catch (error) {
     console.error("獲取用戶資訊錯誤:", error);
-    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+    res.status(500).json({ success: false, message: "獲取用戶資訊時發生伺服器錯誤。" });
   }
 });
 
-// 安全版：獲取當前登入用戶的預約列表
+// --- 設置 ---
+// 獲取設置 (僅限醫生或管理員 - 暫時只檢查登入)
+app.get('/api/settings', isAuthenticated, async (req, res) => {
+  // TODO: 將來可能需要更細緻的權限檢查 (isDoctor or isAdmin)
+  try {
+    const settings = await getDb("SELECT doctorName, clinicName, notificationEmail, defaultTimeSlots FROM settings WHERE id = 1");
+    if (!settings) {
+      // 如果沒有設置，返回一個預設結構或錯誤
+      return res.status(404).json({ success: false, message: "未找到系統設置。" });
+    }
+    // 解析 defaultTimeSlots
+    try {
+        settings.defaultTimeSlots = JSON.parse(settings.defaultTimeSlots || '[]');
+    } catch(e) {
+        console.error("解析 defaultTimeSlots JSON 失敗:", e);
+        settings.defaultTimeSlots = []; // 出錯時返回空數組
+    }
+    res.json({ success: true, settings });
+  } catch (error) {
+    console.error("獲取設置錯誤:", error);
+    res.status(500).json({ success: false, message: "獲取設置失敗。" });
+  }
+});
+
+// 更新設置 (僅限醫生或管理員 - 暫時只用 isDoctor)
+app.put('/api/settings', isAuthenticated, isDoctor, async (req, res) => {
+  const { doctorName, clinicName, notificationEmail, defaultTimeSlots } = req.body;
+  // 基本驗證
+  if (!Array.isArray(defaultTimeSlots)) {
+      return res.status(400).json({ success: false, message: "defaultTimeSlots 必須是一個數組。" });
+  }
+  const slotsJson = JSON.stringify(defaultTimeSlots);
+
+  try {
+    // 使用 UPSERT (Update or Insert) 邏輯，雖然我們知道 id=1 應該存在
+    await runDb(
+      `INSERT INTO settings (id, doctorName, clinicName, notificationEmail, defaultTimeSlots)
+       VALUES (1, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         doctorName=excluded.doctorName,
+         clinicName=excluded.clinicName,
+         notificationEmail=excluded.notificationEmail,
+         defaultTimeSlots=excluded.defaultTimeSlots;`,
+      [doctorName, clinicName, notificationEmail, slotsJson]
+    );
+    res.json({ success: true, message: "設置已成功更新。" });
+  } catch (error) {
+    console.error("更新設置錯誤:", error);
+    res.status(500).json({ success: false, message: "更新設置失敗。" });
+  }
+});
+
+// --- 排班 ---
+// 獲取指定月份的排班 (需要登入)
+app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
+  const { year, month } = req.params;
+  // 驗證年和月
+  if (!/^\d{4}$/.test(year) || !/^(0?[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ success: false, message: "無效的年份或月份格式。" });
+  }
+  const monthPadded = String(month).padStart(2, '0');
+  const startDate = `${year}-${monthPadded}-01`;
+  // 計算月份的最後一天
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${monthPadded}-${String(lastDay).padStart(2, '0')}`;
+
+  try {
+    const scheduleRows = await allDb(
+      "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ?",
+      [startDate, endDate]
+    );
+
+    // 將結果轉換為前端期望的格式 { 'YYYY-MM-DD': { availableSlots: [], bookedSlots: {} } }
+    const scheduleMap = {};
+    scheduleRows.forEach(row => {
+      let availableSlots = [];
+      let bookedSlots = {};
+      try {
+        availableSlots = JSON.parse(row.availableSlots || '[]');
+      } catch (e) { console.error(`解析 ${row.date} 的 availableSlots 失敗:`, e); }
+      try {
+        bookedSlots = JSON.parse(row.bookedSlots || '{}');
+      } catch (e) { console.error(`解析 ${row.date} 的 bookedSlots 失敗:`, e); }
+      scheduleMap[row.date] = { availableSlots, bookedSlots };
+    });
+
+    res.json({ success: true, schedule: scheduleMap });
+  } catch (error) {
+    console.error(`獲取 ${year}-${month} 排班錯誤:`, error);
+    res.status(500).json({ success: false, message: "獲取排班失敗。" });
+  }
+});
+
+// 保存指定日期的可用時段 (僅限醫生)
+app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
+  const { date, availableSlots } = req.body;
+
+  // 驗證日期和時段
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ success: false, message: "無效的日期格式 (需要 YYYY-MM-DD)。" });
+  }
+  if (!Array.isArray(availableSlots) || !availableSlots.every(slot => /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot))) {
+    return res.status(400).json({ success: false, message: "availableSlots 必須是 HH:MM 格式的時間數組。" });
+  }
+  // 去重並排序
+  const uniqueSortedSlots = [...new Set(availableSlots)].sort();
+  const slotsJson = JSON.stringify(uniqueSortedSlots);
+
+  try {
+    // 獲取當前已預約的時段，以防覆蓋
+    const existingSchedule = await getDb("SELECT bookedSlots FROM schedule WHERE date = ?", [date]);
+    const bookedSlotsJson = existingSchedule ? existingSchedule.bookedSlots : '{}';
+
+    // 使用 UPSERT 邏輯更新或插入排班
+    await runDb(
+      `INSERT INTO schedule (date, availableSlots, bookedSlots)
+       VALUES (?, ?, ?)
+       ON CONFLICT(date) DO UPDATE SET
+         availableSlots=excluded.availableSlots;`, // 只更新 availableSlots
+      [date, slotsJson, bookedSlotsJson] // 如果是插入，也提供 bookedSlots 的初始值
+    );
+    res.json({ success: true, message: `日期 ${date} 的排班已保存。` });
+  } catch (error) {
+    console.error(`保存 ${date} 排班錯誤:`, error);
+    res.status(500).json({ success: false, message: "保存排班失敗。" });
+  }
+});
+
+
+// --- 預約 ---
+
+// 新增預約 (需要病人登入)
+app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
+  const { date, time, appointmentReason, notes } = req.body;
+  const patientId = req.session.userId;
+  const patientEmail = req.session.username; // 從 session 獲取
+  const patientName = req.session.name; // 從 session 獲取
+
+  // 從資料庫獲取病人電話 (因為 session 可能沒有)
+  let patientPhone = '';
+  try {
+    const patientInfo = await getDb("SELECT phone FROM users WHERE id = ?", [patientId]);
+    if (patientInfo && patientInfo.phone) {
+      patientPhone = patientInfo.phone;
+    } else {
+      console.warn(`無法找到 ID 為 ${patientId} 的病人的電話號碼。`);
+      // 可以選擇是否返回錯誤，或者允許在沒有電話的情況下預約
+      // return res.status(400).json({ success: false, message: "缺少病人電話資訊。" });
+    }
+  } catch (dbError) {
+     console.error("預約時查詢病人電話失敗:", dbError);
+     return res.status(500).json({ success: false, message: "資料庫錯誤，無法完成預約。" });
+  }
+
+
+  // --- 輸入驗證 ---
+  if (!date || !time || !patientName || !patientEmail) {
+    return res.status(400).json({ success: false, message: "缺少必要的預約信息 (日期, 時間, 患者姓名, 患者郵箱)。" });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ success: false, message: "無效的日期格式。" });
+  }
+  if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
+    return res.status(400).json({ success: false, message: "無效的時間格式。" });
+  }
+
+  // --- 核心邏輯：檢查時段可用性並預約 ---
+  try {
+    await db.serialize(async () => { // 使用 serialize 確保事務性
+      await runDb('BEGIN TRANSACTION;');
+
+      try {
+        // 1. 檢查排班是否存在及該時段是否可用
+        const schedule = await getDb("SELECT availableSlots, bookedSlots FROM schedule WHERE date = ?", [date]);
+        if (!schedule) {
+          await runDb('ROLLBACK;');
+          return res.status(400).json({ success: false, message: `日期 ${date} 沒有可預約的時段。` });
+        }
+
+        let availableSlots = [];
+        let bookedSlots = {};
+        try { availableSlots = JSON.parse(schedule.availableSlots || '[]'); } catch (e) {}
+        try { bookedSlots = JSON.parse(schedule.bookedSlots || '{}'); } catch (e) {}
+
+        // 檢查時段是否真的在 availableSlots 中，並且沒有在 bookedSlots 中
+        if (!availableSlots.includes(time) || bookedSlots[time]) {
+          await runDb('ROLLBACK;');
+          return res.status(409).json({ success: false, message: `時段 ${date} ${time} 不可用或已被預約。` }); // 409 Conflict
+        }
+
+        // 2. 創建預約記錄
+        const appointmentSql = `INSERT INTO appointments
+          (date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason, notes, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const appointmentResult = await runDb(appointmentSql, [
+          date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason || '', notes || '', 'confirmed'
+        ]);
+        const newAppointmentId = appointmentResult.lastID;
+
+        // 3. 更新排班表，將該時段標記為已預約
+        // 從 availableSlots 移除，添加到 bookedSlots
+        const updatedAvailableSlots = availableSlots.filter(slot => slot !== time);
+        bookedSlots[time] = { // 儲存預約信息
+             appointmentId: newAppointmentId,
+             patientId: patientId,
+             patientName: patientName
+        };
+        const updateScheduleSql = "UPDATE schedule SET availableSlots = ?, bookedSlots = ? WHERE date = ?";
+        await runDb(updateScheduleSql, [JSON.stringify(updatedAvailableSlots), JSON.stringify(bookedSlots), date]);
+
+        // 4. 提交事務
+        await runDb('COMMIT;');
+        console.log(`預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail})`);
+        res.status(201).json({ success: true, message: "預約成功！", appointmentId: newAppointmentId });
+
+      } catch (innerError) {
+        // 如果事務內部出錯，回滾
+        console.error("預約事務處理失敗，正在回滾:", innerError);
+        await runDb('ROLLBACK;');
+        // 檢查是否是 UNIQUE constraint 錯誤 (重複預約)
+        if (innerError.message && innerError.message.includes('UNIQUE constraint failed: appointments.date, appointments.time')) {
+             res.status(409).json({ success: false, message: `時段 ${date} ${time} 已被預約。` });
+        } else {
+             res.status(500).json({ success: false, message: "預約過程中發生錯誤。" });
+        }
+      }
+    }); // end serialize
+  } catch (outerError) {
+    // 如果 serialize 本身出錯（例如 BEGIN TRANSACTION 失敗）
+    console.error("預約事務啟動失敗:", outerError);
+    res.status(500).json({ success: false, message: "處理預約時發生嚴重錯誤。" });
+  }
+});
+
+// 獲取預約列表 (安全版)
+// GET /api/appointments/my - 獲取當前登入用戶的預約 (病人看自己的，醫生看所有的)
 app.get('/api/appointments/my', isAuthenticated, async (req, res) => {
   try {
     let appointments;
-    
-    if (req.session.role === 'patient') {
-      // 病人只能查看自己的預約
+    const userId = req.session.userId;
+    const userRole = req.session.role;
+    const userEmail = req.session.username;
+
+    if (userRole === 'patient') {
+      // 病人只能查看自己的預約 (通過 email 關聯)
       appointments = await allDb(
-        "SELECT * FROM appointments WHERE patientEmail = ? ORDER BY date, time",
-        [req.session.username] // 使用 session 中的 username (email)
+        "SELECT * FROM appointments WHERE patientEmail = ? ORDER BY date DESC, time DESC",
+        [userEmail]
       );
-    } else if (req.session.role === 'doctor') {
+    } else if (userRole === 'doctor') {
       // 醫生可以查看所有預約
-      appointments = await allDb("SELECT * FROM appointments ORDER BY date, time");
+      appointments = await allDb("SELECT * FROM appointments ORDER BY date DESC, time DESC");
     } else {
+      // 其他角色 (例如 admin) 或未定義角色
+      console.warn(`用戶 ID ${userId} 角色 ${userRole} 嘗試訪問 /api/appointments/my`);
       return res.status(403).json({ success: false, message: "無權限獲取預約列表。" });
     }
-    
+
     res.json({ success: true, appointments });
   } catch (error) {
-    console.error("獲取預約列表錯誤:", error);
-    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+    console.error("獲取 '我的預約' 列表錯誤:", error);
+    res.status(500).json({ success: false, message: "獲取預約列表時發生伺服器錯誤。" });
   }
 });
 
-// 安全版：獲取所有預約列表 (僅限醫生)
+// GET /api/appointments/all - 獲取所有預約 (僅限醫生)
 app.get('/api/appointments/all', isAuthenticated, isDoctor, async (req, res) => {
   try {
-    const appointments = await allDb("SELECT * FROM appointments ORDER BY date, time");
+    const appointments = await allDb("SELECT * FROM appointments ORDER BY date DESC, time DESC");
     res.json({ success: true, appointments });
   } catch (error) {
     console.error("獲取所有預約列表錯誤:", error);
-    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+    res.status(500).json({ success: false, message: "獲取所有預約列表時發生伺服器錯誤。" });
   }
 });
 
-// 保留原有的路由，但將其標記為棄用
-app.get('/api/appointments/patient/:email', async (req, res) => {
-  console.warn("棄用警告: 使用 /api/appointments/patient/:email 路由。請改用 /api/appointments/my");
-  // ... existing implementation ...
+
+// 取消預約 (病人取消自己的，醫生取消任意的)
+app.put('/api/appointments/:id/cancel', isAuthenticated, async (req, res) => {
+  const appointmentId = parseInt(req.params.id, 10);
+  const userId = req.session.userId;
+  const userRole = req.session.role;
+  const userEmail = req.session.username;
+
+  if (isNaN(appointmentId)) {
+    return res.status(400).json({ success: false, message: "無效的預約 ID。" });
+  }
+
+  try {
+      await db.serialize(async () => {
+          await runDb('BEGIN TRANSACTION;');
+          try {
+              // 1. 獲取預約信息，檢查是否存在以及狀態
+              const appointment = await getDb("SELECT * FROM appointments WHERE id = ?", [appointmentId]);
+
+              if (!appointment) {
+                  await runDb('ROLLBACK;');
+                  return res.status(404).json({ success: false, message: "未找到指定的預約。" });
+              }
+              if (appointment.status === 'cancelled') {
+                   await runDb('ROLLBACK;');
+                  return res.status(400).json({ success: false, message: "此預約已被取消。" });
+              }
+              // 可選：檢查是否已完成
+              // if (appointment.status === 'completed') { ... }
+
+              // 2. 權限檢查
+              if (userRole === 'patient' && appointment.patientEmail !== userEmail) {
+                  await runDb('ROLLBACK;');
+                  return res.status(403).json({ success: false, message: "您只能取消自己的預約。" });
+              }
+              // 醫生或管理員可以取消任何預約 (這裡只實現了醫生)
+              if (!['patient', 'doctor'].includes(userRole)) {
+                   await runDb('ROLLBACK;');
+                   return res.status(403).json({ success: false, message: "無權限執行此操作。" });
+              }
+
+              // 3. 更新預約狀態為 'cancelled'
+              await runDb("UPDATE appointments SET status = 'cancelled' WHERE id = ?", [appointmentId]);
+
+              // 4. 更新對應日期的排班表：將時段從 bookedSlots 移回 availableSlots
+              const schedule = await getDb("SELECT availableSlots, bookedSlots FROM schedule WHERE date = ?", [appointment.date]);
+              if (schedule) {
+                  let availableSlots = [];
+                  let bookedSlots = {};
+                  try { availableSlots = JSON.parse(schedule.availableSlots || '[]'); } catch(e){}
+                  try { bookedSlots = JSON.parse(schedule.bookedSlots || '{}'); } catch(e){}
+
+                  if (bookedSlots[appointment.time]) { // 如果時段確實被預約了
+                      delete bookedSlots[appointment.time]; // 從 booked 移除
+                      if (!availableSlots.includes(appointment.time)) { // 加回 available (如果不存在)
+                           availableSlots.push(appointment.time);
+                           availableSlots.sort(); // 保持排序
+                      }
+                      await runDb("UPDATE schedule SET availableSlots = ?, bookedSlots = ? WHERE date = ?",
+                          [JSON.stringify(availableSlots), JSON.stringify(bookedSlots), appointment.date]);
+                  } else {
+                       console.warn(`警告：在排班表中未找到預約 ${appointmentId} (${appointment.date} ${appointment.time}) 的 bookedSlot 記錄。`);
+                  }
+              } else {
+                   console.warn(`警告：未找到預約 ${appointmentId} 對應日期 ${appointment.date} 的排班記錄。`);
+              }
+
+              // 5. 提交事務
+              await runDb('COMMIT;');
+              console.log(`預約 ${appointmentId} 已被用戶 ${userEmail} (${userRole}) 取消。`);
+              res.json({ success: true, message: "預約已成功取消。" });
+
+          } catch (innerError) {
+              await runDb('ROLLBACK;');
+              console.error(`取消預約 ${appointmentId} 事務失敗:`, innerError);
+              res.status(500).json({ success: false, message: "取消預約過程中發生錯誤。" });
+          }
+      }); // end serialize
+  } catch (outerError) {
+      console.error(`取消預約 ${appointmentId} 事務啟動失敗:`, outerError);
+      res.status(500).json({ success: false, message: "處理取消預約時發生嚴重錯誤。" });
+  }
 });
 
-app.get('/api/appointments/doctor/all', async (req, res) => {
-  console.warn("棄用警告: 使用 /api/appointments/doctor/all 路由。請改用 /api/appointments/all");
-  // ... existing implementation ...
-});
 
-// Register Route
-// ... other existing routes ...
+// --- 其他路由 (可以根據需要添加，例如 regular_patients 的管理) ---
 
-// 修改預約路由以使用身份驗證
-app.post('/api/book', isAuthenticated, async (req, res) => {
-  // ... existing booking logic ...
-  // 可以使用 req.session.userId 和 req.session.role 進行額外的授權檢查
-});
 
-// --- 開始伺服器 ---
+// --- 伺服器啟動函數 ---
 function startServer() {
   app.listen(port, () => {
-    console.log(`伺服器運行在 http://localhost:${port}`);
-  });
-  
-  // 優雅關閉
-  process.on('SIGINT', () => {
-    console.log('\n正在關閉伺服器...');
-    if (db) {
-      db.close((err) => {
-        if (err) {
-          console.error('關閉資料庫錯誤:', err.message);
-        } else {
-          console.log('資料庫連接已關閉');
-        }
-        process.exit(0);
-      });
-    } else {
-      process.exit(0);
-    }
+    console.log(`後端伺服器運行在 http://localhost:${port}`);
+    console.log(`資料庫文件位於: ${dbPath}`);
+    console.log(`Session 文件位於: ${path.join(__dirname, 'sessions.sqlite')}`);
   });
 }
+
+// --- 連接資料庫並啟動伺服器 ---
+db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, async (err) => {
+  if (err) {
+    console.error("致命錯誤：打開資料庫失敗:", err.message);
+    process.exit(1); // 退出進程
+  } else {
+    console.log(`成功連接到 SQLite 資料庫: ${dbPath}`);
+    try {
+      // 初始化資料庫（如果需要）
+      await initializeDatabase();
+      // 啟動 Express 伺服器
+      startServer();
+    } catch (initError) {
+      console.error("致命錯誤：資料庫初始化失敗，伺服器未啟動。", initError);
+      if (db) {
+        db.close((closeErr) => {
+          if (closeErr) console.error("關閉資料庫連接時出錯（初始化失敗後）:", closeErr.message);
+        });
+      }
+      process.exit(1); // 退出進程
+    }
+  }
+});
+
+// --- 優雅關閉 ---
+process.on('SIGINT', () => {
+  console.log('\n收到 SIGINT 信號，正在關閉伺服器...');
+  if (db) {
+    db.close((err) => {
+      if (err) {
+        console.error('關閉資料庫連接時出錯:', err.message);
+        process.exit(1); // 強制退出
+      } else {
+        console.log('資料庫連接已關閉。');
+        process.exit(0); // 正常退出
+      }
+    });
+  } else {
+    process.exit(0); // 如果沒有資料庫連接，直接退出
+  }
+});
+// 添加 SIGTERM 處理程序，用於容器環境
+process.on('SIGTERM', () => {
+    console.log('收到 SIGTERM 信號，觸發優雅關閉...');
+    process.emit('SIGINT'); // 觸發 SIGINT 處理邏輯
+});
+
+// 捕獲未處理的 Promise 拒絕
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未處理的 Promise 拒絕:', promise, '原因:', reason);
+  // 考慮是否需要退出進程
+  // process.exit(1);
+});
+
+// 捕獲未捕獲的異常
+process.on('uncaughtException', (error) => {
+  console.error('未捕獲的異常:', error);
+  // 嘗試優雅關閉，但可能不可靠
+  process.emit('SIGINT');
+  // 在記錄錯誤後退出是個好主意
+  // process.exit(1);
+});
