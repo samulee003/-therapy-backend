@@ -94,6 +94,7 @@ const RegisterPage = () => {
       username: formData.email,
       password: formData.password,
       name: formData.name,
+      phone: formData.phone,
       role: formData.role,
     };
 
@@ -120,177 +121,121 @@ const RegisterPage = () => {
     switch (step) {
       case 0:
         return (
-          <>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="name"
-              label="姓名"
-              name="name"
-              autoComplete="name"
-              autoFocus
-              value={formData.name}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonOutlineIcon color="action" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="電子郵件"
-              name="email"
-              autoComplete="email"
-              value={formData.email}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <EmailOutlinedIcon color="action" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="phone"
-              label="電話號碼"
-              name="phone"
-              autoComplete="tel"
-              value={formData.phone}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PhoneIcon color="action" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                id="name"
+                label="姓名 (Name)"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                error={!!errors.name}
+                helperText={errors.name}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                id="email"
+                label="電子郵件 (Email/Username)"
+                name="username"
+                type="email"
+                value={formData.username}
+                onChange={handleChange}
+                error={!!errors.username}
+                helperText={errors.username}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                id="phone"
+                label="電話號碼 (Phone Number)"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                error={!!errors.phone}
+                helperText={errors.phone}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl component="fieldset" required error={!!errors.role}>
+                <FormLabel component="legend">註冊身份 (Role)</FormLabel>
+                <RadioGroup
+                  row
+                  aria-label="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                >
+                  <FormControlLabel value="patient" control={<Radio />} label="患者 (Patient)" />
+                  <FormControlLabel value="doctor" control={<Radio />} label="醫生 (Doctor)" />
+                </RadioGroup>
+                {errors.role && <Typography color="error" variant="caption">{errors.role}</Typography>}
+              </FormControl>
+            </Grid>
+          </Grid>
         );
       case 1:
         return (
-          <>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="密碼"
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              autoComplete="new-password"
-              value={formData.password}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlinedIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={handleTogglePasswordVisibility}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="確認密碼"
-              type={showConfirmPassword ? 'text' : 'password'}
-              id="confirmPassword"
-              autoComplete="new-password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlinedIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle confirm password visibility"
-                      onClick={handleToggleConfirmPasswordVisibility}
-                      edge="end"
-                    >
-                      {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl component="fieldset" sx={{ mt: 2 }}>
-              <FormLabel component="legend">註冊身份</FormLabel>
-              <RadioGroup
-                row
-                aria-label="role"
-                name="role"
-                value={formData.role}
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                name="password"
+                label="密碼 (Password)"
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                value={formData.password}
                 onChange={handleChange}
-              >
-                <FormControlLabel value="patient" control={<Radio />} label="患者" />
-                <FormControlLabel value="doctor" control={<Radio />} label="醫生" />
-              </RadioGroup>
-            </FormControl>
-          </>
+                error={!!errors.password}
+                helperText={errors.password}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleTogglePasswordVisibility}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                name="confirmPassword"
+                label="確認密碼 (Confirm Password)"
+                type={showPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                error={!!errors.confirmPassword}
+                helperText={errors.confirmPassword}
+              />
+            </Grid>
+          </Grid>
         );
       case 2:
         return (
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              確認您的註冊信息
-            </Typography>
-            <Grid container spacing={1.5} sx={{ mt: 2, textAlign: 'left', maxWidth: 400, mx: 'auto' }}> 
-              <Grid item xs={5}><Typography variant="body2" color="text.secondary">姓名:</Typography></Grid>
-              <Grid item xs={7}><Typography variant="body1">{formData.name}</Typography></Grid>
-              <Grid item xs={5}><Typography variant="body2" color="text.secondary">電子郵件:</Typography></Grid>
-              <Grid item xs={7}><Typography variant="body1">{formData.email}</Typography></Grid>
-              <Grid item xs={5}><Typography variant="body2" color="text.secondary">電話號碼:</Typography></Grid>
-              <Grid item xs={7}><Typography variant="body1">{formData.phone}</Typography></Grid>
-              <Grid item xs={5}><Typography variant="body2" color="text.secondary">註冊身份:</Typography></Grid>
-              <Grid item xs={7}><Typography variant="body1" sx={{ textTransform: 'capitalize' }}>{formData.role}</Typography></Grid>
-            </Grid>
-
-            {error && <Alert severity="error" sx={{ mt: 3, mb: 1, textAlign: 'left' }}>{error}</Alert>}
-
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleSubmit} 
-              disabled={loading}   
-              sx={{ mt: 3, minWidth: 120 }}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : '完成註冊'}
-            </Button>
-             <Button
-                disabled={loading}
-                onClick={handleBack}
-                sx={{ mt: 3, ml: 1 }}
-             >
-                上一步
-              </Button>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h6">註冊資訊確認</Typography>
+            <Typography>姓名: {formData.name}</Typography>
+            <Typography>郵箱: {formData.username}</Typography>
+            <Typography>電話: {formData.phone}</Typography>
+            <Typography>身份: {formData.role === 'patient' ? '患者' : '醫生'}</Typography>
+            <Typography>請確認以上資訊無誤。</Typography>
           </Box>
         );
       default:

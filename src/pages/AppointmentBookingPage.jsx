@@ -158,15 +158,16 @@ const AppointmentBookingPage = () => {
         // Add patient details from context
         patientName: user?.name, 
         patientEmail: user?.username, // Assuming username is email
-        // patientPhone: user?.phone // Phone is currently missing from user context/data
+        patientPhone: user?.phone // ADDED PHONE
       };
 
       // Basic check for missing user details before sending
-      if (!appointmentDetails.patientName || !appointmentDetails.patientEmail) {
-          throw new Error("無法獲取您的用戶資訊，請重新登入後再試。");
+      if (!appointmentDetails.patientName || !appointmentDetails.patientEmail || !appointmentDetails.patientPhone) { // Added phone check
+          console.error('Missing user data for booking:', { name: user?.name, email: user?.username, phone: user?.phone });
+          throw new Error("無法獲取完整的用戶資訊 (姓名/郵箱/電話)，請檢查您的個人資料或重新登入後再試。");
       }
 
-      console.log("Sending booking details:", appointmentDetails); // Log details being sent
+      console.log("Sending booking details:", appointmentDetails);
       const response = await bookAppointment(appointmentDetails);
       console.log('Booking successful:', response.data);
       setBookingSuccess(`預約成功！您的預約時間是 ${selectedDate} ${selectedSlot}。`);
