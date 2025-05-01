@@ -1,18 +1,41 @@
-import React from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Drawer, List, ListItem, ListItemText, ListItemIcon, Divider } from '@mui/material';
+import React, { useContext } from 'react';
+import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Drawer, List, ListItem, ListItemText, ListItemIcon, Divider, Menu, MenuItem } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
 import LoginIcon from '@mui/icons-material/Login';
-import { Link as RouterLink } from 'react-router-dom';
+import LogoutIcon from '@mui/icons-material/Logout';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 
 const Header = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { isAuthenticated, user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const [anchorEl, setAnchorEl] = useState(null);
+  const openUserMenu = Boolean(anchorEl);
+
+  const handleUserMenuClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    handleUserMenuClose();
+    logout();
+    navigate('/');
+  };
 
   const toggleDrawer = (open) => (event) => {
     if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
@@ -21,12 +44,27 @@ const Header = () => {
     setDrawerOpen(open);
   };
 
-  const menuItems = [
-    { text: '首頁', icon: <HomeIcon />, path: '/' },
-    { text: '預約諮詢', icon: <CalendarMonthIcon />, path: '/appointment' },
-    { text: '我的預約', icon: <PersonIcon />, path: '/patient' },
-    { text: '登入', icon: <LoginIcon />, path: '/login' },
-  ];
+  const generateMenuItems = () => {
+    const baseItems = [
+      { text: '首頁', icon: <HomeIcon />, path: '/' },
+      { text: '預約諮詢', icon: <CalendarMonthIcon />, path: '/appointment' },
+    ];
+
+    if (isAuthenticated) {
+      const dashboardPath = user?.role === 'doctor' || user?.role === 'admin' ? '/doctor-dashboard' : '/patient-dashboard';
+      return [
+        ...baseItems,
+      ];
+    } else {
+      return [
+        ...baseItems,
+        { text: '登入', icon: <LoginIcon />, path: '/login' },
+        { text: '註冊', icon: <PersonIcon />, path: '/register' },
+      ];
+    }
+  };
+
+  const menuItems = generateMenuItems();
 
   const drawer = (
     <Box
@@ -42,14 +80,28 @@ const Header = () => {
       </Box>
       <Divider />
       <List>
-        {menuItems.map((item) => (
-          <ListItem button key={item.text} component={RouterLink} to={item.path}>
+        {generateMenuItems().map((item) => (
+          <ListItem 
+            button 
+            key={item.text} 
+            component={item.path ? RouterLink : 'button'}
+            to={item.path}
+            onClick={item.action}
+          >
             <ListItemIcon sx={{ color: theme.palette.primary.main }}>
               {item.icon}
             </ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
+        {isAuthenticated && (
+             <ListItem button key="logout-drawer" onClick={handleLogout}>
+                <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                    <LogoutIcon />
+                </ListItemIcon>
+                <ListItemText primary="登出" />
+            </ListItem>
+        )}
       </List>
     </Box>
   );
@@ -90,24 +142,54 @@ const Header = () => {
         </Typography>
         
         {!isMobile && (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {menuItems.map((item) => (
-              <Button 
-                key={item.text}
-                color="inherit"
-                component={RouterLink}
-                to={item.path}
-                startIcon={item.icon}
-                sx={{ 
-                  fontWeight: 500,
-                  '&:hover': {
-                    backgroundColor: 'rgba(63, 81, 181, 0.08)',
-                  }
-                }}
-              >
-                {item.text}
-              </Button>
-            ))}
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Button color="inherit" component={RouterLink} to="/" startIcon={<HomeIcon />} sx={{ fontWeight: 500 }}>首頁</Button>
+            <Button color="inherit" component={RouterLink} to="/appointment" startIcon={<CalendarMonthIcon />} sx={{ fontWeight: 500 }}>預約諮詢</Button>
+
+            {isAuthenticated ? (
+              <>
+                <Button
+                    color="inherit"
+                    onClick={handleUserMenuClick}
+                    startIcon={<AccountCircleIcon />}
+                    aria-controls={openUserMenu ? 'user-menu' : undefined}
+                    aria-haspopup="true"
+                    aria-expanded={openUserMenu ? 'true' : undefined}
+                    sx={{ fontWeight: 500, textTransform: 'none' }}
+                 >
+                    {user?.name || user?.username}
+                </Button>
+                <Menu
+                    id="user-menu"
+                    anchorEl={anchorEl}
+                    open={openUserMenu}
+                    onClose={handleUserMenuClose}
+                    MenuListProps={{
+                    'aria-labelledby': 'basic-button',
+                    }}
+                >
+                    <MenuItem 
+                        component={RouterLink} 
+                        to={user?.role === 'doctor' || user?.role === 'admin' ? '/doctor-dashboard' : '/patient-dashboard'} 
+                        onClick={handleUserMenuClose}
+                    >
+                        <ListItemIcon><DashboardIcon fontSize="small" /></ListItemIcon>
+                        我的儀表板
+                    </MenuItem>
+                    <Divider />
+                    <MenuItem onClick={handleLogout}>
+                        <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+                        登出
+                    </MenuItem>
+                </Menu>
+               </>
+
+            ) : (
+              <>
+                <Button color="inherit" component={RouterLink} to="/login" startIcon={<LoginIcon />} sx={{ fontWeight: 500 }}>登入</Button>
+                <Button color="inherit" component={RouterLink} to="/register" startIcon={<PersonIcon />} sx={{ fontWeight: 500 }}>註冊</Button>
+              </>
+            )}
           </Box>
         )}
       </Toolbar>
