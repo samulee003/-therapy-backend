@@ -86,8 +86,18 @@ const DoctorDashboard = () => {
     setErrorAppointments('');
     try {
       const response = await getDoctorAppointments(); // Uses the alias to getAllAppointments
-      // Filter appointments on the frontend if needed (e.g., by date range)
-      setAppointments(response.data || []);
+      // 處理新格式的回應（包含 success 欄位和 appointments 陣列）
+      if (response.data && response.data.success) {
+        // 新的 API 回應格式
+        setAppointments(response.data.appointments || []);
+      } else if (Array.isArray(response.data)) {
+        // 保持向後兼容的處理方式
+        setAppointments(response.data);
+      } else {
+        // 其他情況，設為空陣列
+        console.warn('意外的回應格式:', response.data);
+        setAppointments([]);
+      }
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
       setErrorAppointments(err.response?.data?.message || err.message || '無法加載預約記錄。');

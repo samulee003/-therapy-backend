@@ -1,3 +1,64 @@
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
+const cors = require('cors');
+const path = require('path');
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+
+// --- Express 設置 ---
+const app = express();
+const port = process.env.PORT || 5000;
+
+// 中間件
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://therapy-booking.zeabur.app'], // 允許的來源
+  credentials: true, // 允許憑證（Cookies）
+}));
+app.use(express.json()); // 解析 JSON 請求
+
+// 添加 Session 中間件
+app.use(session({
+  store: new SQLiteStore({ db: 'sessions.sqlite' }), // 將 session 儲存在 SQLite 資料庫
+  secret: 'your-secret-key', // 用於簽名 Session ID cookie 的密鑰
+  resave: false, // 不強制儲存未修改的 session
+  saveUninitialized: false, // 不儲存未初始化的 session
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', // 僅在 HTTPS 下使用 secure cookies
+    maxAge: 24 * 60 * 60 * 1000, // 24 小時過期
+    httpOnly: true, // 防止客戶端 JavaScript 訪問 cookie
+  }
+}));
+
+// --- 身份驗證中間件 ---
+
+// 檢查用戶是否已登入
+const isAuthenticated = (req, res, next) => {
+  if (req.session && req.session.userId) {
+    next(); // 用戶已登入，繼續
+  } else {
+    res.status(401).json({ success: false, message: "請先登入。" });
+  }
+};
+
+// 檢查用戶是否具有醫生角色
+const isDoctor = (req, res, next) => {
+  if (req.session && req.session.userId && req.session.role === 'doctor') {
+    next(); // 用戶是醫生，繼續
+  } else {
+    res.status(403).json({ success: false, message: "此操作需要醫生權限。" });
+  }
+};
+
+// 檢查用戶是否具有病人角色
+const isPatient = (req, res, next) => {
+  if (req.session && req.session.userId && req.session.role === 'patient') {
+    next(); // 用戶是病人，繼續
+  } else {
+    res.status(403).json({ success: false, message: "此操作需要病人權限。" });
+  }
+};
+
 // Function to initialize database schema and default settings/users
 async function initializeDatabase(database) {
     return new Promise((resolve, reject) => {
@@ -145,6 +206,21 @@ function getDb(sql, params = []) {
                  reject(err);
             } else {
                 resolve(row); // Resolve with the row found (or undefined)
+            }
+        });
+    });
+}
+
+// Helper function to wrap database.all in a Promise (for getting multiple rows)
+function allDb(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error("Database connection not established."));
+        db.all(sql, params, (err, rows) => { // Use db.all to get all matching rows
+            if (err) {
+                console.error('DB All Error:', err.message, 'SQL:', sql.substring(0, 100) + '...', 'Params:', params);
+                reject(err);
+            } else {
+                resolve(rows); // Resolve with the array of rows found (or empty array)
             }
         });
     });
@@ -347,3 +423,201 @@ app.post("/api/register", async (req, res) => {
 // ... (process.on('SIGINT') remains the same) ...
 
 // Ensure there are no stray characters or unterminated comments/strings at the end of the file.
+
+// --- NEW: API Routes for Fetching Appointments ---
+
+// GET Patient's Appointments (by email - INSECURE, needs proper auth)
+app.get('/api/appointments/patient/:email', async (req, res) => {
+    const patientEmail = req.params.email;
+    console.log(`Fetching appointments for patient email: ${patientEmail}`);
+    if (!patientEmail) {
+        return res.status(400).json({ message: "Patient email parameter is required." });
+    }
+    try {
+        const sql = "SELECT * FROM appointments WHERE patientEmail = ? ORDER BY date, time";
+        const appointments = await allDb(sql, [patientEmail]);
+        console.log(`Found ${appointments.length} appointments for ${patientEmail}`);
+        res.json(appointments);
+    } catch (error) {
+        console.error('Error fetching patient appointments:', error);
+        res.status(500).json({ message: 'Failed to fetch appointments.', error: error.message });
+    }
+});
+
+// GET All Appointments (for Doctor - INSECURE, needs role check)
+// WARNING: This endpoint currently returns ALL appointments without checking user role.
+// Implement proper authorization middleware before production use.
+app.get('/api/appointments/doctor/all', async (req, res) => {
+    console.log("Fetching all appointments for doctor view...");
+    try {
+        const sql = "SELECT * FROM appointments ORDER BY date, time";
+        const appointments = await allDb(sql);
+        console.log(`Found total ${appointments.length} appointments.`);
+        res.json(appointments);
+    } catch (error) {
+        console.error('Error fetching all appointments:', error);
+        res.status(500).json({ message: 'Failed to fetch all appointments.', error: error.message });
+    }
+});
+
+// Default route for testing
+app.get('/', (req, res) => {
+    res.send('Therapy Appointment API is running!');
+});
+
+// Error handling for database initialization should prevent server from starting without DB
+// No need for app.listen here as it's moved inside the db connection callback
+
+// Note: The app.listen call was moved inside the database connection callback
+// to ensure the database is ready before the server starts accepting requests.
+
+// 修改登入路由，加入 Session 支持
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // 基本輸入驗證
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: "請提供用戶名和密碼。" });
+    }
+    
+    // 從資料庫獲取用戶
+    const user = await getDb("SELECT * FROM users WHERE username = ?", [username]);
+    if (!user) {
+      return res.status(401).json({ success: false, message: "用戶名或密碼不正確。" });
+    }
+    
+    // 驗證密碼
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ success: false, message: "用戶名或密碼不正確。" });
+    }
+    
+    // 創建 Session
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.role = user.role;
+    req.session.name = user.name;
+    
+    // 返回用戶資訊（不包含密碼）
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        phone: user.phone
+      }
+    });
+    
+  } catch (error) {
+    console.error("登入錯誤:", error);
+    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+  }
+});
+
+// 新增登出路由
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error("登出錯誤:", err);
+      return res.status(500).json({ success: false, message: "登出失敗，請稍後再試。" });
+    }
+    res.json({ success: true, message: "登出成功。" });
+  });
+});
+
+// 獲取當前登入用戶資訊
+app.get('/api/me', isAuthenticated, async (req, res) => {
+  try {
+    const user = await getDb("SELECT id, username, name, role, phone FROM users WHERE id = ?", [req.session.userId]);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "用戶不存在。" });
+    }
+    res.json({ success: true, user });
+  } catch (error) {
+    console.error("獲取用戶資訊錯誤:", error);
+    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+  }
+});
+
+// 安全版：獲取當前登入用戶的預約列表
+app.get('/api/appointments/my', isAuthenticated, async (req, res) => {
+  try {
+    let appointments;
+    
+    if (req.session.role === 'patient') {
+      // 病人只能查看自己的預約
+      appointments = await allDb(
+        "SELECT * FROM appointments WHERE patientEmail = ? ORDER BY date, time",
+        [req.session.username] // 使用 session 中的 username (email)
+      );
+    } else if (req.session.role === 'doctor') {
+      // 醫生可以查看所有預約
+      appointments = await allDb("SELECT * FROM appointments ORDER BY date, time");
+    } else {
+      return res.status(403).json({ success: false, message: "無權限獲取預約列表。" });
+    }
+    
+    res.json({ success: true, appointments });
+  } catch (error) {
+    console.error("獲取預約列表錯誤:", error);
+    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+  }
+});
+
+// 安全版：獲取所有預約列表 (僅限醫生)
+app.get('/api/appointments/all', isAuthenticated, isDoctor, async (req, res) => {
+  try {
+    const appointments = await allDb("SELECT * FROM appointments ORDER BY date, time");
+    res.json({ success: true, appointments });
+  } catch (error) {
+    console.error("獲取所有預約列表錯誤:", error);
+    res.status(500).json({ success: false, message: "服務器錯誤，請稍後再試。" });
+  }
+});
+
+// 保留原有的路由，但將其標記為棄用
+app.get('/api/appointments/patient/:email', async (req, res) => {
+  console.warn("棄用警告: 使用 /api/appointments/patient/:email 路由。請改用 /api/appointments/my");
+  // ... existing implementation ...
+});
+
+app.get('/api/appointments/doctor/all', async (req, res) => {
+  console.warn("棄用警告: 使用 /api/appointments/doctor/all 路由。請改用 /api/appointments/all");
+  // ... existing implementation ...
+});
+
+// Register Route
+// ... other existing routes ...
+
+// 修改預約路由以使用身份驗證
+app.post('/api/book', isAuthenticated, async (req, res) => {
+  // ... existing booking logic ...
+  // 可以使用 req.session.userId 和 req.session.role 進行額外的授權檢查
+});
+
+// --- 開始伺服器 ---
+function startServer() {
+  app.listen(port, () => {
+    console.log(`伺服器運行在 http://localhost:${port}`);
+  });
+  
+  // 優雅關閉
+  process.on('SIGINT', () => {
+    console.log('\n正在關閉伺服器...');
+    if (db) {
+      db.close((err) => {
+        if (err) {
+          console.error('關閉資料庫錯誤:', err.message);
+        } else {
+          console.log('資料庫連接已關閉');
+        }
+        process.exit(0);
+      });
+    } else {
+      process.exit(0);
+    }
+  });
+}
