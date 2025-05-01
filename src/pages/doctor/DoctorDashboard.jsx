@@ -194,10 +194,15 @@ const DoctorDashboard = () => {
 
   // --- UI Rendering --- //
 
-  // Filter appointments (example)
+  // Filter appointments defensively
   const todayStr = formatDate(new Date());
-  const todayAppointments = appointments.filter(app => app.date === todayStr);
-  const upcomingAppointments = appointments.filter(app => app.date >= todayStr);
+  // Ensure appointments is an array before filtering
+  const todayAppointments = Array.isArray(appointments) 
+                            ? appointments.filter(app => app.date === todayStr)
+                            : []; 
+  const upcomingAppointments = Array.isArray(appointments) 
+                               ? appointments.filter(app => app.date >= todayStr)
+                               : [];
 
   // Sidebar menu items
   const menuItems = [
