@@ -64,8 +64,16 @@ const AppointmentBookingPage = () => {
         const slotsData = {};
         if (response.data && response.data.schedule) {
           for (const dateStr in response.data.schedule) {
-            if (response.data.schedule[dateStr].availableSlots) {
-              slotsData[dateStr] = response.data.schedule[dateStr].availableSlots;
+            const daySchedule = response.data.schedule[dateStr];
+            // Ensure availableSlots exists AND is an array
+            if (daySchedule && Array.isArray(daySchedule.availableSlots)) {
+              slotsData[dateStr] = daySchedule.availableSlots;
+            } else if (daySchedule && daySchedule.availableSlots) {
+              // Log if availableSlots exists but is not an array
+              console.warn(`Received non-array availableSlots for ${dateStr}:`, daySchedule.availableSlots);
+              slotsData[dateStr] = []; // Default to empty array
+            } else {
+              slotsData[dateStr] = []; // Default to empty array if no slots data
             }
           }
         }
@@ -235,12 +243,15 @@ const AppointmentBookingPage = () => {
         )}
 
         {/* Available Slots */}
-        {selectedDate && availableSlots[selectedDate] && (
+        {selectedDate && (
           <Box mt={4}>
             <Typography variant="h6" gutterBottom>
               {selectedDate} 可預約時段：
             </Typography>
-            {availableSlots[selectedDate].length === 0 ? (
+            {/* Check if slots exist and IS an array before mapping */}
+            {!Array.isArray(availableSlots[selectedDate]) ? (
+                <Typography color="text.secondary">無法加載時段資訊。</Typography>
+            ) : availableSlots[selectedDate].length === 0 ? (
               <Typography color="text.secondary">此日期已無可預約時段。</Typography>
             ) : (
               <Grid container spacing={1}>
@@ -249,7 +260,6 @@ const AppointmentBookingPage = () => {
                     <Button
                       variant={selectedSlot === slot ? 'contained' : 'outlined'}
                       onClick={() => handleSlotClick(slot)}
-                      disabled={bookingLoading}
                     >
                       {slot}
                     </Button>
