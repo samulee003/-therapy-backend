@@ -18,6 +18,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // 重要：啟用憑證 (Cookies) 跨域發送，用於 Session 認證
 });
 
 // Add a request interceptor to include the token (if any)
@@ -44,6 +45,16 @@ apiClient.interceptors.request.use(
 export const loginUser = (credentials) => {
   // Sending the full credentials object as backend requires both username and password
   return apiClient.post('/api/login', credentials); // Send the whole credentials object
+};
+
+// ADDED: User Logout (Matches POST /api/logout)
+export const logoutUser = () => {
+  return apiClient.post('/api/logout');
+};
+
+// ADDED: Get Current User Profile (Matches GET /api/me)
+export const getCurrentUser = () => {
+  return apiClient.get('/api/me');
 };
 
 // ADDED: User Registration (Matches POST /api/register)
@@ -82,20 +93,25 @@ export const saveScheduleForDate = (date, availableSlots) => {
 
 // --- Appointments --- //
 
-// Get All Appointments (Matches GET /api/appointments)
-// Backend returns all appointments, frontend might need to filter.
-export const getAllAppointments = () => {
-  return apiClient.get('/api/appointments');
+// UPDATED: Get My Appointments (Matches GET /api/appointments/my)
+// This will automatically use the session to determine the user and role
+export const getMyAppointments = () => {
+  return apiClient.get('/api/appointments/my');
 };
-// Aliases for different roles, pointing to the same backend endpoint
-export const getPatientAppointments = getAllAppointments;
-export const getDoctorAppointments = getAllAppointments;
 
+// Aliases for role-specific components that expect these functions
+export const getPatientAppointments = getMyAppointments;
+export const getDoctorAppointments = getMyAppointments;
 
-// Book an Appointment (Matches POST /api/appointments)
+// UPDATED: Get All Appointments (Doctor only) (Matches GET /api/appointments/all)
+export const getAllAppointments = () => {
+  return apiClient.get('/api/appointments/all');
+};
+
+// Book an Appointment (Matches POST /api/book)
 // Backend expects { date, time, patientName, patientPhone, patientEmail, ... }
 export const bookAppointment = (appointmentDetails) => {
-  return apiClient.post('/api/appointments', appointmentDetails);
+  return apiClient.post('/api/book', appointmentDetails);
 };
 
 // Cancel an Appointment (Matches PUT /api/appointments/:id/cancel)
