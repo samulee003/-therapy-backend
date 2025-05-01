@@ -97,8 +97,24 @@ const PatientDashboard = () => {
 
   // Filter upcoming and past appointments (example logic, adjust based on API data)
   const now = new Date();
-  const upcomingAppointments = appointments.filter(app => new Date(`${app.date}T${app.time.split(' - ')[0]}`) >= now);
-  const pastAppointments = appointments.filter(app => new Date(`${app.date}T${app.time.split(' - ')[0]}`) < now);
+  let upcomingAppointments = [];
+  let pastAppointments = [];
+  
+  if (Array.isArray(appointments)) {
+    try {
+      upcomingAppointments = appointments.filter(app => {
+        // Add check for valid date/time format before creating Date object
+        return app.date && app.time && new Date(`${app.date}T${app.time.split(' - ')[0]}`) >= now;
+      });
+      pastAppointments = appointments.filter(app => {
+        // Add check for valid date/time format before creating Date object
+        return app.date && app.time && new Date(`${app.date}T${app.time.split(' - ')[0]}`) < now;
+      });
+    } catch (e) {
+      console.error("Error filtering appointments by date:", e);
+      // Optionally set an error state here
+    }
+  }
 
   // Sidebar menu items
   const menuItems = [
