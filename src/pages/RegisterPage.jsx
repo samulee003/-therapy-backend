@@ -131,8 +131,6 @@ const RegisterPage = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                error={!!errors.name}
-                helperText={errors.name}
               />
             </Grid>
             <Grid item xs={12}>
@@ -145,8 +143,6 @@ const RegisterPage = () => {
                 type="email"
                 value={formData.username}
                 onChange={handleChange}
-                error={!!errors.username}
-                helperText={errors.username}
               />
             </Grid>
             <Grid item xs={12}>
@@ -159,12 +155,10 @@ const RegisterPage = () => {
                 type="tel"
                 value={formData.phone}
                 onChange={handleChange}
-                error={!!errors.phone}
-                helperText={errors.phone}
               />
             </Grid>
             <Grid item xs={12}>
-              <FormControl component="fieldset" required error={!!errors.role}>
+              <FormControl component="fieldset" required>
                 <FormLabel component="legend">註冊身份 (Role)</FormLabel>
                 <RadioGroup
                   row
@@ -176,7 +170,6 @@ const RegisterPage = () => {
                   <FormControlLabel value="patient" control={<Radio />} label="患者 (Patient)" />
                   <FormControlLabel value="doctor" control={<Radio />} label="醫生 (Doctor)" />
                 </RadioGroup>
-                {errors.role && <Typography color="error" variant="caption">{errors.role}</Typography>}
               </FormControl>
             </Grid>
           </Grid>
@@ -194,8 +187,6 @@ const RegisterPage = () => {
                 id="password"
                 value={formData.password}
                 onChange={handleChange}
-                error={!!errors.password}
-                helperText={errors.password}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -221,8 +212,6 @@ const RegisterPage = () => {
                 id="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                error={!!errors.confirmPassword}
-                helperText={errors.confirmPassword}
               />
             </Grid>
           </Grid>
