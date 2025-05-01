@@ -301,7 +301,9 @@ const PatientDashboard = () => {
                 <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
                   所有預約記錄
                 </Typography>
-                 {appointments.length === 0 ? (
+                 {!Array.isArray(appointments) ? (
+                    <Typography color="text.secondary">預約記錄正在加載或不可用。</Typography>
+                 ) : appointments.length === 0 ? (
                     <Typography color="text.secondary">您目前沒有任何預約記錄。</Typography>
                  ) : (
                     <List>
