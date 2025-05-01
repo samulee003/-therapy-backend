@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Drawer, List, ListItem, ListItemText, ListItemIcon, Divider, Menu, MenuItem } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Drawer, List, ListItem, ListItemText, ListItemIcon, Divider, Menu, MenuItem, CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
@@ -17,7 +17,7 @@ const Header = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useContext(AuthContext);
+  const { isAuthenticated, user, logout, isLoading } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [anchorEl, setAnchorEl] = useState(null);
@@ -146,7 +146,9 @@ const Header = () => {
             <Button color="inherit" component={RouterLink} to="/" startIcon={<HomeIcon />} sx={{ fontWeight: 500 }}>首頁</Button>
             <Button color="inherit" component={RouterLink} to="/appointment" startIcon={<CalendarMonthIcon />} sx={{ fontWeight: 500 }}>預約諮詢</Button>
 
-            {isAuthenticated ? (
+            {isLoading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : isAuthenticated ? (
               <>
                 <Button
                     color="inherit"
@@ -183,7 +185,6 @@ const Header = () => {
                     </MenuItem>
                 </Menu>
                </>
-
             ) : (
               <>
                 <Button color="inherit" component={RouterLink} to="/login" startIcon={<LoginIcon />} sx={{ fontWeight: 500 }}>登入</Button>

@@ -153,6 +153,11 @@ const DoctorDashboard = () => {
   
   // Handle removing a time slot input from the editing date
   const handleRemoveSlotFromEdit = (index) => {
+    // Ensure availableSlotsForEdit is an array before filtering
+    if (!Array.isArray(availableSlotsForEdit)) {
+        console.error("handleRemoveSlotFromEdit: availableSlotsForEdit is not an array", availableSlotsForEdit);
+        return;
+    }
     const updatedSlots = availableSlotsForEdit.filter((_, i) => i !== index);
     setAvailableSlotsForEdit(updatedSlots);
   };
@@ -161,6 +166,13 @@ const DoctorDashboard = () => {
   const handleSaveScheduleForDate = async () => {
     if (!editingDate) return;
     
+    // Ensure availableSlotsForEdit is an array before filtering
+    if (!Array.isArray(availableSlotsForEdit)) {
+        console.error("handleSaveScheduleForDate: availableSlotsForEdit is not an array", availableSlotsForEdit);
+        setErrorSchedule("儲存排班時發生內部錯誤 (資料格式錯誤)");
+        return;
+    }
+
     // Filter out empty strings and validate time format (HH:MM)
     const validSlots = availableSlotsForEdit.filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot));
     // Optionally sort the slots
