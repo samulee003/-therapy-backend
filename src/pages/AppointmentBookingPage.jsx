@@ -153,10 +153,20 @@ const AppointmentBookingPage = () => {
 
     try {
       const appointmentDetails = {
-        // patientId is inferred from token on the backend
         date: selectedDate,
         time: selectedSlot,
+        // Add patient details from context
+        patientName: user?.name, 
+        patientEmail: user?.username, // Assuming username is email
+        // patientPhone: user?.phone // Phone is currently missing from user context/data
       };
+
+      // Basic check for missing user details before sending
+      if (!appointmentDetails.patientName || !appointmentDetails.patientEmail) {
+          throw new Error("無法獲取您的用戶資訊，請重新登入後再試。");
+      }
+
+      console.log("Sending booking details:", appointmentDetails); // Log details being sent
       const response = await bookAppointment(appointmentDetails);
       console.log('Booking successful:', response.data);
       setBookingSuccess(`預約成功！您的預約時間是 ${selectedDate} ${selectedSlot}。`);
@@ -165,7 +175,10 @@ const AppointmentBookingPage = () => {
       // Refresh available slots for the selected date by filtering the booked slot
       // The availableSlots state already holds the correct structure: { 'YYYY-MM-DD': [...] }
       setAvailableSlots(prevSlots => {
-        const updatedSlotsForDate = (prevSlots[selectedDate] || []).filter(s => s !== selectedSlot);
+        // Ensure prevSlots[selectedDate] is an array before filtering
+        const updatedSlotsForDate = Array.isArray(prevSlots[selectedDate]) 
+                                    ? prevSlots[selectedDate].filter(s => s !== selectedSlot)
+                                    : [];
         return {
           ...prevSlots,
           [selectedDate]: updatedSlotsForDate
