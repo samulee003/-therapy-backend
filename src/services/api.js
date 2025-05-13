@@ -13,6 +13,61 @@ if (!API_BASE_URL) {
   // throw new Error("VITE_API_BASE_URL environment variable is not set.");
 }
 
+/**
+ * 格式化 API 錯誤
+ * 
+ * @param {Error} error - Axios 錯誤對象
+ * @param {string} defaultMessage - 預設錯誤訊息
+ * @returns {Object} 標準化錯誤對象 { message, code, details }
+ */
+export const formatApiError = (error, defaultMessage = '發生錯誤，請稍後再試') => {
+  // 檢查是否是 Axios 錯誤
+  if (error.response) {
+    // 伺服器回應了錯誤狀態碼
+    const { data, status } = error.response;
+    
+    return {
+      message: data?.message || getStatusMessage(status) || defaultMessage,
+      code: status,
+      details: data || {}
+    };
+  } else if (error.request) {
+    // 請求已發出但沒有收到回應，可能是網絡問題
+    return {
+      message: '無法連接到伺服器，請檢查您的網絡連接。',
+      code: 'NETWORK_ERROR',
+      details: { request: error.request }
+    };
+  } else {
+    // 發生了其他錯誤
+    return {
+      message: error.message || defaultMessage,
+      code: 'UNKNOWN_ERROR',
+      details: error
+    };
+  }
+};
+
+/**
+ * 根據 HTTP 狀態碼返回適當的錯誤訊息
+ */
+const getStatusMessage = (status) => {
+  const messages = {
+    400: '請求參數有誤',
+    401: '您需要登入或重新登入',
+    403: '您沒有權限執行此操作',
+    404: '請求的資源不存在',
+    409: '操作衝突或已存在',
+    422: '表單資料驗證失敗',
+    429: '請求太頻繁，請稍後再試',
+    500: '伺服器內部錯誤',
+    502: '網關錯誤',
+    503: '服務暫時不可用'
+  };
+  
+  return messages[status] || null;
+};
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL, // Use the backend URL
   headers: {
@@ -34,6 +89,29 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
+  }
+);
+
+// 添加響應攔截器來標準化錯誤處理
+apiClient.interceptors.response.use(
+  (response) => {
+    // 對成功響應不做處理
+    return response;
+  },
+  (error) => {
+    // 格式化錯誤
+    const formattedError = formatApiError(error);
+    
+    // 針對特定錯誤碼的處理
+    if (formattedError.code === 401) {
+      // 401 錯誤可能需要重定向到登入頁面
+      console.warn('Authentication error:', formattedError.message);
+      // 如果需要，可以觸發登出或重定向到登入頁面
+      // window.location.href = '/login';
+    }
+    
+    // 仍然拒絕承諾，但使用格式化後的錯誤
+    return Promise.reject(Object.assign(error, { formatted: formattedError }));
   }
 );
 

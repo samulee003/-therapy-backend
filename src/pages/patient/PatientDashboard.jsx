@@ -25,6 +25,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions
 } from '@mui/material';
 import { 
@@ -39,7 +40,8 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext'; // Corrected path
-import { getPatientAppointments, cancelPatientAppointment } from '../../services/api'; // Corrected path assuming api is in src/services
+import { getPatientAppointments, cancelPatientAppointment, formatApiError } from '../../services/api'; // Corrected path assuming api is in src/services
+import { ErrorAlert, LoadingIndicator } from '../../components/common';
 
 // Removed mock data
 
@@ -56,6 +58,12 @@ const PatientDashboard = () => {
   // 添加查看詳情狀態
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  
+  // 添加取消預約確認對話框狀態
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
 
   const fetchAppointments = async () => {
     if (!user) return; // Don't fetch if user is not loaded
@@ -77,7 +85,9 @@ const PatientDashboard = () => {
       }
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
-      setError(err.response?.data?.message || err.message || '無法加載您的預約記錄。');
+      // 使用格式化的錯誤訊息
+      const formattedError = err.formatted || formatApiError(err, '無法加載您的預約記錄');
+      setError(formattedError.message);
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -93,6 +103,72 @@ const PatientDashboard = () => {
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  // 添加取消預約功能
+  const handleCancelAppointment = async (appointment) => {
+    if (!appointment || !appointment._id) {
+      setCancelError('無效的預約資訊，無法取消。');
+      return;
+    }
+    
+    setAppointmentToCancel(appointment);
+    setCancelConfirmOpen(true);
+  };
+
+  // 確認取消預約
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel || !appointmentToCancel._id) {
+      setCancelError('無效的預約資訊，無法取消。');
+      setCancelConfirmOpen(false);
+      return;
+    }
+    
+    setCancellingId(appointmentToCancel._id);
+    setCancelError('');
+    setCancelSuccess('');
+    
+    try {
+      await cancelPatientAppointment(appointmentToCancel._id);
+      
+      // 更新 UI
+      setAppointments(prevAppointments => 
+        prevAppointments.map(app => 
+          app._id === appointmentToCancel._id 
+            ? { ...app, status: 'cancelled' } 
+            : app
+        )
+      );
+      
+      setCancelSuccess(`預約已成功取消。`);
+      
+      // 如果正在查看被取消的預約，則更新選中的預約資訊
+      if (selectedAppointment && selectedAppointment._id === appointmentToCancel._id) {
+        setSelectedAppointment(prev => ({...prev, status: 'cancelled'}));
+      }
+      
+      // 關閉確認對話框
+      setTimeout(() => {
+        setCancelConfirmOpen(false);
+        setCancelSuccess('');
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Failed to cancel appointment:', err);
+      // 使用格式化的錯誤訊息
+      const formattedError = err.formatted || formatApiError(err, '無法取消預約，請稍後再試');
+      setCancelError(formattedError.message);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  // 關閉取消確認對話框
+  const closeCancelConfirm = () => {
+    setCancelConfirmOpen(false);
+    setAppointmentToCancel(null);
+    setCancelError('');
+    setCancelSuccess('');
   };
 
   // 修改為查看詳情功能
@@ -136,11 +212,16 @@ const PatientDashboard = () => {
 
   // Render dashboard content
   const renderDashboardContent = () => {
-    if (authLoading || loading) {
-        return <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress /></Box>;
+    if (authLoading) {
+      return <LoadingIndicator message="載入用戶資訊..." />;
     }
+    
+    if (loading) {
+      return <LoadingIndicator message="載入預約資料..." />;
+    }
+    
     if (error) {
-        return <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>;
+      return <ErrorAlert message={error} onClose={() => setError('')} />;
     }
 
     switch (tabValue) {
@@ -232,10 +313,12 @@ const PatientDashboard = () => {
                                     edge="end" 
                                     aria-label="cancel" 
                                     color="error"
-                                    onClick={() => handleViewDetails(appointment)}
+                                    onClick={() => handleCancelAppointment(appointment)}
                                     disabled={cancellingId === appointment._id}
                                 >
-                                    {cancellingId === appointment._id ? <CircularProgress size={20} color="inherit" /> : <CancelIcon />}
+                                    {cancellingId === appointment._id 
+                                      ? <LoadingIndicator type="inline" size="small" /> 
+                                      : <CancelIcon />}
                                 </IconButton>
                                 )
                             }
@@ -298,8 +381,12 @@ const PatientDashboard = () => {
                 <Typography variant="h5" component="h2" fontWeight="medium">
                 我的預約
                 </Typography>
-                <IconButton onClick={fetchAppointments} aria-label="刷新預約">
-                    <RefreshIcon />
+                <IconButton 
+                  onClick={fetchAppointments} 
+                  aria-label="刷新預約"
+                  disabled={loading}
+                >
+                    {loading ? <LoadingIndicator type="inline" size="small" /> : <RefreshIcon />}
                 </IconButton>
             </Box>
             <Typography variant="body1" color="text.secondary" paragraph>
@@ -509,7 +596,75 @@ const PatientDashboard = () => {
           )}
         </DialogContent>
         <DialogActions>
+          {selectedAppointment && selectedAppointment.status !== 'cancelled' && new Date(`${selectedAppointment.date}T${selectedAppointment.time.split(' - ')[0]}`) > new Date() && (
+            <Button
+              onClick={() => handleCancelAppointment(selectedAppointment)}
+              color="error"
+              startIcon={<CancelIcon />}
+              disabled={cancellingId === selectedAppointment._id}
+            >
+              {cancellingId === selectedAppointment._id ? '取消中...' : '取消預約'}
+            </Button>
+          )}
           <Button onClick={handleCloseDetails}>關閉</Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* 取消預約確認對話框 */}
+      <Dialog
+        open={cancelConfirmOpen}
+        onClose={cancelSuccess ? null : closeCancelConfirm}
+        aria-labelledby="cancel-appointment-title"
+        aria-describedby="cancel-appointment-description"
+      >
+        <DialogTitle id="cancel-appointment-title" sx={{ color: theme.palette.error.main }}>
+          確認取消預約
+        </DialogTitle>
+        <DialogContent>
+          {cancelSuccess ? (
+            <Alert severity="success" sx={{ mt: 2 }}>{cancelSuccess}</Alert>
+          ) : (
+            <>
+              <DialogContentText id="cancel-appointment-description">
+                您確定要取消此預約嗎？此操作不可撤銷。
+              </DialogContentText>
+              {appointmentToCancel && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="body2">
+                    <strong>日期：</strong> {appointmentToCancel.date}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>時間：</strong> {appointmentToCancel.time}
+                  </Typography>
+                </Box>
+              )}
+              {cancelError && (
+                <ErrorAlert 
+                  message={cancelError} 
+                  onClose={() => setCancelError('')}
+                  sx={{ mt: 2 }}
+                />
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!cancelSuccess && (
+            <>
+              <Button onClick={closeCancelConfirm} disabled={cancellingId !== null}>
+                返回
+              </Button>
+              <Button 
+                onClick={confirmCancelAppointment} 
+                color="error" 
+                disabled={cancellingId !== null}
+              >
+                {cancellingId !== null ? (
+                  <LoadingIndicator type="inline" size="small" message="處理中..." />
+                ) : '確認取消'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
     </Container>
