@@ -23,7 +23,8 @@ import {
   useTheme,
   useMediaQuery,
   Alert,
-  CircularProgress
+  CircularProgress,
+  FormHelperText
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -34,7 +35,8 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PhoneIcon from '@mui/icons-material/Phone';
-import { registerUser } from '../services/api';
+import { registerUser, formatApiError } from '../services/api';
+import { ErrorAlert } from '../components/common';
 
 const RegisterPage = () => {
   const theme = useTheme();
@@ -51,9 +53,28 @@ const RegisterPage = () => {
     confirmPassword: '',
     role: 'patient' 
   });
+  
+  // 表單驗證錯誤
+  const [errors, setErrors] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: ''
+  });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  // 表單驗證正則表達式
+  const PATTERNS = {
+    EMAIL: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/,
+    PHONE: /^[0-9]{8,}$/, // 至少 8 位數字
+    PASSWORD_STRONG: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    PASSWORD_MEDIUM: /^(?=.*[a-zA-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/,
+    NAME: /^[\u4e00-\u9fa5a-zA-Z\s]{2,30}$/, // 中文或英文名，2-30個字符
+  };
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -63,16 +84,123 @@ const RegisterPage = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
+  const validateField = (name, value) => {
+    let errorMessage = '';
+    
+    switch (name) {
+      case 'name':
+        if (!value.trim()) {
+          errorMessage = '請輸入您的姓名';
+        } else if (!PATTERNS.NAME.test(value)) {
+          errorMessage = '姓名應為 2-30 個漢字或英文字母';
+        }
+        break;
+      
+      case 'email':
+        if (!value.trim()) {
+          errorMessage = '請輸入您的電子郵件';
+        } else if (!PATTERNS.EMAIL.test(value)) {
+          errorMessage = '請輸入有效的電子郵件格式';
+        }
+        break;
+      
+      case 'phone':
+        if (!value.trim()) {
+          errorMessage = '請輸入您的電話號碼';
+        } else if (!PATTERNS.PHONE.test(value)) {
+          errorMessage = '請輸入有效的電話號碼（至少 8 位數字）';
+        }
+        break;
+      
+      case 'password':
+        if (!value) {
+          errorMessage = '請輸入密碼';
+        } else if (value.length < 6) {
+          errorMessage = '密碼長度至少為 6 位';
+        } else if (!PATTERNS.PASSWORD_MEDIUM.test(value)) {
+          errorMessage = '密碼需包含字母和數字';
+        }
+        break;
+      
+      case 'confirmPassword':
+        if (!value) {
+          errorMessage = '請確認您的密碼';
+        } else if (value !== formData.password) {
+          errorMessage = '兩次密碼輸入不一致';
+        }
+        break;
+      
+      default:
+        break;
+    }
+    
+    return errorMessage;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // 更新表單數據
     setFormData({
       ...formData,
       [name]: value
     });
+    
+    // 更新錯誤訊息
+    setErrors({
+      ...errors,
+      [name]: validateField(name, value)
+    });
+    
+    // 在確認密碼欄位變化時，重新驗證確認密碼
+    if (name === 'password') {
+      setErrors(prev => ({
+        ...prev,
+        confirmPassword: formData.confirmPassword 
+          ? (value === formData.confirmPassword ? '' : '兩次密碼輸入不一致') 
+          : prev.confirmPassword
+      }));
+    }
+  };
+
+  const validateCurrentStep = () => {
+    if (activeStep === 0) { // 基本信息
+      const stepErrors = {};
+      
+      // 驗證姓名
+      stepErrors.name = validateField('name', formData.name);
+      
+      // 驗證電子郵件
+      stepErrors.email = validateField('email', formData.email);
+      
+      // 驗證電話號碼
+      stepErrors.phone = validateField('phone', formData.phone);
+      
+      setErrors({...errors, ...stepErrors});
+      
+      return !stepErrors.name && !stepErrors.email && !stepErrors.phone;
+    } 
+    else if (activeStep === 1) { // 帳號設置
+      const stepErrors = {};
+      
+      // 驗證密碼
+      stepErrors.password = validateField('password', formData.password);
+      
+      // 驗證確認密碼
+      stepErrors.confirmPassword = validateField('confirmPassword', formData.confirmPassword);
+      
+      setErrors({...errors, ...stepErrors});
+      
+      return !stepErrors.password && !stepErrors.confirmPassword;
+    }
+    
+    return true;
   };
 
   const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    if (validateCurrentStep()) {
+      setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    }
   };
 
   const handleBack = () => {
@@ -82,13 +210,28 @@ const RegisterPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
-    setLoading(true);
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('密碼和確認密碼不匹配。');
-      setLoading(false);
+    
+    // 最後確認所有表單都驗證通過
+    const nameError = validateField('name', formData.name);
+    const emailError = validateField('email', formData.email);
+    const phoneError = validateField('phone', formData.phone);
+    const passwordError = validateField('password', formData.password);
+    const confirmPasswordError = validateField('confirmPassword', formData.confirmPassword);
+    
+    setErrors({
+      name: nameError,
+      email: emailError,
+      phone: phoneError,
+      password: passwordError,
+      confirmPassword: confirmPasswordError
+    });
+    
+    // 如果有任何錯誤，阻止表單提交
+    if (nameError || emailError || phoneError || passwordError || confirmPasswordError) {
       return;
     }
+    
+    setLoading(true);
 
     const registrationData = {
       username: formData.email,
@@ -98,18 +241,22 @@ const RegisterPage = () => {
       role: formData.role,
     };
 
-    console.log('Attempting registration with:', registrationData);
-
     try {
       const response = await registerUser(registrationData);
-      console.log('Registration successful:', response.data);
-      alert('註冊成功！請使用您的帳號登入。'); 
-      navigate('/login'); 
-
+      navigate('/login', { state: { message: '註冊成功！請使用您的帳號登入。' } });
     } catch (err) {
       console.error('Registration failed:', err);
-      setError(err.response?.data?.message || err.message || '註冊失敗，請稍後再試。');
-
+      // 使用格式化的錯誤訊息
+      const formattedError = err.formatted || formatApiError(err, '註冊失敗，請稍後再試');
+      setError(formattedError.message);
+      
+      // 如果伺服器返回的是電子郵件已存在的錯誤，設置對應欄位的錯誤
+      if (formattedError.code === 409) {
+        setErrors(prev => ({
+          ...prev,
+          email: '此電子郵件已被註冊'
+        }));
+      }
     } finally {
       setLoading(false);
     }
@@ -131,6 +278,15 @@ const RegisterPage = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
+                error={!!errors.name}
+                helperText={errors.name}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonOutlineIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -143,6 +299,15 @@ const RegisterPage = () => {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
+                error={!!errors.email}
+                helperText={errors.email}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailOutlinedIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -155,6 +320,15 @@ const RegisterPage = () => {
                 type="tel"
                 value={formData.phone}
                 onChange={handleChange}
+                error={!!errors.phone}
+                helperText={errors.phone}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -187,7 +361,14 @@ const RegisterPage = () => {
                 id="password"
                 value={formData.password}
                 onChange={handleChange}
+                error={!!errors.password}
+                helperText={errors.password}
                 InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockOutlinedIcon color="action" />
+                    </InputAdornment>
+                  ),
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
@@ -208,23 +389,72 @@ const RegisterPage = () => {
                 fullWidth
                 name="confirmPassword"
                 label="確認密碼 (Confirm Password)"
-                type={showPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? 'text' : 'password'}
                 id="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                error={!!errors.confirmPassword}
+                helperText={errors.confirmPassword}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockOutlinedIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle confirm password visibility"
+                        onClick={handleToggleConfirmPasswordVisibility}
+                        edge="end"
+                      >
+                        {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
+            </Grid>
+            <Grid item xs={12}>
+              <FormHelperText>
+                密碼須包含至少 6 個字符，並包含字母和數字。
+              </FormHelperText>
             </Grid>
           </Grid>
         );
       case 2:
         return (
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6">註冊資訊確認</Typography>
-            <Typography>姓名: {formData.name}</Typography>
-            <Typography>郵箱: {formData.email}</Typography>
-            <Typography>電話: {formData.phone}</Typography>
-            <Typography>身份: {formData.role === 'patient' ? '患者' : '醫生'}</Typography>
-            <Typography>請確認以上資訊無誤。</Typography>
+            <Typography variant="h6" gutterBottom>註冊資訊確認</Typography>
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                <Typography>姓名:</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'left' }}>
+                <Typography>{formData.name}</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                <Typography>電子郵件:</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'left' }}>
+                <Typography>{formData.email}</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                <Typography>電話號碼:</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'left' }}>
+                <Typography>{formData.phone}</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                <Typography>身份:</Typography>
+              </Grid>
+              <Grid item xs={6} sx={{ textAlign: 'left' }}>
+                <Typography>{formData.role === 'patient' ? '患者' : '醫生'}</Typography>
+              </Grid>
+            </Grid>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+              請確認以上資訊無誤。點擊「完成註冊」按鈕後，您的帳號將被創建。
+            </Typography>
           </Box>
         );
       default:
@@ -260,6 +490,14 @@ const RegisterPage = () => {
           ))}
         </Stepper>
 
+        {error && (
+          <ErrorAlert 
+            message={error} 
+            onClose={() => setError('')} 
+            sx={{ width: '100%', mb: 3 }} 
+          />
+        )}
+
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           {getStepContent(activeStep)}
           
@@ -280,8 +518,13 @@ const RegisterPage = () => {
                   color="primary"
                   size="large"
                   sx={{ py: 1, px: 4 }}
+                  disabled={loading}
                 >
-                  完成註冊
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    '完成註冊'
+                  )}
                 </Button>
               ) : (
                 <Button
@@ -312,6 +555,7 @@ const RegisterPage = () => {
                 variant="outlined"
                 startIcon={<GoogleIcon />}
                 sx={{ py: 1.5 }}
+                disabled // 暫時禁用
               >
                 Google 註冊
               </Button>
@@ -322,6 +566,7 @@ const RegisterPage = () => {
                 variant="outlined"
                 startIcon={<FacebookIcon />}
                 sx={{ py: 1.5 }}
+                disabled // 暫時禁用
               >
                 Facebook 註冊
               </Button>
