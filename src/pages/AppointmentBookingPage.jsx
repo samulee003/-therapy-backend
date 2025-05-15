@@ -26,9 +26,9 @@ import {
 import { ArrowBackIosNew, ArrowForwardIos, EventAvailable as EventAvailableIcon, AccessTime as AccessTimeIcon } from '@mui/icons-material';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { getScheduleForMonth, bookAppointment, formatApiError } from '../../services/api';
-import { AuthContext } from '../../context/AuthContext';
-import { LoadingIndicator, ErrorAlert } from '../../components/common';
+import { getScheduleForMonth, bookAppointment, formatApiError } from '../services/api';
+import { AuthContext } from '../context/AuthContext';
+import { LoadingIndicator, ErrorAlert } from '../components/common';
 
 
 const AppointmentBookingPage = () => {
