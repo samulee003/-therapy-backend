@@ -32,7 +32,8 @@ import {
   FormControlLabel,
   Checkbox,
   Stack,
-  Tooltip
+  Tooltip,
+  Snackbar
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
@@ -52,7 +53,8 @@ import {
     getDoctorAppointments, // This now points to getAllAppointments
     getScheduleForMonth,   // Use this instead of getDoctorSlots
     saveScheduleForDate,   // Use this instead of addDoctorSlot
-    getSettings            // Added to get defaultTimeSlots
+    getSettings,           // Added to get defaultTimeSlots
+    updateSettings         // 添加更新設置的API調用
 } from '../../services/api'; // Adjusted path
 
 // Removed mock data
@@ -88,6 +90,7 @@ const DoctorDashboard = () => {
   const [defaultTimeSlots, setDefaultTimeSlots] = useState([]); // 系統設置中的預設時段列表
   const [loadingSettings, setLoadingSettings] = useState(false); // 加載設置的狀態
   const [errorSettings, setErrorSettings] = useState(''); // 加載設置的錯誤
+  const [settingsUpdateSuccess, setSettingsUpdateSuccess] = useState(false); // 設置更新成功狀態
 
   // 新增狀態：批量排班
   const [showBulkScheduler, setShowBulkScheduler] = useState(false); // 是否顯示批量排班界面
@@ -168,6 +171,50 @@ const DoctorDashboard = () => {
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       setErrorSettings(err.response?.data?.message || err.message || '無法加載系統設置。');
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  // 新增處理程序：移除預設時段
+  const handleRemoveDefaultTimeSlot = (slotToRemove) => {
+    setDefaultTimeSlots(currentSlots => 
+      currentSlots.filter(slot => slot !== slotToRemove)
+    );
+  };
+  
+  // 保存預設時段設置
+  const handleSaveDefaultTimeSlots = async () => {
+    setLoadingSettings(true);
+    setErrorSettings('');
+    setSettingsUpdateSuccess(false);
+    
+    try {
+      // 獲取當前設置，以保留其他設置字段
+      const response = await getSettings();
+      if (!response.data || !response.data.success) {
+        throw new Error('無法獲取當前設置');
+      }
+      
+      const currentSettings = response.data.settings;
+      // 更新預設時段
+      const updatedSettings = {
+        ...currentSettings,
+        defaultTimeSlots: [...defaultTimeSlots]
+      };
+      
+      // 發送更新請求
+      const updateResponse = await updateSettings(updatedSettings);
+      if (updateResponse.data && updateResponse.data.success) {
+        setSettingsUpdateSuccess(true);
+        // 3秒後關閉成功提示
+        setTimeout(() => setSettingsUpdateSuccess(false), 3000);
+      } else {
+        throw new Error('設置更新失敗');
+      }
+    } catch (err) {
+      console.error('Failed to update settings:', err);
+      setErrorSettings(err.response?.data?.message || err.message || '無法更新設置。');
     } finally {
       setLoadingSettings(false);
     }
@@ -839,7 +886,7 @@ const DoctorDashboard = () => {
               設置
             </Typography>
             <Typography variant="body1" color="text.secondary" paragraph>
-              管理您的帳號信息。
+              管理您的帳號信息和系統設置。
             </Typography>
             
             <Card sx={{ borderRadius: 2, mt: 3 }}>
@@ -856,10 +903,147 @@ const DoctorDashboard = () => {
                  <Typography variant="body2" color="text.secondary" paragraph>
                   角色: {user?.role === 'doctor' ? '醫生' : user?.role}
                 </Typography>
-                {/* Add button to edit profile if needed */}
               </CardContent>
             </Card>
-            {/* Add other settings sections if applicable */}
+            
+            {/* 預設時段設置卡片 */}
+            <Card sx={{ borderRadius: 2, mt: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" component="h3" fontWeight="medium">
+                    預設時段管理
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    color="primary"
+                    onClick={handleSaveDefaultTimeSlots}
+                    disabled={loadingSettings}
+                  >
+                    {loadingSettings ? <CircularProgress size={24} /> : '保存變更'}
+                  </Button>
+                </Box>
+                
+                {errorSettings && <Alert severity="error" sx={{ mb: 2 }}>{errorSettings}</Alert>}
+                
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  設置常用的預設時段，以便在排班時快速選擇。這些時段會在排班頁面上顯示為可點擊的選項。
+                </Typography>
+
+                {/* 一至五服務時段 */}
+                <Box sx={{ mt: 3, mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                    一至五服務時段
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {['2:00-3:00', '3:30-4:30', '5:00-6:00', '6:30-7:30'].map((slot) => (
+                      <Chip 
+                        key={slot} 
+                        label={slot}
+                        onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
+                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
+                        sx={{ m: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+                
+                {/* 週六服務時段 */}
+                <Box sx={{ my: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                    週六服務時段
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {['10:00-11:00', '11:30-12:30'].map((slot) => (
+                      <Chip 
+                        key={slot} 
+                        label={slot}
+                        onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
+                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
+                        sx={{ m: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+                
+                {/* 下午服務時段 */}
+                <Box sx={{ my: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                    下午服務時段
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {['2:00-3:00', '3:30-4:30', '5:00-6:00'].map((slot) => (
+                      <Chip 
+                        key={slot} 
+                        label={slot}
+                        onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
+                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
+                        sx={{ m: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+                
+                {/* 其他時段 */}
+                <Box sx={{ my: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                    其他時段
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'].map((slot) => (
+                      <Chip 
+                        key={slot} 
+                        label={slot}
+                        onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
+                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
+                        sx={{ m: 0.5 }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+                
+                {/* 當前已選預設時段 */}
+                <Box sx={{ mt: 4 }}>
+                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                    當前已選預設時段
+                  </Typography>
+                  {defaultTimeSlots.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      尚未選擇任何預設時段。
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {defaultTimeSlots.map((slot) => (
+                        <Chip 
+                          key={slot} 
+                          label={slot} 
+                          onDelete={() => handleRemoveDefaultTimeSlot(slot)} 
+                          color="primary"
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* 設置更新成功提示 */}
+            <Snackbar 
+              open={settingsUpdateSuccess}
+              autoHideDuration={3000}
+              onClose={() => setSettingsUpdateSuccess(false)}
+              message="預設時段設置已成功更新"
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+              sx={{ 
+                '& .MuiSnackbarContent-root': { 
+                  bgcolor: 'success.main',
+                  color: 'common.white'
+                }
+              }}
+            />
           </Box>
         );
       default:
