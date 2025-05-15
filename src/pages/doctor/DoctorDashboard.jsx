@@ -99,6 +99,20 @@ const DoctorDashboard = () => {
   const [selectedWeekdays, setSelectedWeekdays] = useState([1,2,3,4,5]); // 選擇的星期 [0=周日, 1=周一, ..., 6=周六]
   const [isBulkScheduling, setIsBulkScheduling] = useState(false); // 批量排班處理中狀態
 
+  // 修改設置頁面中的預設時段列表 (用於全局設置)
+  // 從 "起始-結束" 改為 "開始時間" 格式
+  // 一至五服務時段
+  const weekdaySlots = ['14:00', '15:30', '17:00', '18:30'];
+  
+  // 週六服務時段
+  const saturdaySlots = ['10:00', '11:30'];
+  
+  // 下午服務時段
+  const afternoonSlots = ['14:00', '15:30', '17:00'];
+  
+  // 其他時段
+  const otherSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+
   // --- Data Fetching --- //
 
   const fetchAppointments = async () => {
@@ -708,7 +722,7 @@ const DoctorDashboard = () => {
                                 size="small" 
                                 value={slot || ""}
                                 onChange={(e) => handleSlotInputChange(index, e.target.value)}
-                                sx={{ mr: 1 }}
+                                sx={{ mr: 1, minWidth: '120px' }}
                                 aria-label={`時段 ${index + 1}`}
                                 inputProps={{
                                   "data-testid": `slot-input-${index}`
@@ -732,8 +746,11 @@ const DoctorDashboard = () => {
                     
                     {/* 操作按鈕 */}
                     <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      <Button startIcon={<AddIcon />} onClick={handleAddSlotToEdit}>
-                          添加時段
+                      <Button 
+                        startIcon={<AddIcon />} 
+                        onClick={handleAddSlotToEdit}
+                      >
+                        添加時段
                       </Button>
                       <Button 
                         variant="outlined" 
@@ -749,7 +766,7 @@ const DoctorDashboard = () => {
                         onClick={handleSaveScheduleForDate} 
                         disabled={loadingSchedule || availableSlotsForEdit.length === 0}
                       >
-                          {loadingSchedule ? <CircularProgress size={20}/> : '保存排班'}
+                        {loadingSchedule ? <CircularProgress size={20}/> : (availableSlotsForEdit.length === 0 ? '請先添加時段' : '保存排班')}
                       </Button>
                       <Button 
                         variant="outlined" 
@@ -759,7 +776,7 @@ const DoctorDashboard = () => {
                           setShowBulkScheduler(false);
                         }} 
                       >
-                          取消
+                        取消
                       </Button>
                     </Box>
                  </Paper>
@@ -994,12 +1011,12 @@ const DoctorDashboard = () => {
                     一至五服務時段
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {['2:00-3:00', '3:30-4:30', '5:00-6:00', '6:30-7:30'].map((slot) => (
+                    {weekdaySlots.map((slot) => (
                       <Chip 
                         key={slot} 
                         label={slot}
                         onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
-                        onClick={() => { // Ensure it only calls if not already included, consistent with how color/onDelete behave
+                        onClick={() => { 
                           if (!defaultTimeSlots.includes(slot)) {
                             handleAddDefaultTimeSlotToSettingsList(slot);
                           }
@@ -1017,7 +1034,7 @@ const DoctorDashboard = () => {
                     週六服務時段
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {['10:00-11:00', '11:30-12:30'].map((slot) => (
+                    {saturdaySlots.map((slot) => (
                       <Chip 
                         key={slot} 
                         label={slot}
@@ -1040,7 +1057,7 @@ const DoctorDashboard = () => {
                     下午服務時段
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {['2:00-3:00', '3:30-4:30', '5:00-6:00'].map((slot) => (
+                    {afternoonSlots.map((slot) => (
                       <Chip 
                         key={slot} 
                         label={slot}
@@ -1063,7 +1080,7 @@ const DoctorDashboard = () => {
                     其他時段
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'].map((slot) => (
+                    {otherSlots.map((slot) => (
                       <Chip 
                         key={slot} 
                         label={slot}
