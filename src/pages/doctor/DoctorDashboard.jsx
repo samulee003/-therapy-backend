@@ -27,7 +27,12 @@ import {
   DialogActions,
   DialogContent,
   DialogContentText,
-  DialogTitle
+  DialogTitle,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Stack,
+  Tooltip
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
@@ -47,6 +52,7 @@ import {
     getDoctorAppointments, // This now points to getAllAppointments
     getScheduleForMonth,   // Use this instead of getDoctorSlots
     saveScheduleForDate,   // Use this instead of addDoctorSlot
+    getSettings            // Added to get defaultTimeSlots
 } from '../../services/api'; // Adjusted path
 
 // Removed mock data
@@ -77,6 +83,18 @@ const DoctorDashboard = () => {
   const [currentScheduleDate, setCurrentScheduleDate] = useState(new Date()); // Use Date object for month/year navigation
   const [editingDate, setEditingDate] = useState(null); // YYYY-MM-DD of the date being edited
   const [availableSlotsForEdit, setAvailableSlotsForEdit] = useState([]); // Array of strings like "HH:MM"
+  
+  // 新增狀態：預設時段列表
+  const [defaultTimeSlots, setDefaultTimeSlots] = useState([]); // 系統設置中的預設時段列表
+  const [loadingSettings, setLoadingSettings] = useState(false); // 加載設置的狀態
+  const [errorSettings, setErrorSettings] = useState(''); // 加載設置的錯誤
+
+  // 新增狀態：批量排班
+  const [showBulkScheduler, setShowBulkScheduler] = useState(false); // 是否顯示批量排班界面
+  const [bulkStartDate, setBulkStartDate] = useState(''); // 批量排班開始日期 YYYY-MM-DD
+  const [bulkEndDate, setBulkEndDate] = useState(''); // 批量排班結束日期 YYYY-MM-DD
+  const [selectedWeekdays, setSelectedWeekdays] = useState([1,2,3,4,5]); // 選擇的星期 [0=周日, 1=周一, ..., 6=周六]
+  const [isBulkScheduling, setIsBulkScheduling] = useState(false); // 批量排班處理中狀態
 
   // --- Data Fetching --- //
 
@@ -130,8 +148,30 @@ const DoctorDashboard = () => {
       const year = currentScheduleDate.getFullYear();
       const month = currentScheduleDate.getMonth() + 1;
       fetchSchedule(year, month);
+      fetchSettings(); // 加載系統設置和預設時段
     }
   }, [user, authLoading, currentScheduleDate]); // Depend on currentScheduleDate
+
+  // 新增函數：獲取系統設置中的預設時段
+  const fetchSettings = async () => {
+    if (!user) return;
+    setLoadingSettings(true);
+    setErrorSettings('');
+    try {
+      const response = await getSettings();
+      if (response.data && response.data.success && response.data.settings) {
+        // 設置預設時段
+        setDefaultTimeSlots(response.data.settings.defaultTimeSlots || []);
+      } else {
+        throw new Error('無法獲取預設時段設置');
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err);
+      setErrorSettings(err.response?.data?.message || err.message || '無法加載系統設置。');
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
 
   // --- Event Handlers --- //
 
@@ -145,6 +185,14 @@ const DoctorDashboard = () => {
     // Initialize availableSlotsForEdit based on current schedule data for that date
     const currentSlots = schedule[dateStr]?.availableSlots || [];
     setAvailableSlotsForEdit([...currentSlots]); // Use spread to create a new array
+  };
+  
+  // 新增處理程序：點擊預設時段將其添加到編輯中的時段列表
+  const handleAddDefaultTimeSlot = (slot) => {
+    // 檢查時段是否已經在編輯列表中
+    if (!availableSlotsForEdit.includes(slot)) {
+      setAvailableSlotsForEdit([...availableSlotsForEdit, slot]);
+    }
   };
   
   // Handle adding a new time slot input for the editing date
@@ -204,6 +252,85 @@ const DoctorDashboard = () => {
       setErrorSchedule(err.response?.data?.message || err.message || `保存 ${editingDate} 的排班失敗。`);
       setLoadingSchedule(false); // Stop loading on error
     }
+  };
+  
+  // 新增函數：產生批量排班的目標日期列表
+  const generateTargetDates = () => {
+    if (!bulkStartDate || !bulkEndDate || selectedWeekdays.length === 0) {
+      return [];
+    }
+    
+    const start = new Date(bulkStartDate);
+    const end = new Date(bulkEndDate);
+    const targetDates = [];
+    
+    // 遍歷日期範圍
+    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      // 檢查當前日期的星期是否在選擇的星期中
+      const weekday = date.getDay(); // 0=周日, 1=周一, ..., 6=周六
+      if (selectedWeekdays.includes(weekday)) {
+        // 如果日期符合條件，則添加到目標日期列表
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        targetDates.push(`${year}-${month}-${day}`);
+      }
+    }
+    
+    return targetDates;
+  };
+
+  // 新增函數：執行批量排班
+  const handleBulkScheduleSave = async () => {
+    if (!availableSlotsForEdit.length) {
+      setErrorSchedule('請先添加至少一個可用時段。');
+      return;
+    }
+    
+    const targetDates = generateTargetDates();
+    if (targetDates.length === 0) {
+      setErrorSchedule('請選擇有效的日期範圍和星期。');
+      return;
+    }
+    
+    setIsBulkScheduling(true);
+    setErrorSchedule('');
+    
+    try {
+      // 為每個目標日期保存相同的可用時段
+      const validSlots = availableSlotsForEdit.filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot));
+      validSlots.sort();
+      
+      // 逐一保存每個日期的排班
+      for (const date of targetDates) {
+        await saveScheduleForDate(date, validSlots);
+      }
+      
+      // 完成後刷新當前月的排班
+      const year = currentScheduleDate.getFullYear();
+      const month = currentScheduleDate.getMonth() + 1;
+      await fetchSchedule(year, month);
+      
+      // 重置批量排班狀態
+      setShowBulkScheduler(false);
+      setErrorSchedule('');
+    } catch (err) {
+      console.error('批量排班失敗:', err);
+      setErrorSchedule(err.response?.data?.message || err.message || '批量設置排班失敗。');
+    } finally {
+      setIsBulkScheduling(false);
+    }
+  };
+
+  // 處理星期幾選擇變化
+  const handleWeekdayToggle = (day) => {
+    setSelectedWeekdays(prev => {
+      if (prev.includes(day)) {
+        return prev.filter(d => d !== day);
+      } else {
+        return [...prev, day];
+      }
+    });
   };
   
   // Navigate schedule month
@@ -444,33 +571,179 @@ const DoctorDashboard = () => {
             {editingDate && (
                  <Paper sx={{ p: 2, mt: 2 }}>
                     <Typography variant="h6">編輯 {editingDate} 的可用時段</Typography>
-                    {availableSlotsForEdit.map((slot, index) => (
-                         <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <TextField 
-                                type="time" 
-                                size="small" 
-                                value={slot} 
-                                onChange={(e) => handleSlotInputChange(index, e.target.value)}
-                                sx={{ mr: 1 }}
-                            />
-                            <IconButton size="small" onClick={() => handleRemoveSlotFromEdit(index)} color="error">
-                                <DeleteIcon />
-                            </IconButton>
-                         </Box>
-                    ))}
-                    <Button startIcon={<AddIcon />} onClick={handleAddSlotToEdit} sx={{ mr: 1 }}>
-                        添加時段
-                    </Button>
-                    <Button variant="contained" onClick={handleSaveScheduleForDate} disabled={loadingSchedule}>
-                        {loadingSchedule ? <CircularProgress size={20}/> : '保存排班'}
-                    </Button>
-                    <Button variant="outlined" onClick={() => { setEditingDate(null); setAvailableSlotsForEdit([]); }} sx={{ ml: 1 }}>
-                        取消
-                    </Button>
+                    
+                    {/* 預設時段區塊 */}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom>預設時段</Typography>
+                      {loadingSettings ? (
+                        <CircularProgress size={20} sx={{ mr: 1 }} />
+                      ) : errorSettings ? (
+                        <Alert severity="error" sx={{ mb: 1 }}>{errorSettings}</Alert>
+                      ) : defaultTimeSlots.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                          未設置預設時段。您可以在系統設置中添加預設時段。
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                          {defaultTimeSlots.map((slot, idx) => (
+                            <Tooltip key={idx} title="點擊添加此時段">
+                              <Chip 
+                                label={slot} 
+                                color="primary" 
+                                variant="outlined"
+                                onClick={() => handleAddDefaultTimeSlot(slot)}
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            </Tooltip>
+                          ))}
+                        </Box>
+                      )}
+                      <Divider sx={{ my: 2 }} />
+                    </Box>
+                    
+                    {/* 已選時段列表 */}
+                    <Typography variant="subtitle1" gutterBottom>已選時段</Typography>
+                    {availableSlotsForEdit.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        尚未添加任何時段。
+                      </Typography>
+                    ) : (
+                      availableSlotsForEdit.map((slot, index) => (
+                           <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <TextField 
+                                  type="time" 
+                                  size="small" 
+                                  value={slot} 
+                                  onChange={(e) => handleSlotInputChange(index, e.target.value)}
+                                  sx={{ mr: 1 }}
+                              />
+                              <IconButton size="small" onClick={() => handleRemoveSlotFromEdit(index)} color="error">
+                                  <DeleteIcon />
+                              </IconButton>
+                           </Box>
+                      ))
+                    )}
+                    
+                    {/* 操作按鈕 */}
+                    <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      <Button startIcon={<AddIcon />} onClick={handleAddSlotToEdit}>
+                          添加時段
+                      </Button>
+                      <Button 
+                        variant="outlined" 
+                        color="secondary" 
+                        onClick={() => setShowBulkScheduler(true)}
+                        disabled={availableSlotsForEdit.length === 0}
+                      >
+                        批量排班
+                      </Button>
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Button 
+                        variant="contained" 
+                        onClick={handleSaveScheduleForDate} 
+                        disabled={loadingSchedule || availableSlotsForEdit.length === 0}
+                      >
+                          {loadingSchedule ? <CircularProgress size={20}/> : '保存排班'}
+                      </Button>
+                      <Button 
+                        variant="outlined" 
+                        onClick={() => { 
+                          setEditingDate(null); 
+                          setAvailableSlotsForEdit([]); 
+                          setShowBulkScheduler(false);
+                        }} 
+                      >
+                          取消
+                      </Button>
+                    </Box>
                  </Paper>
             )}
             
-            {/* Removed Bulk Generate Section */} 
+            {/* 批量排班對話框 */}
+            <Dialog 
+              open={showBulkScheduler && editingDate !== null} 
+              onClose={() => setShowBulkScheduler(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>批量排班</DialogTitle>
+              <DialogContent>
+                <DialogContentText sx={{ mb: 2 }}>
+                  選擇日期範圍和星期，將當前編輯的時段批量應用到所選日期。
+                </DialogContentText>
+                
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="開始日期"
+                      type="date"
+                      fullWidth
+                      value={bulkStartDate}
+                      onChange={(e) => setBulkStartDate(e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="結束日期"
+                      type="date"
+                      fullWidth
+                      value={bulkEndDate}
+                      onChange={(e) => setBulkEndDate(e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+                </Grid>
+                
+                <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>選擇星期</Typography>
+                <FormGroup row>
+                  {['日', '一', '二', '三', '四', '五', '六'].map((day, idx) => (
+                    <FormControlLabel
+                      key={idx}
+                      control={
+                        <Checkbox 
+                          checked={selectedWeekdays.includes(idx)} 
+                          onChange={() => handleWeekdayToggle(idx)}
+                        />
+                      }
+                      label={day}
+                    />
+                  ))}
+                </FormGroup>
+                
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>將應用以下時段:</Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {availableSlotsForEdit.map((slot, idx) => (
+                      <Chip key={idx} label={slot} size="small" />
+                    ))}
+                  </Stack>
+                </Box>
+                
+                {/* 預覽將應用的日期 */}
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    將應用到 {generateTargetDates().length} 個日期
+                  </Typography>
+                  {generateTargetDates().length > 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      例如: {generateTargetDates().slice(0, 3).join(', ')}
+                      {generateTargetDates().length > 3 ? '...' : ''}
+                    </Typography>
+                  )}
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setShowBulkScheduler(false)}>取消</Button>
+                <Button 
+                  variant="contained" 
+                  onClick={handleBulkScheduleSave}
+                  disabled={isBulkScheduling || !bulkStartDate || !bulkEndDate || selectedWeekdays.length === 0}
+                >
+                  {isBulkScheduling ? <CircularProgress size={24} /> : '批量應用'}
+                </Button>
+              </DialogActions>
+            </Dialog>
 
           </Box>
         );

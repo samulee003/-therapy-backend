@@ -29,8 +29,6 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import GoogleIcon from '@mui/icons-material/Google';
-import FacebookIcon from '@mui/icons-material/Facebook';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
@@ -479,7 +477,7 @@ const RegisterPage = () => {
           註冊帳號
         </Typography>
         <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          創建您的帳號以使用心理諮詢預約系統
+          創建您的帳號以使用心理治療預約系統
         </Typography>
 
         <Stepper activeStep={activeStep} alternativeLabel sx={{ width: '100%', mb: 4 }}>
@@ -544,36 +542,7 @@ const RegisterPage = () => {
         <Box sx={{ width: '100%', mt: 4 }}>
           <Divider sx={{ mb: 2 }} />
           
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
-            或使用社交媒體帳號註冊
-          </Typography>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
-                sx={{ py: 1.5 }}
-                disabled // 暫時禁用
-              >
-                Google 註冊
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<FacebookIcon />}
-                sx={{ py: 1.5 }}
-                disabled // 暫時禁用
-              >
-                Facebook 註冊
-              </Button>
-            </Grid>
-          </Grid>
-          
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               已有帳號？{' '}
               <Link component={RouterLink} to="/login" variant="body2" color="primary" fontWeight="medium">

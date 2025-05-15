@@ -19,8 +19,7 @@ import {
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import GoogleIcon from '@mui/icons-material/Google';
-import FacebookIcon from '@mui/icons-material/Facebook';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import { loginUser } from '../services/api';
@@ -93,7 +92,7 @@ const LoginPage = () => {
           登入
         </Typography>
         <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          歡迎回來！請登入您的帳號以繼續使用心理諮詢預約系統。
+          歡迎回來！請登入您的帳號以繼續使用心理治療預約系統。
         </Typography>
 
         {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>} 
@@ -171,39 +170,6 @@ const LoginPage = () => {
               {loading ? <CircularProgress size={24} color="inherit" /> : '登入'}
             </Button>
           </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
-            <Divider sx={{ flexGrow: 1 }} />
-            <Typography variant="body2" color="text.secondary" sx={{ mx: 2 }}>
-              或使用以下方式登入
-            </Typography>
-            <Divider sx={{ flexGrow: 1 }} />
-          </Box>
-          
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
-                sx={{ py: 1.5 }}
-                disabled // Disable social login for now
-              >
-                Google 登入
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<FacebookIcon />}
-                sx={{ py: 1.5 }}
-                disabled // Disable social login for now
-              >
-                Facebook 登入
-              </Button>
-            </Grid>
-          </Grid>
           
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">

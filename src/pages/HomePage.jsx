@@ -17,6 +17,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import SecurityIcon from '@mui/icons-material/Security';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import heroImage from '../assets/hero-image.jpg'; // Corrected relative path
 
 const HomePage = () => {
@@ -26,9 +27,9 @@ const HomePage = () => {
 
   const features = [
     {
-      icon: <CalendarMonthIcon fontSize="large" />,
-      title: '便捷預約',
-      description: '隨時隨地在線預約心理諮詢，無需電話或親自前往。'
+      icon: <EventAvailableIcon sx={{ fontSize: 40, color: 'primary.main' }} />,
+      title: '靈活預約',
+      description: '隨時隨地在線預約心理治療，無需電話或親自前往。'
     },
     {
       icon: <AccessTimeIcon fontSize="large" />,
@@ -77,11 +78,11 @@ const HomePage = () => {
                 gutterBottom
                 sx={{ fontWeight: 'bold' }}
               >
-                專業心理諮詢，一鍵預約
+                專業心理治療，一鍵預約
               </Typography>
               <Typography variant={isMobile ? "body1" : "h6"} color="inherit" paragraph sx={{ mb: 4 }}>
-                我們提供便捷的心理諮詢預約服務，讓您隨時隨地關注自己的心理健康。
-                專業心理師團隊，為您提供全面的心理支持和幫助。
+                我們提供便捷的心理治療預約服務，讓您隨時隨地關注自己的心理健康。
+                專業心理治療師團隊，為您提供全面的心理支持和幫助。
               </Typography>
               <Button
                 variant="contained"
@@ -113,7 +114,8 @@ const HomePage = () => {
             我們的服務
           </Typography>
           <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
-            心理諮詢預約系統為您提供全方位的預約管理服務，讓心理健康管理變得簡單高效。
+            心理治療預約系統為您提供全方位的預約管理服務，讓心理健康管理變得簡單高效。
+            無論您是初次尋求幫助，還是需要定期的心理支持，我們都能滿足您的需求。
           </Typography>
         </Box>
 
@@ -260,7 +262,7 @@ const HomePage = () => {
               準備好開始您的心理健康之旅了嗎？
             </Typography>
             <Typography variant="h6" paragraph sx={{ mb: 4, opacity: 0.9 }}>
-              立即註冊並預約您的第一次心理諮詢，邁出關愛自己的第一步。
+              立即註冊並預約您的第一次心理治療，邁出關愛自己的第一步。
             </Typography>
             <Button
               variant="contained"
