@@ -45,7 +45,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   AccessTime as TimeIcon,
-  Refresh as RefreshIcon // Added
+  Refresh as RefreshIcon, // Added
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext'; // Adjusted path
@@ -85,6 +86,7 @@ const DoctorDashboard = () => {
   const [currentScheduleDate, setCurrentScheduleDate] = useState(new Date()); // Use Date object for month/year navigation
   const [editingDate, setEditingDate] = useState(null); // YYYY-MM-DD of the date being edited
   const [availableSlotsForEdit, setAvailableSlotsForEdit] = useState([]); // Array of strings like "HH:MM"
+  const [isRestDay, setIsRestDay] = useState(false); // 新增：標記當前編輯日期是否為休假日
   
   // 新增狀態：預設時段列表
   const [defaultTimeSlots, setDefaultTimeSlots] = useState([]); // 系統設置中的預設時段列表
@@ -257,6 +259,8 @@ const DoctorDashboard = () => {
     const currentSlots = schedule[dateStr]?.availableSlots || [];
     console.log("編輯日期", dateStr, "當前時段", currentSlots);
     setAvailableSlotsForEdit([...currentSlots]); // Use spread to create a new array
+    // 檢查該日期是否已標記為休假日
+    setIsRestDay(schedule[dateStr]?.isRestDay || false);
   };
   
   // 新增處理程序：點擊預設時段將其添加到編輯中的時段列表
@@ -328,18 +332,24 @@ const DoctorDashboard = () => {
         return;
     }
 
-    // Filter out empty strings and validate time format (HH:MM)
-    const validSlots = availableSlotsForEdit.filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot));
-    // Optionally sort the slots
-    validSlots.sort(); 
+    // 如果是休假日，則不需要驗證時段
+    let validSlots = [];
+    if (!isRestDay) {
+      // Filter out empty strings and validate time format (HH:MM)
+      validSlots = availableSlotsForEdit.filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot));
+      // Optionally sort the slots
+      validSlots.sort(); 
+    }
 
     setLoadingSchedule(true); // Indicate loading
     setErrorSchedule('');
     try {
-      await saveScheduleForDate(editingDate, validSlots);
+      // 傳遞休假日標記和可用時段
+      await saveScheduleForDate(editingDate, validSlots, isRestDay);
       setErrorSchedule(''); // Clear any previous error
       setEditingDate(null); // Close the editor
       setAvailableSlotsForEdit([]);
+      setIsRestDay(false); // 重置休假日標記
       // Refresh schedule for the current month
       const year = currentScheduleDate.getFullYear();
       const month = currentScheduleDate.getMonth() + 1;
@@ -643,6 +653,7 @@ const DoctorDashboard = () => {
                     const daySchedule = dateStr ? schedule[dateStr] : null;
                     const hasAvailable = daySchedule?.availableSlots?.length > 0;
                     const hasBooked = daySchedule?.bookedSlots && Object.keys(daySchedule.bookedSlots).length > 0;
+                    const isRest = daySchedule?.isRestDay; // 檢查是否為休假日
                     return (
                         <Grid item xs={12/7} key={index} sx={{ height: 80, border: '1px solid lightgray', p: 0.5 }}>
                         {day && (
@@ -651,11 +662,19 @@ const DoctorDashboard = () => {
                                 variant="outlined" 
                                 size="small"
                                 onClick={() => handleEditDate(dateStr)}
-                                sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-start' }}
+                                sx={{ 
+                                  height: '100%', 
+                                  display: 'flex', 
+                                  flexDirection: 'column', 
+                                  alignItems: 'flex-start', 
+                                  justifyContent: 'flex-start',
+                                  backgroundColor: isRest ? 'rgba(255, 99, 71, 0.1)' : 'inherit' // 休假日背景顏色
+                                }}
                             >
                             <Typography variant="body2" component="div">{day}</Typography>
                             {/* Display indicators or slot count */} 
-                            {hasAvailable && <Chip size="small" label="可預約" color="success" sx={{mt:0.5}} />} 
+                            {isRest && <Chip size="small" label="休假" color="error" sx={{mt:0.5}} />}
+                            {hasAvailable && !isRest && <Chip size="small" label="可預約" color="success" sx={{mt:0.5}} />} 
                             {hasBooked && <Chip size="small" label="已預約" color="warning" sx={{mt:0.5}} />}
                             </Button>
                         )}
@@ -669,104 +688,147 @@ const DoctorDashboard = () => {
                  <Paper sx={{ p: 2, mt: 2 }}>
                     <Typography variant="h6">編輯 {editingDate} 的可用時段</Typography>
                     
-                    {/* 預設時段區塊 */}
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" gutterBottom>預設時段</Typography>
-                      {loadingSettings ? (
-                        <CircularProgress size={20} sx={{ mr: 1 }} />
-                      ) : errorSettings ? (
-                        <Alert severity="error" sx={{ mb: 1 }}>{errorSettings}</Alert>
-                      ) : defaultTimeSlots.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">
-                          未設置預設時段。您可以在系統設置中添加預設時段。
-                        </Typography>
-                      ) : (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                          {console.log("顯示預設時段列表", defaultTimeSlots)}
-                          {defaultTimeSlots.map((slot, idx) => (
-                              <Chip 
-                                key={idx}
-                                label={slot} 
-                                color="primary" 
-                                variant="outlined"
-                                onClick={() => {
-                                  console.log("點擊預設時段Chip:", slot);
-                                  handleAddDefaultTimeSlot(slot);
-                                }}
-                                data-testid={`default-timeslot-${idx}`}
-                                aria-label={`添加預設時段${slot}`}
-                                sx={{ cursor: 'pointer' }}
-                              />
-                          ))}
-                        </Box>
-                      )}
-                      <Divider sx={{ my: 2 }} />
+                    {/* 休假日選項 */}
+                    <Box sx={{ mt: 2, mb: 3 }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={isRestDay}
+                            onChange={(e) => {
+                              setIsRestDay(e.target.checked);
+                              console.log("設置休假日:", e.target.checked);
+                            }}
+                            color="error"
+                          />
+                        }
+                        label={
+                          <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Typography sx={{ mr: 1 }}>設為休假日</Typography>
+                            {isRestDay && (
+                              <Tooltip title="休假日將不會顯示任何可預約時段">
+                                <InfoIcon fontSize="small" color="info" />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        }
+                      />
                     </Box>
                     
-                    {/* 已選時段列表 */}
-                    <Typography variant="subtitle1" gutterBottom>已選時段</Typography>
-                    {console.log("渲染已選時段列表", availableSlotsForEdit)}
-                    {!Array.isArray(availableSlotsForEdit) ? (
-                      <Typography variant="body2" color="error" sx={{ mb: 2 }}>
-                        錯誤：時段列表不是一個數組。請重新加載頁面。
-                      </Typography>
-                    ) : availableSlotsForEdit.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        尚未添加任何時段。
-                      </Typography>
-                    ) : (
-                      availableSlotsForEdit.map((slot, index) => (
-                         <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <TextField 
-                                type="time" 
-                                size="small" 
-                                value={slot || ""}
-                                onChange={(e) => handleSlotInputChange(index, e.target.value)}
-                                sx={{ mr: 1, minWidth: '120px' }}
-                                aria-label={`時段 ${index + 1}`}
-                                inputProps={{
-                                  "data-testid": `slot-input-${index}`
-                                }}
-                            />
-                            <IconButton 
-                                size="small" 
-                                onClick={() => {
-                                  console.log("點擊刪除按鈕, 索引:", index);
-                                  handleRemoveSlotFromEdit(index);
-                                }} 
-                                color="error"
-                                aria-label={`刪除時段 ${slot || index + 1}`}
-                                data-testid={`delete-slot-${index}`}
-                            >
-                                <DeleteIcon />
-                            </IconButton>
-                         </Box>
-                      ))
+                    {/* 預設時段區塊 - 僅在非休假日時顯示 */}
+                    {!isRestDay && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="subtitle1" gutterBottom>預設時段</Typography>
+                        {loadingSettings ? (
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                        ) : errorSettings ? (
+                          <Alert severity="error" sx={{ mb: 1 }}>{errorSettings}</Alert>
+                        ) : defaultTimeSlots.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary">
+                            未設置預設時段。您可以在系統設置中添加預設時段。
+                          </Typography>
+                        ) : (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                            {console.log("顯示預設時段列表", defaultTimeSlots)}
+                            {defaultTimeSlots.map((slot, idx) => (
+                                <Chip 
+                                  key={idx}
+                                  label={slot} 
+                                  color="primary" 
+                                  variant="outlined"
+                                  onClick={() => {
+                                    console.log("點擊預設時段Chip:", slot);
+                                    handleAddDefaultTimeSlot(slot);
+                                  }}
+                                  data-testid={`default-timeslot-${idx}`}
+                                  aria-label={`添加預設時段${slot}`}
+                                  sx={{ cursor: 'pointer' }}
+                                />
+                            ))}
+                          </Box>
+                        )}
+                        <Divider sx={{ my: 2 }} />
+                      </Box>
                     )}
                     
+                    {/* 已選時段列表 - 僅在非休假日時顯示 */}
+                    {!isRestDay && (
+                      <>
+                        <Typography variant="subtitle1" gutterBottom>已選時段</Typography>
+                        {console.log("渲染已選時段列表", availableSlotsForEdit)}
+                        {!Array.isArray(availableSlotsForEdit) ? (
+                          <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+                            錯誤：時段列表不是一個數組。請重新加載頁面。
+                          </Typography>
+                        ) : availableSlotsForEdit.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            尚未添加任何時段。
+                          </Typography>
+                        ) : (
+                          availableSlotsForEdit.map((slot, index) => (
+                             <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <TextField 
+                                    type="time" 
+                                    size="small" 
+                                    value={slot || ""}
+                                    onChange={(e) => handleSlotInputChange(index, e.target.value)}
+                                    sx={{ mr: 1, minWidth: '120px' }}
+                                    aria-label={`時段 ${index + 1}`}
+                                    inputProps={{
+                                      "data-testid": `slot-input-${index}`
+                                    }}
+                                />
+                                <IconButton 
+                                    size="small" 
+                                    onClick={() => {
+                                      console.log("點擊刪除按鈕, 索引:", index);
+                                      handleRemoveSlotFromEdit(index);
+                                    }} 
+                                    color="error"
+                                    aria-label={`刪除時段 ${slot || index + 1}`}
+                                    data-testid={`delete-slot-${index}`}
+                                >
+                                    <DeleteIcon />
+                                </IconButton>
+                             </Box>
+                          ))
+                        )}
+                      </>
+                    )}
+                    
+                    {/* 休假日說明 */}
+                    {isRestDay && (
+                      <Alert severity="info" sx={{ mb: 3 }}>
+                        將此日期設為休假日後，此日將不會顯示任何可預約時段，患者將無法在此日預約。
+                      </Alert>
+                    )}
+
                     {/* 操作按鈕 */}
                     <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      <Button 
-                        startIcon={<AddIcon />} 
-                        onClick={handleAddSlotToEdit}
-                      >
-                        添加時段
-                      </Button>
-                      <Button 
-                        variant="outlined" 
-                        color="secondary" 
-                        onClick={() => setShowBulkScheduler(true)}
-                        disabled={availableSlotsForEdit.length === 0}
-                      >
-                        批量排班
-                      </Button>
+                      {!isRestDay && (
+                        <>
+                          <Button 
+                            startIcon={<AddIcon />} 
+                            onClick={handleAddSlotToEdit}
+                          >
+                            添加時段
+                          </Button>
+                          <Button 
+                            variant="outlined" 
+                            color="secondary" 
+                            onClick={() => setShowBulkScheduler(true)}
+                            disabled={availableSlotsForEdit.length === 0 && !isRestDay}
+                          >
+                            批量排班
+                          </Button>
+                        </>
+                      )}
                       <Box sx={{ flexGrow: 1 }} />
                       <Button 
                         variant="contained" 
                         onClick={handleSaveScheduleForDate} 
-                        disabled={loadingSchedule || availableSlotsForEdit.length === 0}
+                        disabled={loadingSchedule}
                       >
-                        {loadingSchedule ? <CircularProgress size={20}/> : (availableSlotsForEdit.length === 0 ? '請先添加時段' : '保存排班')}
+                        {loadingSchedule ? <CircularProgress size={20}/> : (isRestDay ? '保存休假設置' : '保存排班')}
                       </Button>
                       <Button 
                         variant="outlined" 
@@ -774,6 +836,7 @@ const DoctorDashboard = () => {
                           setEditingDate(null); 
                           setAvailableSlotsForEdit([]); 
                           setShowBulkScheduler(false);
+                          setIsRestDay(false);
                         }} 
                       >
                         取消

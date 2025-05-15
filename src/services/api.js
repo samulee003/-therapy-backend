@@ -163,11 +163,16 @@ export const getScheduleForMonth = (year, month) => {
 };
 
 // Save schedule for a specific date (Matches POST /api/schedule)
-// Backend expects { date, availableSlots: string[] }
-export const saveScheduleForDate = (date, availableSlots) => {
-  return apiClient.post('/api/schedule', { date, availableSlots });
+// Backend expects { date, availableSlots: string[], isRestDay: boolean }
+export const saveScheduleForDate = (date, availableSlots, isRestDay = false) => {
+  return apiClient.post('/api/schedule', { date, availableSlots, isRestDay });
 };
 
+// Book an Appointment (Matches POST /api/book)
+// Backend expects { date, time, patientName, patientPhone, patientEmail, ... }
+export const bookAppointment = (appointmentDetails) => {
+  return apiClient.post('/api/book', appointmentDetails);
+};
 
 // --- Appointments --- //
 
@@ -184,12 +189,6 @@ export const getDoctorAppointments = getMyAppointments;
 // UPDATED: Get All Appointments (Doctor only) (Matches GET /api/appointments/all)
 export const getAllAppointments = () => {
   return apiClient.get('/api/appointments/all');
-};
-
-// Book an Appointment (Matches POST /api/book)
-// Backend expects { date, time, patientName, patientPhone, patientEmail, ... }
-export const bookAppointment = (appointmentDetails) => {
-  return apiClient.post('/api/book', appointmentDetails);
 };
 
 // Cancel an Appointment (Matches PUT /api/appointments/:id/cancel)
