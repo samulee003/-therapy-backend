@@ -67,8 +67,8 @@ const RegisterPage = () => {
 
   // 表單驗證正則表達式
   const PATTERNS = {
-    EMAIL: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/,
-    PHONE: /^[0-9]{8,}$/, // 至少 8 位數字
+    EMAIL: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+    PHONE: /^[0-9+()-\s]{8,}$/, // 更加靈活的電話格式，允許國際格式
     PASSWORD_STRONG: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
     PASSWORD_MEDIUM: /^(?=.*[a-zA-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/,
     NAME: /^[\u4e00-\u9fa5a-zA-Z\s]{2,30}$/, // 中文或英文名，2-30個字符
@@ -98,7 +98,7 @@ const RegisterPage = () => {
         if (!value.trim()) {
           errorMessage = '請輸入您的電子郵件';
         } else if (!PATTERNS.EMAIL.test(value)) {
-          errorMessage = '請輸入有效的電子郵件格式';
+          errorMessage = '請輸入有效的電子郵件格式 (例如: user@example.com)';
         }
         break;
       
@@ -106,7 +106,7 @@ const RegisterPage = () => {
         if (!value.trim()) {
           errorMessage = '請輸入您的電話號碼';
         } else if (!PATTERNS.PHONE.test(value)) {
-          errorMessage = '請輸入有效的電話號碼（至少 8 位數字）';
+          errorMessage = '請輸入有效的電話號碼（至少 8 位數字，可包含 +()-）';
         }
         break;
       
@@ -116,7 +116,10 @@ const RegisterPage = () => {
         } else if (value.length < 6) {
           errorMessage = '密碼長度至少為 6 位';
         } else if (!PATTERNS.PASSWORD_MEDIUM.test(value)) {
-          errorMessage = '密碼需包含字母和數字';
+          errorMessage = '密碼需包含至少一個字母和一個數字';
+        } else if (!PATTERNS.PASSWORD_STRONG.test(value)) {
+          // 不阻止提交，但給出增強建議
+          errorMessage = '建議: 使用大寫字母、小寫字母、數字和特殊符號來增強密碼安全性';
         }
         break;
       
@@ -415,7 +418,12 @@ const RegisterPage = () => {
             </Grid>
             <Grid item xs={12}>
               <FormHelperText>
-                密碼須包含至少 6 個字符，並包含字母和數字。
+                密碼安全規則:
+                <ul>
+                  <li>至少 6 個字符</li>
+                  <li>必須包含至少一個字母和一個數字</li>
+                  <li>建議包含大小寫字母和特殊符號</li>
+                </ul>
               </FormHelperText>
             </Grid>
           </Grid>

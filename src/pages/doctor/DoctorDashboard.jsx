@@ -46,7 +46,9 @@ import {
   Delete as DeleteIcon,
   AccessTime as TimeIcon,
   Refresh as RefreshIcon, // Added
-  Info as InfoIcon
+  Info as InfoIcon,
+  Visibility as VisibilityIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext'; // Adjusted path
@@ -55,7 +57,9 @@ import {
     getScheduleForMonth,   // Use this instead of getDoctorSlots
     saveScheduleForDate,   // Use this instead of addDoctorSlot
     getSettings,           // Added to get defaultTimeSlots
-    updateSettings         // 添加更新設置的API調用
+    updateSettings,         // 添加更新設置的API調用
+    cancelAdminAppointment,
+    formatApiError
 } from '../../services/api'; // Adjusted path
 
 // Removed mock data
@@ -100,6 +104,15 @@ const DoctorDashboard = () => {
   const [bulkEndDate, setBulkEndDate] = useState(''); // 批量排班結束日期 YYYY-MM-DD
   const [selectedWeekdays, setSelectedWeekdays] = useState([1,2,3,4,5]); // 選擇的星期 [0=周日, 1=周一, ..., 6=周六]
   const [isBulkScheduling, setIsBulkScheduling] = useState(false); // 批量排班處理中狀態
+
+  // 添加預約詳情和取消預約相關狀態
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [appointmentDetailsOpen, setAppointmentDetailsOpen] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
 
   // 修改設置頁面中的預設時段列表 (用於全局設置)
   // 從 "起始-結束" 改為 "開始時間" 格式
@@ -446,6 +459,83 @@ const DoctorDashboard = () => {
   };
   const handleNextMonth = () => {
       setCurrentScheduleDate(prevDate => new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 1));
+  };
+
+  // 查看預約詳情
+  const handleViewAppointmentDetails = (appointment) => {
+    setSelectedAppointment(appointment);
+    setAppointmentDetailsOpen(true);
+  };
+
+  // 關閉預約詳情對話框
+  const handleCloseAppointmentDetails = () => {
+    setAppointmentDetailsOpen(false);
+  };
+
+  // 取消預約功能
+  const handleCancelAppointment = (appointment) => {
+    if (!appointment || !appointment._id) {
+      alert('無效的預約資訊，無法取消。');
+      return;
+    }
+    
+    setAppointmentToCancel(appointment);
+    setCancelConfirmOpen(true);
+  };
+
+  // 確認取消預約
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel || !appointmentToCancel._id) {
+      setCancelError('無效的預約資訊，無法取消。');
+      setCancelConfirmOpen(false);
+      return;
+    }
+    
+    setCancellingId(appointmentToCancel._id);
+    setCancelError('');
+    setCancelSuccess('');
+    
+    try {
+      await cancelAdminAppointment(appointmentToCancel._id);
+      
+      // 更新 UI
+      setAppointments(prevAppointments => 
+        prevAppointments.map(app => 
+          app._id === appointmentToCancel._id 
+            ? { ...app, status: 'cancelled' } 
+            : app
+        )
+      );
+      
+      setCancelSuccess(`預約已成功取消`);
+      
+      // 如果正在查看被取消的預約，則更新選中的預約資訊
+      if (selectedAppointment && selectedAppointment._id === appointmentToCancel._id) {
+        setSelectedAppointment(prev => ({...prev, status: 'cancelled'}));
+      }
+      
+      // 關閉確認對話框並重新加載預約列表
+      setTimeout(() => {
+        setCancelConfirmOpen(false);
+        setCancelSuccess('');
+        fetchAppointments(); // 重新加載預約列表確保數據同步
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Failed to cancel appointment:', err);
+      const formattedError = err.formatted || formatApiError(err, '無法取消預約，請稍後再試');
+      setCancelError(formattedError.message);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  // 關閉取消確認對話框
+  const closeCancelConfirm = () => {
+    setCancelConfirmOpen(false);
+    setAppointmentToCancel(null);
+    setCancelError('');
+    setCancelSuccess('');
   };
 
   // --- UI Rendering --- //
@@ -966,7 +1056,31 @@ const DoctorDashboard = () => {
                         {appointments.map((appointment) => (
                             <ListItem
                             key={appointment._id}
-                            // Add actions if needed (e.g., mark complete, view details)
+                            secondaryAction={
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                  variant="outlined"
+                                  color="primary"
+                                  startIcon={<VisibilityIcon />}
+                                  size="small"
+                                  onClick={() => handleViewAppointmentDetails(appointment)}
+                                >
+                                  查看詳情
+                                </Button>
+                                {appointment.status !== 'cancelled' && (
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  startIcon={<CancelIcon />}
+                                  size="small"
+                                  onClick={() => handleCancelAppointment(appointment)}
+                                  disabled={cancellingId === appointment._id}
+                                >
+                                  {cancellingId === appointment._id ? '處理中...' : '取消預約'}
+                                </Button>
+                                )}
+                              </Box>
+                            }
                             sx={{ 
                                 borderBottom: '1px solid',
                                 borderColor: 'divider',
@@ -977,13 +1091,13 @@ const DoctorDashboard = () => {
                             >
                             <ListItemAvatar>
                                 <Avatar sx={{ bgcolor: theme.palette.secondary.main }}>
-                                {appointment.patient?.name?.charAt(0) || '患'}
+                                {appointment.patientName?.charAt(0) || appointment.patient?.name?.charAt(0) || '患'}
                                 </Avatar>
                             </ListItemAvatar>
                             <ListItemText
                                 primary={
                                 <Typography variant="body1" fontWeight="medium">
-                                    {appointment.patient?.name || '患者'}
+                                    {appointment.patientName || appointment.patient?.name || '患者'}
                                 </Typography>
                                 }
                                 secondary={
@@ -1241,6 +1355,154 @@ const DoctorDashboard = () => {
           </Paper>
         </Grid>
       </Grid>
+      
+      {/* 預約詳情對話框 */}
+      <Dialog open={appointmentDetailsOpen} onClose={handleCloseAppointmentDetails} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: 'white' }}>
+          預約詳情
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedAppointment && (
+            <Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>患者資訊</Typography>
+                  <Divider sx={{ mb: 2 }} />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">姓名：</Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {selectedAppointment.patientName || selectedAppointment.patient?.name || '未提供'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">電話號碼：</Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {selectedAppointment.patientPhone || selectedAppointment.patient?.phone || '未提供'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">電子郵件：</Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {selectedAppointment.patientEmail || selectedAppointment.patient?.email || selectedAppointment.patient?.username || '未提供'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>預約資訊</Typography>
+                  <Divider sx={{ mb: 2 }} />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">預約日期：</Typography>
+                  <Typography variant="body1" gutterBottom>{selectedAppointment.date}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">預約時間：</Typography>
+                  <Typography variant="body1" gutterBottom>{selectedAppointment.time}</Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">狀態：</Typography>
+                  <Chip 
+                    label={selectedAppointment.status === 'confirmed' ? '已確認' : (selectedAppointment.status === 'cancelled' ? '已取消' : '待確認')} 
+                    color={selectedAppointment.status === 'confirmed' ? 'success' : (selectedAppointment.status === 'cancelled' ? 'default' : 'warning')} 
+                    size="small"
+                  />
+                </Grid>
+                {selectedAppointment.appointmentReason && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">預約原因：</Typography>
+                    <Typography variant="body1" gutterBottom>{selectedAppointment.appointmentReason}</Typography>
+                  </Grid>
+                )}
+                {selectedAppointment.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">備註：</Typography>
+                    <Typography variant="body1" gutterBottom>{selectedAppointment.notes}</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {selectedAppointment && selectedAppointment.status !== 'cancelled' && (
+            <Button
+              onClick={() => {
+                handleCloseAppointmentDetails();
+                handleCancelAppointment(selectedAppointment);
+              }}
+              color="error"
+              startIcon={<CancelIcon />}
+            >
+              取消預約
+            </Button>
+          )}
+          <Button onClick={handleCloseAppointmentDetails}>關閉</Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* 取消預約確認對話框 */}
+      <Dialog
+        open={cancelConfirmOpen}
+        onClose={cancelSuccess ? null : closeCancelConfirm}
+        aria-labelledby="cancel-appointment-title"
+      >
+        <DialogTitle id="cancel-appointment-title" sx={{ color: theme.palette.error.main }}>
+          確認取消預約
+        </DialogTitle>
+        <DialogContent>
+          {cancelSuccess ? (
+            <Alert severity="success" sx={{ mt: 2 }}>{cancelSuccess}</Alert>
+          ) : (
+            <>
+              <DialogContentText>
+                您確定要取消此患者預約嗎？此操作不可撤銷。
+              </DialogContentText>
+              {appointmentToCancel && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="body2">
+                    <strong>患者：</strong> {appointmentToCancel.patientName || appointmentToCancel.patient?.name || '未提供'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>日期：</strong> {appointmentToCancel.date}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>時間：</strong> {appointmentToCancel.time}
+                  </Typography>
+                </Box>
+              )}
+              {cancelError && (
+                <Alert severity="error" sx={{ mt: 2 }}>{cancelError}</Alert>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!cancelSuccess && (
+            <>
+              <Button onClick={closeCancelConfirm} disabled={cancellingId !== null}>
+                返回
+              </Button>
+              <Button 
+                onClick={confirmCancelAppointment} 
+                color="error" 
+                disabled={cancellingId !== null}
+              >
+                {cancellingId !== null ? '處理中...' : '確認取消'}
+              </Button>
+            </>
+          )}
+          {cancelSuccess && (
+            <Button onClick={closeCancelConfirm}>
+              關閉
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

@@ -14,7 +14,8 @@ import {
   useTheme,
   useMediaQuery,
   CircularProgress,
-  Alert
+  Alert,
+  FormHelperText
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -33,15 +34,72 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '' });
   const navigate = useNavigate();
   const { login } = useContext(AuthContext); // Get login function from context
+
+  // Email validation pattern
+  const EMAIL_PATTERN = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
 
+  const validateForm = () => {
+    let formIsValid = true;
+    let newErrors = { email: '', password: '' };
+
+    // 驗證電子郵件
+    if (!email.trim()) {
+      newErrors.email = '請輸入電子郵件';
+      formIsValid = false;
+    } else if (!EMAIL_PATTERN.test(email)) {
+      newErrors.email = '請輸入有效的電子郵件格式';
+      formIsValid = false;
+    }
+
+    // 驗證密碼
+    if (!password) {
+      newErrors.password = '請輸入密碼';
+      formIsValid = false;
+    }
+
+    setErrors(newErrors);
+    return formIsValid;
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    // 即時驗證電子郵件格式
+    if (!value.trim()) {
+      setErrors(prev => ({ ...prev, email: '請輸入電子郵件' }));
+    } else if (!EMAIL_PATTERN.test(value)) {
+      setErrors(prev => ({ ...prev, email: '請輸入有效的電子郵件格式' }));
+    } else {
+      setErrors(prev => ({ ...prev, email: '' }));
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    // 即時驗證密碼
+    if (!value) {
+      setErrors(prev => ({ ...prev, password: '請輸入密碼' }));
+    } else {
+      setErrors(prev => ({ ...prev, password: '' }));
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    
+    // 進行表單驗證
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
     setError('');
     try {
@@ -108,8 +166,10 @@ const LoginPage = () => {
             autoComplete="email"
             autoFocus
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={handleEmailChange}
             disabled={loading}
+            error={!!errors.email}
+            helperText={errors.email}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -128,8 +188,10 @@ const LoginPage = () => {
             id="password"
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={handlePasswordChange}
             disabled={loading}
+            error={!!errors.password}
+            helperText={errors.password}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -164,7 +226,7 @@ const LoginPage = () => {
               variant="contained"
               color="primary"
               size="large"
-              disabled={loading}
+              disabled={loading || !!errors.email || !!errors.password}
               sx={{ py: 1.5 }}
             >
               {loading ? <CircularProgress size={24} color="inherit" /> : '登入'}
