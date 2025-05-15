@@ -241,25 +241,43 @@ const DoctorDashboard = () => {
     setEditingDate(dateStr);
     // Initialize availableSlotsForEdit based on current schedule data for that date
     const currentSlots = schedule[dateStr]?.availableSlots || [];
+    console.log("編輯日期", dateStr, "當前時段", currentSlots);
     setAvailableSlotsForEdit([...currentSlots]); // Use spread to create a new array
   };
   
   // 新增處理程序：點擊預設時段將其添加到編輯中的時段列表
   const handleAddDefaultTimeSlot = (slot) => {
+    console.log("嘗試添加預設時段", slot, "目前時段列表", availableSlotsForEdit);
+    // 確保 availableSlotsForEdit 是一個數組
+    if (!Array.isArray(availableSlotsForEdit)) {
+      console.error("availableSlotsForEdit 不是數組:", availableSlotsForEdit);
+      setAvailableSlotsForEdit([slot]);
+      return;
+    }
+    
     // 檢查時段是否已經在編輯列表中
     if (!availableSlotsForEdit.includes(slot)) {
-      setAvailableSlotsForEdit([...availableSlotsForEdit, slot]);
+      console.log("添加新時段到列表");
+      setAvailableSlotsForEdit(prevSlots => {
+        const newSlots = [...prevSlots, slot];
+        console.log("更新後的時段列表", newSlots);
+        return newSlots;
+      });
+    } else {
+      console.log("時段已存在，不添加");
     }
   };
   
   // Handle adding a new time slot input for the editing date
   const handleAddSlotToEdit = () => {
+    console.log("添加空時段");
     // Add an empty string or a default time
-    setAvailableSlotsForEdit([...availableSlotsForEdit, ""]); 
+    setAvailableSlotsForEdit(prevSlots => [...prevSlots, ""]); 
   };
 
   // Handle changes in the time slot input fields
   const handleSlotInputChange = (index, value) => {
+    console.log("修改時段", index, "為", value);
     const updatedSlots = [...availableSlotsForEdit];
     // Basic validation or formatting can be added here
     updatedSlots[index] = value;
@@ -268,13 +286,21 @@ const DoctorDashboard = () => {
   
   // Handle removing a time slot input from the editing date
   const handleRemoveSlotFromEdit = (index) => {
+    console.log("嘗試刪除索引", index, "的時段");
     // Ensure availableSlotsForEdit is an array before filtering
     if (!Array.isArray(availableSlotsForEdit)) {
         console.error("handleRemoveSlotFromEdit: availableSlotsForEdit is not an array", availableSlotsForEdit);
         return;
     }
-    const updatedSlots = availableSlotsForEdit.filter((_, i) => i !== index);
-    setAvailableSlotsForEdit(updatedSlots);
+    
+    const slotToRemove = availableSlotsForEdit[index];
+    console.log("要刪除的時段:", slotToRemove);
+    
+    setAvailableSlotsForEdit(prevSlots => {
+      const newSlots = prevSlots.filter((_, i) => i !== index);
+      console.log("刪除後的時段列表", newSlots);
+      return newSlots;
+    });
   };
 
   // Handle saving the available slots for the currently editing date
@@ -642,16 +668,21 @@ const DoctorDashboard = () => {
                         </Typography>
                       ) : (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                          {['2:00-3:00', '3:30-4:30', '5:00-6:00', '6:30-7:30'].map((slot) => (
-                            <Tooltip key={slot} title="點擊添加此時段">
+                          {console.log("顯示預設時段列表", defaultTimeSlots)}
+                          {defaultTimeSlots.map((slot, idx) => (
                               <Chip 
+                                key={idx}
                                 label={slot} 
                                 color="primary" 
                                 variant="outlined"
-                                onClick={() => handleAddDefaultTimeSlotToSettingsList(slot)}
+                                onClick={() => {
+                                  console.log("點擊預設時段Chip:", slot);
+                                  handleAddDefaultTimeSlot(slot);
+                                }}
+                                data-testid={`default-timeslot-${idx}`}
+                                aria-label={`添加預設時段${slot}`}
                                 sx={{ cursor: 'pointer' }}
                               />
-                            </Tooltip>
                           ))}
                         </Box>
                       )}
@@ -660,24 +691,42 @@ const DoctorDashboard = () => {
                     
                     {/* 已選時段列表 */}
                     <Typography variant="subtitle1" gutterBottom>已選時段</Typography>
-                    {availableSlotsForEdit.length === 0 ? (
+                    {console.log("渲染已選時段列表", availableSlotsForEdit)}
+                    {!Array.isArray(availableSlotsForEdit) ? (
+                      <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+                        錯誤：時段列表不是一個數組。請重新加載頁面。
+                      </Typography>
+                    ) : availableSlotsForEdit.length === 0 ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                         尚未添加任何時段。
                       </Typography>
                     ) : (
                       availableSlotsForEdit.map((slot, index) => (
-                           <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <TextField 
-                                  type="time" 
-                                  size="small" 
-                                  value={slot} 
-                                  onChange={(e) => handleSlotInputChange(index, e.target.value)}
-                                  sx={{ mr: 1 }}
-                              />
-                              <IconButton size="small" onClick={() => handleRemoveSlotFromEdit(index)} color="error">
-                                  <DeleteIcon />
-                              </IconButton>
-                           </Box>
+                         <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                            <TextField 
+                                type="time" 
+                                size="small" 
+                                value={slot || ""}
+                                onChange={(e) => handleSlotInputChange(index, e.target.value)}
+                                sx={{ mr: 1 }}
+                                aria-label={`時段 ${index + 1}`}
+                                inputProps={{
+                                  "data-testid": `slot-input-${index}`
+                                }}
+                            />
+                            <IconButton 
+                                size="small" 
+                                onClick={() => {
+                                  console.log("點擊刪除按鈕, 索引:", index);
+                                  handleRemoveSlotFromEdit(index);
+                                }} 
+                                color="error"
+                                aria-label={`刪除時段 ${slot || index + 1}`}
+                                data-testid={`delete-slot-${index}`}
+                            >
+                                <DeleteIcon />
+                            </IconButton>
+                         </Box>
                       ))
                     )}
                     
