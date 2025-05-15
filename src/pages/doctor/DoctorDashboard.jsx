@@ -183,6 +183,16 @@ const DoctorDashboard = () => {
     );
   };
   
+  // 新增處理程序：將預設時段添加到全局設置列表 (用於設置頁面 case 3)
+  const handleAddDefaultTimeSlotToSettingsList = (slot) => {
+    setDefaultTimeSlots(currentSlots => {
+      if (!currentSlots.includes(slot)) {
+        return [...currentSlots, slot];
+      }
+      return currentSlots; // If already exists, do nothing, mirroring the previous conditional logic in onClick
+    });
+  };
+
   // 保存預設時段設置
   const handleSaveDefaultTimeSlots = async () => {
     setLoadingSettings(true);
@@ -632,13 +642,13 @@ const DoctorDashboard = () => {
                         </Typography>
                       ) : (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                          {defaultTimeSlots.map((slot, idx) => (
-                            <Tooltip key={idx} title="點擊添加此時段">
+                          {['2:00-3:00', '3:30-4:30', '5:00-6:00', '6:30-7:30'].map((slot) => (
+                            <Tooltip key={slot} title="點擊添加此時段">
                               <Chip 
                                 label={slot} 
                                 color="primary" 
                                 variant="outlined"
-                                onClick={() => handleAddDefaultTimeSlot(slot)}
+                                onClick={() => handleAddDefaultTimeSlotToSettingsList(slot)}
                                 sx={{ cursor: 'pointer' }}
                               />
                             </Tooltip>
@@ -940,7 +950,11 @@ const DoctorDashboard = () => {
                         key={slot} 
                         label={slot}
                         onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
-                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        onClick={() => { // Ensure it only calls if not already included, consistent with how color/onDelete behave
+                          if (!defaultTimeSlots.includes(slot)) {
+                            handleAddDefaultTimeSlotToSettingsList(slot);
+                          }
+                        }}
                         color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
                         sx={{ m: 0.5 }}
                       />
@@ -959,7 +973,11 @@ const DoctorDashboard = () => {
                         key={slot} 
                         label={slot}
                         onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
-                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        onClick={() => { 
+                          if (!defaultTimeSlots.includes(slot)) {
+                            handleAddDefaultTimeSlotToSettingsList(slot);
+                          }
+                        }}
                         color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
                         sx={{ m: 0.5 }}
                       />
@@ -978,7 +996,11 @@ const DoctorDashboard = () => {
                         key={slot} 
                         label={slot}
                         onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
-                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        onClick={() => { 
+                          if (!defaultTimeSlots.includes(slot)) {
+                            handleAddDefaultTimeSlotToSettingsList(slot);
+                          }
+                        }}
                         color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
                         sx={{ m: 0.5 }}
                       />
@@ -997,7 +1019,11 @@ const DoctorDashboard = () => {
                         key={slot} 
                         label={slot}
                         onDelete={defaultTimeSlots.includes(slot) ? () => handleRemoveDefaultTimeSlot(slot) : undefined}
-                        onClick={() => !defaultTimeSlots.includes(slot) && handleAddDefaultTimeSlot(slot)}
+                        onClick={() => { 
+                          if (!defaultTimeSlots.includes(slot)) {
+                            handleAddDefaultTimeSlotToSettingsList(slot);
+                          }
+                        }}
                         color={defaultTimeSlots.includes(slot) ? "primary" : "default"}
                         sx={{ m: 0.5 }}
                       />
