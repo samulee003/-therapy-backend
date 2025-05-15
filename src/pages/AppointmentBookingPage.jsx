@@ -21,14 +21,16 @@ import {
   useMediaQuery,
   Alert,
   Chip,
-  CircularProgress
+  CircularProgress,
+  DialogContentText,
+  Divider
 } from '@mui/material';
-import { ArrowBackIosNew, ArrowForwardIos, EventAvailable as EventAvailableIcon, AccessTime as AccessTimeIcon } from '@mui/icons-material';
+import { ArrowBackIosNew, ArrowForwardIos, EventAvailable as EventAvailableIcon, AccessTime as AccessTimeIcon, Screenshot as ScreenshotIcon } from '@mui/icons-material';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { getScheduleForMonth, bookAppointment, formatApiError } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { LoadingIndicator, ErrorAlert } from '../components/common';
+import { LoadingIndicator, ErrorAlert, ApiStateHandler } from '../components/common';
 
 
 const AppointmentBookingPage = () => {
@@ -42,6 +44,7 @@ const AppointmentBookingPage = () => {
   const [schedule, setSchedule] = useState({});
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
+  const [scheduleSuccess, setScheduleSuccess] = useState('');
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingDetails, setBookingDetails] = useState({
@@ -64,10 +67,12 @@ const AppointmentBookingPage = () => {
   const fetchSchedule = async () => {
     setLoadingSchedule(true);
     setScheduleError('');
+    setScheduleSuccess('');
     try {
       const response = await getScheduleForMonth(currentYear, currentMonth + 1); // API expects 1-indexed month
       if (response.data && response.data.success) {
         setSchedule(response.data.schedule || {});
+        setScheduleSuccess(`已成功載入 ${format(currentDate, 'yyyy年 MMMM', { locale: zhTW })} 的排班資料`);
       } else {
         throw new Error('無法獲取排班數據');
       }
@@ -166,14 +171,9 @@ const AppointmentBookingPage = () => {
     try {
       const response = await bookAppointment(appointmentData);
       if (response.data && response.data.success) {
-        setBookingSuccess('預約成功！詳情已發送至您的電子郵件。');
+        setBookingSuccess('預約成功！請截圖保存此預約資訊作為憑證。');
         // Refresh schedule to reflect the booked slot
         fetchSchedule(); 
-        // Close dialog after a delay
-        setTimeout(() => {
-          setBookingDialogOpen(false);
-          setSelectedTimeSlot(null); // Reset selection
-        }, 2000);
       } else {
         throw new Error(response.data?.message || '預約失敗。');
       }
@@ -201,11 +201,6 @@ const AppointmentBookingPage = () => {
     return [];
   };
 
-
-  if (authLoading) {
-    return <LoadingIndicator message="正在載入用戶資訊..." type="overlay" />;
-  }
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary">
@@ -229,12 +224,17 @@ const AppointmentBookingPage = () => {
           </IconButton>
         </Box>
 
-        {scheduleError && <ErrorAlert message={scheduleError} onClose={() => setScheduleError('')} sx={{mb:2}} />}
-
-        {/* Calendar Grid */}
-        {loadingSchedule ? (
-          <LoadingIndicator message="載入排班中..." sx={{my: 4}} />
-        ) : (
+        {/* 使用 ApiStateHandler 處理載入狀態 */}
+        <ApiStateHandler
+          loading={authLoading || loadingSchedule}
+          error={scheduleError}
+          success={scheduleSuccess}
+          loadingMessage={authLoading ? "載入用戶資訊..." : "載入排班中..."}
+          onErrorClose={() => setScheduleError('')}
+          onSuccessClose={() => setScheduleSuccess('')}
+          loadingType="linear"
+        >
+          {/* Calendar Grid */}
           <Grid container spacing={1}>
             {['日', '一', '二', '三', '四', '五', '六'].map((dayName) => (
               <Grid item xs={12/7} key={dayName} sx={{ textAlign: 'center', fontWeight: 'bold', color: 'text.secondary', py:1 }}>
@@ -281,7 +281,7 @@ const AppointmentBookingPage = () => {
               );
             })}
           </Grid>
-        )}
+        </ApiStateHandler>
 
         {/* Available Time Slots */}
         {selectedDate && !loadingSchedule && (
@@ -322,128 +322,131 @@ const AppointmentBookingPage = () => {
           確認預約資訊
         </DialogTitle>
         <DialogContent dividers sx={{pt: 2}}>
-          {bookingSuccess && <Alert severity="success" sx={{ mb: 2 }}>{bookingSuccess}</Alert>}
-          {bookingError && <ErrorAlert message={bookingError} onClose={() => setBookingError('')} sx={{ mb: 2 }} />}
-          
-          {!bookingSuccess && selectedDate && selectedTimeSlot && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  預約: {format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} - {selectedTimeSlot}
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="姓名"
-                  name="patientName"
-                  value={bookingDetails.patientName}
-                  onChange={handleBookingDetailsChange}
-                  fullWidth
-                  required
-                  margin="dense"
-                  disabled={bookingLoading}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="電話號碼"
-                  name="patientPhone"
-                  value={bookingDetails.patientPhone}
-                  onChange={handleBookingDetailsChange}
-                  fullWidth
-                  required
-                  margin="dense"
-                  disabled={bookingLoading}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="電子郵件"
-                  name="patientEmail"
-                  type="email"
-                  value={bookingDetails.patientEmail}
-                  onChange={handleBookingDetailsChange}
-                  fullWidth
-                  required
-                  margin="dense"
-                  disabled={bookingLoading}
-                />
-              </Grid>
-              {/* 
-              // More fields if needed
-              <Grid item xs={12} sm={6}>
-                <FormControl component="fieldset" margin="dense">
-                  <FormLabel component="legend">是否為初診？</FormLabel>
-                  <RadioGroup
-                    row
-                    name="isNewPatient"
-                    value={bookingDetails.isNewPatient}
+          <ApiStateHandler
+            loading={bookingLoading}
+            error={bookingError}
+            success={bookingSuccess}
+            loadingMessage="處理預約中..."
+            onErrorClose={() => setBookingError('')}
+            loadingType="inline"
+          >
+            {selectedDate && selectedTimeSlot && (
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>
+                    預約: {format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} - {selectedTimeSlot}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>個人資料</Typography>
+                  <Divider sx={{ mb: 2 }} />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    label="姓名"
+                    name="patientName"
+                    value={bookingDetails.patientName}
                     onChange={handleBookingDetailsChange}
-                  >
-                    <FormControlLabel value="yes" control={<Radio />} label="是" disabled={bookingLoading} />
-                    <FormControlLabel value="no" control={<Radio />} label="否" disabled={bookingLoading} />
-                  </RadioGroup>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="出生日期"
-                  name="birthDate"
-                  type="date"
-                  value={bookingDetails.birthDate}
-                  onChange={handleBookingDetailsChange}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  margin="dense"
-                  disabled={bookingLoading}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                 <FormControl component="fieldset" margin="dense">
-                  <FormLabel component="legend">性別</FormLabel>
-                  <RadioGroup
-                    row
-                    name="gender"
-                    value={bookingDetails.gender}
+                    fullWidth
+                    required
+                    size="medium"  
+                    margin="normal"
+                    disabled={bookingLoading}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="電話號碼"
+                    name="patientPhone"
+                    value={bookingDetails.patientPhone}
                     onChange={handleBookingDetailsChange}
-                  >
-                    <FormControlLabel value="male" control={<Radio />} label="男" disabled={bookingLoading}/>
-                    <FormControlLabel value="female" control={<Radio />} label="女" disabled={bookingLoading}/>
-                    <FormControlLabel value="other" control={<Radio />} label="其他" disabled={bookingLoading}/>
-                  </RadioGroup>
-                </FormControl>
+                    fullWidth
+                    required
+                    size="medium"
+                    margin="normal"
+                    disabled={bookingLoading}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="電子郵件"
+                    name="patientEmail"
+                    type="email"
+                    value={bookingDetails.patientEmail}
+                    onChange={handleBookingDetailsChange}
+                    fullWidth
+                    required
+                    size="medium"
+                    margin="normal"
+                    disabled={bookingLoading}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>就診資訊</Typography>
+                  <Divider sx={{ mb: 2 }} />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    label="預約原因 (簡述)"
+                    name="appointmentReason"
+                    value={bookingDetails.appointmentReason}
+                    onChange={handleBookingDetailsChange}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    margin="normal"
+                    disabled={bookingLoading}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    label="備註 (選填)"
+                    name="notes"
+                    value={bookingDetails.notes}
+                    onChange={handleBookingDetailsChange}
+                    fullWidth
+                    multiline
+                    rows={2}
+                    margin="normal"
+                    disabled={bookingLoading}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Grid>
               </Grid>
-              */}
-              <Grid item xs={12}>
-                <TextField
-                  label="預約原因 (簡述)"
-                  name="appointmentReason"
-                  value={bookingDetails.appointmentReason}
-                  onChange={handleBookingDetailsChange}
-                  fullWidth
-                  multiline
-                  rows={3}
-                  margin="dense"
-                  disabled={bookingLoading}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="備註 (選填)"
-                  name="notes"
-                  value={bookingDetails.notes}
-                  onChange={handleBookingDetailsChange}
-                  fullWidth
-                  multiline
-                  rows={2}
-                  margin="dense"
-                  disabled={bookingLoading}
-                />
-              </Grid>
-            </Grid>
-          )}
+            )}
+            
+            {bookingSuccess && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <ScreenshotIcon color="primary" sx={{ fontSize: 60, mb: 2 }} />
+                <DialogContentText>
+                  請截圖保存此預約資訊。此截圖將作為您的預約憑證，請在就診時出示。
+                </DialogContentText>
+              </Box>
+            )}
+          </ApiStateHandler>
         </DialogContent>
-        {!bookingSuccess && (
+        {!bookingSuccess ? (
           <DialogActions sx={{p:2}}>
             <Button onClick={handleBookingDialogClose} disabled={bookingLoading}>
               取消
@@ -456,6 +459,12 @@ const AppointmentBookingPage = () => {
               startIcon={bookingLoading ? <CircularProgress size={20} color="inherit" /> : null}
             >
               {bookingLoading ? '處理中...' : '確認預約'}
+            </Button>
+          </DialogActions>
+        ) : (
+          <DialogActions sx={{p:2}}>
+            <Button onClick={handleBookingDialogClose} variant="outlined">
+              關閉
             </Button>
           </DialogActions>
         )}
