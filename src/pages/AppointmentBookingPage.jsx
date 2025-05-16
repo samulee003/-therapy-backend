@@ -358,6 +358,12 @@ const AppointmentBookingPage = () => {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    InputProps={{
+                      style: { 
+                        paddingTop: '8px',
+                        paddingBottom: '8px'
+                      }
+                    }}
                   />
                 </Grid>
 
@@ -374,6 +380,12 @@ const AppointmentBookingPage = () => {
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                    }}
+                    InputProps={{
+                      style: { 
+                        paddingTop: '8px',
+                        paddingBottom: '8px'
+                      }
                     }}
                   />
                 </Grid>
@@ -392,6 +404,12 @@ const AppointmentBookingPage = () => {
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                    }}
+                    InputProps={{
+                      style: { 
+                        paddingTop: '8px',
+                        paddingBottom: '8px'
+                      }
                     }}
                   />
                 </Grid>
@@ -415,6 +433,12 @@ const AppointmentBookingPage = () => {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    InputProps={{
+                      style: { 
+                        paddingTop: '8px',
+                        paddingBottom: '8px'
+                      }
+                    }}
                   />
                 </Grid>
 
@@ -431,6 +455,12 @@ const AppointmentBookingPage = () => {
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                    }}
+                    InputProps={{
+                      style: { 
+                        paddingTop: '8px',
+                        paddingBottom: '8px'
+                      }
                     }}
                   />
                 </Grid>
