@@ -259,7 +259,7 @@ const PatientDashboard = () => {
             <ListItemText
               primary={
                 <Typography variant="body1" fontWeight="medium">
-                  {appointment.doctor?.name || '心理治療師 (未指定)'}
+                  {appointment.doctor?.name || '心理治療師 (已排定)'}
                 </Typography>
               }
               secondary={
@@ -420,7 +420,7 @@ const PatientDashboard = () => {
                                   <ListItemText
                                       primary={
                                       <Typography variant="body1" fontWeight="medium">
-                                          {appointment.doctor?.name || '心理治療師 (未指定)'}
+                                          {appointment.doctor?.name || '心理治療師 (已排定)'}
                                       </Typography>
                                       }
                                       secondary={
