@@ -117,7 +117,7 @@ function allDb(sql, params = []) {
       }
     });
   });
-}
+});
 
 // --- 資料庫表結構定義 ---
 // 使用分號結束每個 SQL 語句，並確保字符串格式正確
@@ -143,9 +143,12 @@ CREATE TABLE IF NOT EXISTS users (
 
 const CREATE_SCHEDULE_SQL = `
 CREATE TABLE IF NOT EXISTS schedule (
-    date TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    doctorId INTEGER NOT NULL,
     availableSlots TEXT,
-    bookedSlots TEXT -- 儲存已預約時段的詳細信息，例如 { "09:00": { patientId: 1, patientName: "..." } }
+    bookedSlots TEXT, -- 儲存已預約時段的詳細信息，例如 { "09:00": { patientId: 1, patientName: "..." } }
+    PRIMARY KEY (date, doctorId),
+    FOREIGN KEY (doctorId) REFERENCES users(id)
 );`;
 
 const CREATE_APPOINTMENTS_SQL = `
@@ -167,7 +170,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     FOREIGN KEY (patientId) REFERENCES users(id), -- 外鍵關聯
     FOREIGN KEY (regularPatientId) REFERENCES regular_patients(id),
     FOREIGN KEY (doctorId) REFERENCES users(id), -- 新增的外鍵約束
-    UNIQUE(date, time) -- 同一時間只能有一個預約
+    UNIQUE(date, time, doctorId) -- 同一時間只能有一個預約【修改為同一時間、同一醫生只能有一個預約】
 );`;
 
 const CREATE_REGULAR_PATIENTS_SQL = `
@@ -466,6 +469,10 @@ app.put('/api/settings', isAuthenticated, isDoctor, async (req, res) => {
 // 獲取指定月份的排班 (需要登入)
 app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
   const { year, month } = req.params;
+  const doctorId = req.query.doctorId; // 可選參數，特定醫生的ID
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+  
   // 驗證年和月
   if (!/^\d{4}$/.test(year) || !/^(0?[1-9]|1[0-2])$/.test(month)) {
     return res.status(400).json({ success: false, message: "無效的年份或月份格式。" });
@@ -477,24 +484,73 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
   const endDate = `${year}-${monthPadded}-${String(lastDay).padStart(2, '0')}`;
 
   try {
-    const scheduleRows = await allDb(
-      "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ?",
-      [startDate, endDate]
-    );
+    let scheduleRows;
+    
+    // 根據角色和請求參數決定查詢邏輯
+    if (userRole === 'doctor' && !doctorId) {
+      // 醫生查看自己的排班
+      scheduleRows = await allDb(
+        "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
+        [startDate, endDate, userId]
+      );
+    } else if (doctorId) {
+      // 查詢特定醫生的排班
+      scheduleRows = await allDb(
+        "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
+        [startDate, endDate, doctorId]
+      );
+    } else {
+      // 患者查看：獲取所有醫生的排班
+      scheduleRows = await allDb(
+        "SELECT s.date, s.doctorId, u.name as doctorName, s.availableSlots, s.bookedSlots FROM schedule s JOIN users u ON s.doctorId = u.id WHERE s.date BETWEEN ? AND ? AND u.role = 'doctor' ORDER BY s.date",
+        [startDate, endDate]
+      );
+    }
 
-    // 將結果轉換為前端期望的格式 { 'YYYY-MM-DD': { availableSlots: [], bookedSlots: {} } }
+    // 將結果轉換為前端期望的格式
     const scheduleMap = {};
-    scheduleRows.forEach(row => {
-      let availableSlots = [];
-      let bookedSlots = {};
-      try {
-        availableSlots = JSON.parse(row.availableSlots || '[]');
-      } catch (e) { console.error(`解析 ${row.date} 的 availableSlots 失敗:`, e); }
-      try {
-        bookedSlots = JSON.parse(row.bookedSlots || '{}');
-      } catch (e) { console.error(`解析 ${row.date} 的 bookedSlots 失敗:`, e); }
-      scheduleMap[row.date] = { availableSlots, bookedSlots };
-    });
+    
+    if (userRole === 'doctor' && !doctorId || doctorId) {
+      // 醫生查看自己排班 或 查詢特定醫生排班：保持原有格式
+      scheduleRows.forEach(row => {
+        let availableSlots = [];
+        let bookedSlots = {};
+        try {
+          availableSlots = JSON.parse(row.availableSlots || '[]');
+        } catch (e) { console.error(`解析 ${row.date} 的 availableSlots 失敗:`, e); }
+        try {
+          bookedSlots = JSON.parse(row.bookedSlots || '{}');
+        } catch (e) { console.error(`解析 ${row.date} 的 bookedSlots 失敗:`, e); }
+        scheduleMap[row.date] = { availableSlots, bookedSlots };
+      });
+    } else {
+      // 患者查看所有醫生排班：新格式，按日期分組，每天包含多個醫生的信息
+      scheduleRows.forEach(row => {
+        let availableSlots = [];
+        let bookedSlots = {};
+        try {
+          availableSlots = JSON.parse(row.availableSlots || '[]');
+        } catch (e) { console.error(`解析 ${row.date} 的 availableSlots 失敗:`, e); }
+        try {
+          bookedSlots = JSON.parse(row.bookedSlots || '{}');
+        } catch (e) { console.error(`解析 ${row.date} 的 bookedSlots 失敗:`, e); }
+        
+        // 初始化日期的信息（如果不存在）
+        if (!scheduleMap[row.date]) {
+          scheduleMap[row.date] = {
+            doctors: []
+          };
+        }
+        
+        // 添加這個醫生的信息到該日期
+        scheduleMap[row.date].doctors.push({
+          doctorId: row.doctorId,
+          doctorName: row.doctorName || '未指定',
+          availableSlots,
+          bookedSlots
+        });
+      });
+    }
 
     res.json({ success: true, schedule: scheduleMap });
   } catch (error) {
@@ -506,6 +562,7 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
 // 保存指定日期的可用時段 (僅限醫生)
 app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
   const { date, availableSlots } = req.body;
+  const doctorId = req.user.userId; // 從登入用戶獲取醫生ID
 
   // 驗證日期和時段
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -520,16 +577,16 @@ app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
 
   try {
     // 獲取當前已預約的時段，以防覆蓋
-    const existingSchedule = await getDb("SELECT bookedSlots FROM schedule WHERE date = ?", [date]);
+    const existingSchedule = await getDb("SELECT bookedSlots FROM schedule WHERE date = ? AND doctorId = ?", [date, doctorId]);
     const bookedSlotsJson = existingSchedule ? existingSchedule.bookedSlots : '{}';
 
     // 使用 UPSERT 邏輯更新或插入排班
     await runDb(
-      `INSERT INTO schedule (date, availableSlots, bookedSlots)
-       VALUES (?, ?, ?)
-       ON CONFLICT(date) DO UPDATE SET
+      `INSERT INTO schedule (date, doctorId, availableSlots, bookedSlots)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(date, doctorId) DO UPDATE SET
          availableSlots=excluded.availableSlots;`, // 只更新 availableSlots
-      [date, slotsJson, bookedSlotsJson] // 如果是插入，也提供 bookedSlots 的初始值
+      [date, doctorId, slotsJson, bookedSlotsJson] // 如果是插入，也提供 bookedSlots 的初始值
     );
     res.json({ success: true, message: `日期 ${date} 的排班已保存。` });
   } catch (error) {
@@ -542,7 +599,13 @@ app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
 
 // 新增預約 (需要病人登入)
 app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
-  const { date, time, appointmentReason, notes, doctorId } = req.body; // 添加doctorId參數
+  const { date, time, appointmentReason, notes, doctorId } = req.body;
+  
+  // 檢查是否提供了醫生ID
+  if (!doctorId) {
+    return res.status(400).json({ success: false, message: "請選擇一位醫生進行預約。" });
+  }
+  
   const patientId = req.user.userId;
   const patientEmail = req.user.username; // 從 req.user 獲取
   const patientName = req.user.name; // 從 req.user 獲取
@@ -559,13 +622,12 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
     }
     
     // 獲取醫生資訊（如果提供了doctorId）
-    if (doctorId) {
-      const doctorInfo = await getDb("SELECT name FROM users WHERE id = ? AND role = 'doctor'", [doctorId]);
-      if (doctorInfo && doctorInfo.name) {
-        doctorName = doctorInfo.name;
-      } else {
-        console.warn(`無法找到 ID 為 ${doctorId} 的醫生資訊。`);
-      }
+    const doctorInfo = await getDb("SELECT name FROM users WHERE id = ? AND role = 'doctor'", [doctorId]);
+    if (doctorInfo && doctorInfo.name) {
+      doctorName = doctorInfo.name;
+    } else {
+      console.warn(`無法找到 ID 為 ${doctorId} 的醫生資訊。`);
+      return res.status(404).json({ success: false, message: "找不到指定的醫生，請重新選擇。" });
     }
   } catch (dbError) {
      console.error("預約時查詢用戶資訊失敗:", dbError);
@@ -590,10 +652,10 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
 
       try {
         // 1. 檢查排班是否存在及該時段是否可用
-        const schedule = await getDb("SELECT availableSlots, bookedSlots FROM schedule WHERE date = ?", [date]);
+        const schedule = await getDb("SELECT availableSlots, bookedSlots FROM schedule WHERE date = ? AND doctorId = ?", [date, doctorId]);
         if (!schedule) {
           await runDb('ROLLBACK;');
-          return res.status(400).json({ success: false, message: `日期 ${date} 沒有可預約的時段。` });
+          return res.status(400).json({ success: false, message: `醫生 ${doctorName} 在 ${date} 沒有可預約的時段。` });
         }
 
         let availableSlots = [];
@@ -604,7 +666,7 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
         // 檢查時段是否真的在 availableSlots 中，並且沒有在 bookedSlots 中
         if (!availableSlots.includes(time) || bookedSlots[time]) {
           await runDb('ROLLBACK;');
-          return res.status(409).json({ success: false, message: `時段 ${date} ${time} 不可用或已被預約。` }); // 409 Conflict
+          return res.status(409).json({ success: false, message: `醫生 ${doctorName} 在 ${date} ${time} 的時段不可用或已被預約。` }); // 409 Conflict
         }
 
         // 2. 創建預約記錄
@@ -612,26 +674,25 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
           (date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason, notes, status, doctorId, doctorName)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         const appointmentResult = await runDb(appointmentSql, [
-          date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason || '', notes || '', 'confirmed', doctorId || null, doctorName || ''
+          date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason || '', notes || '', 'confirmed', doctorId, doctorName
         ]);
         const newAppointmentId = appointmentResult.lastID;
 
         // 3. 更新排班表，將該時段標記為已預約
-        // 從 availableSlots 移除，添加到 bookedSlots
         const updatedAvailableSlots = availableSlots.filter(slot => slot !== time);
         bookedSlots[time] = { // 儲存預約信息
              appointmentId: newAppointmentId,
              patientId: patientId,
              patientName: patientName,
-             doctorId: doctorId || null, // 添加醫生ID到預約資訊
-             doctorName: doctorName || '' // 添加醫生姓名到預約資訊
+             doctorId: doctorId,
+             doctorName: doctorName
         };
-        const updateScheduleSql = "UPDATE schedule SET availableSlots = ?, bookedSlots = ? WHERE date = ?";
-        await runDb(updateScheduleSql, [JSON.stringify(updatedAvailableSlots), JSON.stringify(bookedSlots), date]);
+        const updateScheduleSql = "UPDATE schedule SET availableSlots = ?, bookedSlots = ? WHERE date = ? AND doctorId = ?";
+        await runDb(updateScheduleSql, [JSON.stringify(updatedAvailableSlots), JSON.stringify(bookedSlots), date, doctorId]);
 
         // 4. 提交事務
         await runDb('COMMIT;');
-        console.log(`預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail}), 醫生 ${doctorName || '未指定'}`);
+        console.log(`預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail}), 醫生 ${doctorName}`);
         res.status(201).json({ success: true, message: "預約成功！", appointmentId: newAppointmentId });
 
       } catch (innerError) {
@@ -639,8 +700,8 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
         console.error("預約事務處理失敗，正在回滾:", innerError);
         await runDb('ROLLBACK;');
         // 檢查是否是 UNIQUE constraint 錯誤 (重複預約)
-        if (innerError.message && innerError.message.includes('UNIQUE constraint failed: appointments.date, appointments.time')) {
-             res.status(409).json({ success: false, message: `時段 ${date} ${time} 已被預約。` });
+        if (innerError.message && innerError.message.includes('UNIQUE constraint failed: appointments.date, appointments.time, appointments.doctorId')) {
+             res.status(409).json({ success: false, message: `醫生 ${doctorName} 在 ${date} ${time} 的時段已被預約。` });
         } else {
              res.status(500).json({ success: false, message: "預約過程中發生錯誤。" });
         }
@@ -849,4 +910,17 @@ process.on('uncaughtException', (error) => {
   process.emit('SIGINT');
   // 在記錄錯誤後退出是個好主意
   // process.exit(1);
+});
+
+// 獲取所有醫生列表 (公開API，用於預約頁面)
+app.get('/api/doctors', async (req, res) => {
+  try {
+    const doctors = await allDb(
+      "SELECT id, name FROM users WHERE role = 'doctor' ORDER BY name"
+    );
+    res.json({ success: true, doctors });
+  } catch (error) {
+    console.error('獲取醫生列表失敗:', error);
+    res.status(500).json({ success: false, message: "無法獲取醫生列表。" });
+  }
 }); 
