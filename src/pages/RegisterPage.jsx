@@ -69,8 +69,8 @@ const RegisterPage = () => {
   const PATTERNS = {
     EMAIL: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
     PHONE: /^[0-9+()-\s]{8,}$/, // 更加靈活的電話格式，允許國際格式
-    PASSWORD_STRONG: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    PASSWORD_MEDIUM: /^(?=.*[a-zA-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/,
+    PASSWORD_STRONG: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/,
+    PASSWORD_MEDIUM: /^(?=.*[a-zA-Z])(?=.*\d)[A-Za-z\d]{6,}$/,
     NAME: /^[\u4e00-\u9fa5a-zA-Z\s]{2,30}$/, // 中文或英文名，2-30個字符
   };
 
@@ -117,9 +117,6 @@ const RegisterPage = () => {
           errorMessage = '密碼長度至少為 6 位';
         } else if (!PATTERNS.PASSWORD_MEDIUM.test(value)) {
           errorMessage = '密碼需包含至少一個字母和一個數字';
-        } else if (!PATTERNS.PASSWORD_STRONG.test(value)) {
-          // 不阻止提交，但給出增強建議
-          errorMessage = '建議: 使用大寫字母、小寫字母、數字和特殊符號來增強密碼安全性';
         }
         break;
       
@@ -422,7 +419,6 @@ const RegisterPage = () => {
                 <ul>
                   <li>至少 6 個字符</li>
                   <li>必須包含至少一個字母和一個數字</li>
-                  <li>建議包含大小寫字母和特殊符號</li>
                 </ul>
               </FormHelperText>
             </Grid>
