@@ -200,6 +200,10 @@ export const cancelAppointment = (appointmentId) => {
 export const cancelPatientAppointment = cancelAppointment;
 export const cancelAdminAppointment = cancelAppointment; // Assuming admin uses the same endpoint
 
+// 獲取所有醫生列表 (用於預約頁面)
+export const getDoctors = () => {
+  return apiClient.get('/api/doctors');
+};
 
 // --- Removed Functions (Backend doesn't support these) --- //
 // registerUser

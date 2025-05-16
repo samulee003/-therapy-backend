@@ -32,7 +32,7 @@ import {
 import { ArrowBackIosNew, ArrowForwardIos, EventAvailable as EventAvailableIcon, AccessTime as AccessTimeIcon, Screenshot as ScreenshotIcon } from '@mui/icons-material';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { getScheduleForMonth, bookAppointment, formatApiError } from '../services/api';
+import { getScheduleForMonth, bookAppointment, formatApiError, getDoctors } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LoadingIndicator, ErrorAlert, ApiStateHandler } from '../components/common';
 
@@ -101,17 +101,17 @@ const AppointmentBookingPage = () => {
     setLoadingDoctors(true);
     setDoctorsError('');
     try {
-      // 模擬API調用 - 實際專案中應替換為真實的API調用
-      // 這裡使用預設的兩位醫生，實際應該從後端獲取
-      const mockDoctors = [
-        { id: 1, name: '陳醫師', specialization: '臨床心理學' },
-        { id: 2, name: '林醫師', specialization: '兒童與青少年心理學' }
-      ];
-      setDoctors(mockDoctors);
+      const response = await getDoctors();
+      if (response.data && response.data.success) {
+        setDoctors(response.data.doctors || []);
+      } else {
+        throw new Error('無法獲取醫生列表');
+      }
     } catch (err) {
       console.error("獲取醫生列表失敗:", err);
       const formattedError = err.formatted || formatApiError(err, '無法獲取醫生列表，請稍後重試。');
       setDoctorsError(formattedError.message);
+      setDoctors([]);
     } finally {
       setLoadingDoctors(false);
     }
@@ -153,8 +153,15 @@ const AppointmentBookingPage = () => {
   };
 
   const handleTimeSlotClick = (slot) => {
-    setSelectedTimeSlot(slot);
-    setBookingDialogOpen(true); // Open booking dialog when time slot is selected
+    setSelectedTimeSlot(slot.time);
+    // 如果時段包含醫生信息，自動設置醫生
+    if (slot.doctorId) {
+      setBookingDetails({
+        ...bookingDetails,
+        doctorId: slot.doctorId.toString()
+      });
+    }
+    setBookingDialogOpen(true);
   };
 
   const handleBookingDialogClose = () => {
@@ -223,12 +230,55 @@ const AppointmentBookingPage = () => {
 
   const getAvailableSlotsForDate = (dateStr) => {
     const daySchedule = schedule[dateStr];
-    if (daySchedule && daySchedule.availableSlots) {
-      // Filter out booked slots if necessary, though backend should ideally provide only available ones
+    // 判斷是否是新的數據格式（包含多個醫生）
+    if (daySchedule && daySchedule.doctors) {
+      // 依據目前是否選擇了醫生決定顯示哪些時段
+      if (bookingDetails.doctorId) {
+        // 只顯示選定醫生的時段
+        const selectedDoctor = daySchedule.doctors.find(doc => doc.doctorId === parseInt(bookingDetails.doctorId));
+        if (selectedDoctor) {
+          const bookedTimes = selectedDoctor.bookedSlots ? Object.keys(selectedDoctor.bookedSlots) : [];
+          return selectedDoctor.availableSlots.filter(slot => !bookedTimes.includes(slot)).map(slot => ({
+            time: slot,
+            doctorId: selectedDoctor.doctorId,
+            doctorName: selectedDoctor.doctorName
+          }));
+        }
+        return [];
+      } else {
+        // 顯示所有醫生的時段（打平列表）
+        let allSlots = [];
+        daySchedule.doctors.forEach(doctor => {
+          const bookedTimes = doctor.bookedSlots ? Object.keys(doctor.bookedSlots) : [];
+          const availableSlots = doctor.availableSlots
+            .filter(slot => !bookedTimes.includes(slot))
+            .map(slot => ({
+              time: slot,
+              doctorId: doctor.doctorId,
+              doctorName: doctor.doctorName
+            }));
+          allSlots = [...allSlots, ...availableSlots];
+        });
+        return allSlots;
+      }
+    } else if (daySchedule && daySchedule.availableSlots) {
+      // 舊的數據格式，向後兼容
       const bookedTimes = daySchedule.bookedSlots ? Object.keys(daySchedule.bookedSlots) : [];
-      return daySchedule.availableSlots.filter(slot => !bookedTimes.includes(slot));
+      return daySchedule.availableSlots
+        .filter(slot => !bookedTimes.includes(slot))
+        .map(slot => ({ time: slot }));
     }
     return [];
+  };
+
+  // 添加選擇醫生的處理函數
+  const handleDoctorChange = (doctorId) => {
+    setBookingDetails({
+      ...bookingDetails,
+      doctorId: doctorId
+    });
+    // 重置選中的時段，因為醫生變了，可用時段也會變
+    setSelectedTimeSlot(null);
   };
 
   return (
@@ -239,6 +289,44 @@ const AppointmentBookingPage = () => {
       <Typography variant="body1" color="text.secondary" paragraph sx={{ mb: 4 }}>
         請選擇您希望預約的日期和時段。
       </Typography>
+
+      {/* 顯示醫生選擇 */}
+      <Paper elevation={3} sx={{ p: isMobile ? 2 : 4, borderRadius: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>選擇心理醫師</Typography>
+        <ApiStateHandler
+          loading={loadingDoctors}
+          error={doctorsError}
+          success=""
+          loadingMessage="載入醫生列表..."
+          onErrorClose={() => setDoctorsError('')}
+          loadingType="inline"
+        >
+          <Grid container spacing={2}>
+            {doctors.map((doctor) => (
+              <Grid item key={doctor.id} xs={12} sm={6} md={4}>
+                <Button
+                  fullWidth
+                  variant={bookingDetails.doctorId === doctor.id.toString() ? "contained" : "outlined"}
+                  onClick={() => handleDoctorChange(doctor.id.toString())}
+                  sx={{ 
+                    py: 2,
+                    justifyContent: "flex-start",
+                    textAlign: "left",
+                    bgcolor: bookingDetails.doctorId === doctor.id.toString() ? 'primary.main' : 'background.paper',
+                    color: bookingDetails.doctorId === doctor.id.toString() ? 'common.white' : 'text.primary',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {doctor.name}
+                    </Typography>
+                  </Box>
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </ApiStateHandler>
+      </Paper>
 
       <Paper elevation={3} sx={{ p: isMobile ? 2 : 4, borderRadius: 2 }}>
         {/* Month Navigation */}
@@ -324,7 +412,7 @@ const AppointmentBookingPage = () => {
             ) : (
               <Grid container spacing={1}>
                 {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).map((slot) => (
-                  <Grid item key={slot} xs={6} sm={4} md={3} lg={2}>
+                  <Grid item key={`${slot.time}-${slot.doctorId || 'unknown'}`} xs={6} sm={4} md={3} lg={2}>
                     <Button
                       fullWidth
                       variant="contained"
@@ -332,11 +420,16 @@ const AppointmentBookingPage = () => {
                       onClick={() => handleTimeSlotClick(slot)}
                       startIcon={<AccessTimeIcon />}
                       sx={{
-                        bgcolor: selectedTimeSlot === slot ? 'secondary.dark' : 'secondary.main',
+                        bgcolor: selectedTimeSlot === slot.time ? 'secondary.dark' : 'secondary.main',
                         '&:hover': { bgcolor: 'secondary.dark' },
                       }}
                     >
-                      {slot}
+                      {slot.time}
+                      {slot.doctorName && (
+                        <Typography variant="caption" sx={{ display: 'block', width: '100%', textAlign: 'center', mt: 0.5 }}>
+                          {slot.doctorName}
+                        </Typography>
+                      )}
                     </Button>
                   </Grid>
                 ))}
@@ -367,6 +460,11 @@ const AppointmentBookingPage = () => {
                   <Typography variant="h6" gutterBottom>
                     預約: {format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} - {selectedTimeSlot}
                   </Typography>
+                  {bookingDetails.doctorId && doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
+                    <Typography variant="subtitle1" color="primary.main" fontWeight="medium" gutterBottom>
+                      醫師: {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
+                    </Typography>
+                  )}
                 </Grid>
                 
                 <Grid item xs={12}>
@@ -449,36 +547,6 @@ const AppointmentBookingPage = () => {
                   <Divider sx={{ mb: 2 }} />
                 </Grid>
                 
-                {/* 添加醫生選擇下拉框 */}
-                <Grid item xs={12}>
-                  <FormControl 
-                    fullWidth
-                    margin="normal"
-                    disabled={bookingLoading || loadingDoctors}
-                  >
-                    <InputLabel id="doctor-select-label" shrink>選擇心理治療師</InputLabel>
-                    <Select
-                      labelId="doctor-select-label"
-                      id="doctor-select"
-                      name="doctorId"
-                      value={bookingDetails.doctorId}
-                      onChange={handleBookingDetailsChange}
-                      displayEmpty
-                      label="選擇心理治療師"
-                    >
-                      <MenuItem value="">
-                        <em>由系統安排</em>
-                      </MenuItem>
-                      {doctors.map((doctor) => (
-                        <MenuItem key={doctor.id} value={doctor.id}>
-                          {doctor.name} - {doctor.specialization}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    <FormHelperText>如果您沒有特別偏好的治療師，系統將自動為您安排</FormHelperText>
-                  </FormControl>
-                </Grid>
-
                 <Grid item xs={12}>
                   <TextField
                     label="預約原因 (簡述)"
