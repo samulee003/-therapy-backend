@@ -56,7 +56,7 @@ function App() {
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}>
-            <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+            <Route path="/therapist-dashboard" element={<DoctorDashboard />} />
             {/* Add other doctor/admin specific routes here */}
           </Route>
 

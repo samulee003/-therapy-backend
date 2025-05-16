@@ -343,7 +343,7 @@ const RegisterPage = () => {
                   onChange={handleChange}
                 >
                   <FormControlLabel value="patient" control={<Radio />} label="患者 (Patient)" />
-                  <FormControlLabel value="doctor" control={<Radio />} label="醫生 (Doctor)" />
+                  <FormControlLabel value="doctor" control={<Radio />} label="心理治療師 (Therapist)" />
                 </RadioGroup>
               </FormControl>
             </Grid>
@@ -455,7 +455,7 @@ const RegisterPage = () => {
                 <Typography>身份:</Typography>
               </Grid>
               <Grid item xs={6} sx={{ textAlign: 'left' }}>
-                <Typography>{formData.role === 'patient' ? '患者' : '醫生'}</Typography>
+                <Typography>{formData.role === 'patient' ? '患者' : '心理治療師'}</Typography>
               </Grid>
             </Grid>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>

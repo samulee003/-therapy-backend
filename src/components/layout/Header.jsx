@@ -51,7 +51,7 @@ const Header = () => {
     ];
 
     if (isAuthenticated) {
-      const dashboardPath = user?.role === 'doctor' || user?.role === 'admin' ? '/doctor-dashboard' : '/patient-dashboard';
+      const dashboardPath = user?.role === 'doctor' || user?.role === 'admin' ? '/therapist-dashboard' : '/patient-dashboard';
       return [
         ...baseItems,
       ];
@@ -172,7 +172,7 @@ const Header = () => {
                 >
                     <MenuItem 
                         component={RouterLink} 
-                        to={user?.role === 'doctor' || user?.role === 'admin' ? '/doctor-dashboard' : '/patient-dashboard'} 
+                        to={user?.role === 'doctor' || user?.role === 'admin' ? '/therapist-dashboard' : '/patient-dashboard'} 
                         onClick={handleUserMenuClose}
                     >
                         <ListItemIcon><DashboardIcon fontSize="small" /></ListItemIcon>

@@ -204,7 +204,7 @@ const AppointmentBookingPage = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary">
-        預約心理治療
+        預約心理治療師
       </Typography>
       <Typography variant="body1" color="text.secondary" paragraph sx={{ mb: 4 }}>
         請選擇您希望預約的日期和時段。
@@ -319,7 +319,7 @@ const AppointmentBookingPage = () => {
       {/* Booking Dialog */}
       <Dialog open={bookingDialogOpen} onClose={handleBookingDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'common.white' }}>
-          確認預約資訊
+          {bookingSuccess ? "預約成功" : "確認預約資訊"}
         </DialogTitle>
         <DialogContent dividers sx={{pt: 2}}>
           <ApiStateHandler
@@ -328,9 +328,10 @@ const AppointmentBookingPage = () => {
             success={bookingSuccess}
             loadingMessage="處理預約中..."
             onErrorClose={() => setBookingError('')}
+            onSuccessClose={() => setBookingSuccess('')}
             loadingType="inline"
           >
-            {selectedDate && selectedTimeSlot && (
+            {!bookingSuccess && selectedDate && selectedTimeSlot && (
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
@@ -438,7 +439,30 @@ const AppointmentBookingPage = () => {
             
             {bookingSuccess && (
               <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <ScreenshotIcon color="primary" sx={{ fontSize: 60, mb: 2 }} />
+                <DialogContentText sx={{ mb: 2, fontWeight: 'medium' }}>
+                  以下是您的預約摘要：
+                </DialogContentText>
+                <Paper variant="outlined" sx={{ p: 2, my: 2, textAlign: 'left', display: 'inline-block' }}>
+                  {selectedDate && (
+                    <Typography variant="body1" gutterBottom>
+                      <strong>日期：</strong> {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })}
+                    </Typography>
+                  )}
+                  {selectedTimeSlot && (
+                    <Typography variant="body1" gutterBottom>
+                      <strong>時間：</strong> {selectedTimeSlot}
+                    </Typography>
+                  )}
+                  <Typography variant="body1" gutterBottom>
+                    <strong>姓名：</strong> {bookingDetails.patientName}
+                  </Typography>
+                  {bookingDetails.appointmentReason && (
+                    <Typography variant="body1" gutterBottom>
+                      <strong>預約原因：</strong> {bookingDetails.appointmentReason}
+                    </Typography>
+                  )}
+                </Paper>
+                <ScreenshotIcon color="primary" sx={{ fontSize: 60, mb: 1, mt: 3 }} />
                 <DialogContentText>
                   請截圖保存此預約資訊。此截圖將作為您的預約憑證，請在就診時出示。
                 </DialogContentText>

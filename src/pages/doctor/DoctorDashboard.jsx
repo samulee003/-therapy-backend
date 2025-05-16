@@ -576,7 +576,7 @@ const DoctorDashboard = () => {
         return (
           <Box>
             <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
-              醫生儀表板
+              心理治療師儀表板
             </Typography>
             <Typography variant="body1" color="text.secondary" paragraph>
               歡迎回來，{user?.name || user?.username}！管理您的預約和時段。
