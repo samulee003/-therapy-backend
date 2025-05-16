@@ -113,7 +113,7 @@ const PatientDashboard = () => {
   // 添加取消預約功能
   const handleCancelAppointment = async (appointment) => {
     // 禁用患者取消預約功能
-    alert("取消預約需聯繫診所，請直接致電或就診時與醫師協商。");
+    alert("取消預約需聯繫診所，請直接致電或就診時與心理治療師協商。");
     return;
   };
 
@@ -253,13 +253,13 @@ const PatientDashboard = () => {
           >
             <ListItemAvatar>
               <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                {appointment.doctor?.name?.charAt(0) || '醫'}
+                {appointment.doctor?.name?.charAt(0) || '師'}
               </Avatar>
             </ListItemAvatar>
             <ListItemText
               primary={
                 <Typography variant="body1" fontWeight="medium">
-                  {appointment.doctor?.name || '醫生'}
+                  {appointment.doctor?.name || '心理治療師 (未指定)'}
                 </Typography>
               }
               secondary={
@@ -414,13 +414,13 @@ const PatientDashboard = () => {
                                   <ListItemAvatar>
                                       <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
                                       {/* Assuming doctor info is populated or available */}
-                                      {appointment.doctor?.name?.charAt(0) || '醫'}
+                                      {appointment.doctor?.name?.charAt(0) || '師'}
                                       </Avatar>
                                   </ListItemAvatar>
                                   <ListItemText
                                       primary={
                                       <Typography variant="body1" fontWeight="medium">
-                                          {appointment.doctor?.name || '醫生'} {/* Adjust based on actual data structure */}
+                                          {appointment.doctor?.name || '心理治療師 (未指定)'}
                                       </Typography>
                                       }
                                       secondary={
@@ -591,7 +591,7 @@ const PatientDashboard = () => {
                 </Grid>
                 {selectedAppointment.doctor && (
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2">醫生：</Typography>
+                    <Typography variant="subtitle2">心理治療師：</Typography>
                     <Typography variant="body1" gutterBottom>{selectedAppointment.doctor.name || '未指定'}</Typography>
                   </Grid>
                 )}
@@ -610,7 +610,7 @@ const PatientDashboard = () => {
               </Grid>
               
               <Alert severity="info" sx={{ mt: 3 }}>
-                如需取消或更改預約，請提前聯繫診所或在就診時直接與醫師說明。本系統不提供線上取消預約功能。
+                如需取消或更改預約，請提前聯繫診所或在就診時直接與心理治療師說明。本系統不提供線上取消預約功能。
               </Alert>
             </Box>
           )}
