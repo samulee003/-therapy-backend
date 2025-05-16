@@ -259,7 +259,7 @@ const PatientDashboard = () => {
             <ListItemText
               primary={
                 <Typography variant="body1" fontWeight="medium">
-                  {appointment.doctor?.name || '心理治療師 (已排定)'}
+                  {appointment.doctorName || (appointment.doctor?.name) || '心理治療師 (已排定)'}
                 </Typography>
               }
               secondary={
@@ -420,7 +420,7 @@ const PatientDashboard = () => {
                                   <ListItemText
                                       primary={
                                       <Typography variant="body1" fontWeight="medium">
-                                          {appointment.doctor?.name || '心理治療師 (已排定)'}
+                                          {appointment.doctorName || (appointment.doctor?.name) || '心理治療師 (已排定)'}
                                       </Typography>
                                       }
                                       secondary={
@@ -589,12 +589,12 @@ const PatientDashboard = () => {
                     size="small"
                   />
                 </Grid>
-                {selectedAppointment.doctor && (
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2">心理治療師：</Typography>
-                    <Typography variant="body1" gutterBottom>{selectedAppointment.doctor.name || '未指定'}</Typography>
-                  </Grid>
-                )}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">心理治療師：</Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {selectedAppointment.doctorName || (selectedAppointment.doctor && selectedAppointment.doctor.name) || '已為您安排專業治療師'}
+                  </Typography>
+                </Grid>
                 {selectedAppointment.appointmentReason && (
                   <Grid item xs={12}>
                     <Typography variant="subtitle2">預約原因：</Typography>

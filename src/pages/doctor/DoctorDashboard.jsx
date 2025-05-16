@@ -78,6 +78,25 @@ const DoctorDashboard = () => {
   const { user, isLoading: authLoading } = useContext(AuthContext);
   const [tabValue, setTabValue] = useState(0);
   
+  // 預約狀態處理函數
+  const getStatusText = (status) => {
+    switch(status) {
+      case 'confirmed': return '已確認';
+      case 'cancelled': return '已取消';
+      case 'completed': return '已完成';
+      default: return '待確認';
+    }
+  };
+  
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'confirmed': return 'success';
+      case 'cancelled': return 'default';
+      case 'completed': return 'primary';
+      default: return 'warning';
+    }
+  };
+  
   // State for appointments
   const [appointments, setAppointments] = useState([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
@@ -1108,15 +1127,27 @@ const DoctorDashboard = () => {
                             }}
                             >
                             <ListItemAvatar>
-                                <Avatar sx={{ bgcolor: theme.palette.secondary.main }}>
-                                {appointment.patientName?.charAt(0) || appointment.patient?.name?.charAt(0) || '患'}
+                                <Avatar sx={{ bgcolor: appointment.status === 'cancelled' ? 'text.disabled' : 'primary.main' }}>
+                                {appointment.patientName?.charAt(0) || 'P'}
                                 </Avatar>
                             </ListItemAvatar>
                             <ListItemText
                                 primary={
-                                <Typography variant="body1" fontWeight="medium">
-                                    {appointment.patientName || appointment.patient?.name || '患者'}
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="body1" fontWeight="medium">
+                                    {appointment.patientName}
+                                  </Typography>
+                                  {appointment.doctorId && appointment.doctorId !== user?.id && appointment.doctorName && (
+                                    <Tooltip title="此預約由其他醫生負責">
+                                      <Chip 
+                                        size="small" 
+                                        label={`醫生: ${appointment.doctorName}`} 
+                                        color="info" 
+                                        variant="outlined" 
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </Box>
                                 }
                                 secondary={
                                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
@@ -1133,8 +1164,8 @@ const DoctorDashboard = () => {
                                     />
                                     <Chip 
                                     size="small" 
-                                    label={appointment.status === 'confirmed' ? '已確認' : (appointment.status === 'cancelled' ? '已取消' : '待確認')} 
-                                    color={appointment.status === 'confirmed' ? 'success' : (appointment.status === 'cancelled' ? 'default' : 'warning')} 
+                                    label={getStatusText(appointment.status)} 
+                                    color={getStatusColor(appointment.status)} 
                                     variant="outlined"
                                     />
                                 </Box>
@@ -1383,37 +1414,6 @@ const DoctorDashboard = () => {
           {selectedAppointment && (
             <Box>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>患者資訊</Typography>
-                  <Divider sx={{ mb: 2 }} />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2">姓名：</Typography>
-                  <Typography variant="body1" gutterBottom>
-                    {selectedAppointment.patientName || selectedAppointment.patient?.name || '未提供'}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2">電話號碼：</Typography>
-                  <Typography variant="body1" gutterBottom>
-                    {selectedAppointment.patientPhone || selectedAppointment.patient?.phone || '未提供'}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2">電子郵件：</Typography>
-                  <Typography variant="body1" gutterBottom>
-                    {selectedAppointment.patientEmail || selectedAppointment.patient?.email || selectedAppointment.patient?.username || '未提供'}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>預約資訊</Typography>
-                  <Divider sx={{ mb: 2 }} />
-                </Grid>
-                
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2">預約日期：</Typography>
                   <Typography variant="body1" gutterBottom>{selectedAppointment.date}</Typography>
@@ -1425,11 +1425,35 @@ const DoctorDashboard = () => {
                 <Grid item xs={12}>
                   <Typography variant="subtitle2">狀態：</Typography>
                   <Chip 
-                    label={selectedAppointment.status === 'confirmed' ? '已確認' : (selectedAppointment.status === 'cancelled' ? '已取消' : '待確認')} 
-                    color={selectedAppointment.status === 'confirmed' ? 'success' : (selectedAppointment.status === 'cancelled' ? 'default' : 'warning')} 
+                    label={getStatusText(selectedAppointment.status)} 
+                    color={getStatusColor(selectedAppointment.status)} 
                     size="small"
                   />
                 </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">患者姓名：</Typography>
+                  <Typography variant="body1" gutterBottom>{selectedAppointment.patientName}</Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">聯絡方式：</Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {selectedAppointment.patientPhone && (
+                      <>
+                        電話: {selectedAppointment.patientPhone}
+                        <br />
+                      </>
+                    )}
+                    電子郵件: {selectedAppointment.patientEmail}
+                  </Typography>
+                </Grid>
+                {selectedAppointment.doctorId && selectedAppointment.doctorName && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">負責醫生：</Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedAppointment.doctorName} {selectedAppointment.doctorId === user.id ? '(您)' : ''}
+                    </Typography>
+                  </Grid>
+                )}
                 {selectedAppointment.appointmentReason && (
                   <Grid item xs={12}>
                     <Typography variant="subtitle2">預約原因：</Typography>
@@ -1443,22 +1467,26 @@ const DoctorDashboard = () => {
                   </Grid>
                 )}
               </Grid>
+              
+              {selectedAppointment.status !== 'cancelled' && (
+                <Box sx={{ mt: 3 }}>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<CancelIcon />}
+                    onClick={() => {
+                      handleCloseAppointmentDetails();
+                      handleCancelAppointment(selectedAppointment);
+                    }}
+                  >
+                    取消此預約
+                  </Button>
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          {selectedAppointment && selectedAppointment.status !== 'cancelled' && (
-            <Button
-              onClick={() => {
-                handleCloseAppointmentDetails();
-                handleCancelAppointment(selectedAppointment);
-              }}
-              color="error"
-              startIcon={<CancelIcon />}
-            >
-              取消預約
-            </Button>
-          )}
           <Button onClick={handleCloseAppointmentDetails}>關閉</Button>
         </DialogActions>
       </Dialog>

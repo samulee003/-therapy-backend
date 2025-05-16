@@ -162,8 +162,11 @@ CREATE TABLE IF NOT EXISTS appointments (
     status TEXT DEFAULT 'confirmed' CHECK(status IN ('confirmed', 'cancelled', 'completed')), -- 添加 completed 狀態
     isRegular BOOLEAN DEFAULT 0,
     regularPatientId INTEGER,
+    doctorId INTEGER, -- 新增的醫生ID欄位，關聯到users表的醫生
+    doctorName TEXT, -- 新增的醫生姓名欄位，方便查詢
     FOREIGN KEY (patientId) REFERENCES users(id), -- 外鍵關聯
     FOREIGN KEY (regularPatientId) REFERENCES regular_patients(id),
+    FOREIGN KEY (doctorId) REFERENCES users(id), -- 新增的外鍵約束
     UNIQUE(date, time) -- 同一時間只能有一個預約
 );`;
 
@@ -539,27 +542,35 @@ app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
 
 // 新增預約 (需要病人登入)
 app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
-  const { date, time, appointmentReason, notes } = req.body;
+  const { date, time, appointmentReason, notes, doctorId } = req.body; // 添加doctorId參數
   const patientId = req.user.userId;
   const patientEmail = req.user.username; // 從 req.user 獲取
   const patientName = req.user.name; // 從 req.user 獲取
 
   // 從資料庫獲取病人電話 (因為 user 對象可能沒有)
   let patientPhone = '';
+  let doctorName = '';
   try {
     const patientInfo = await getDb("SELECT phone FROM users WHERE id = ?", [patientId]);
     if (patientInfo && patientInfo.phone) {
       patientPhone = patientInfo.phone;
     } else {
       console.warn(`無法找到 ID 為 ${patientId} 的病人的電話號碼。`);
-      // 可以選擇是否返回錯誤，或者允許在沒有電話的情況下預約
-      // return res.status(400).json({ success: false, message: "缺少病人電話資訊。" });
+    }
+    
+    // 獲取醫生資訊（如果提供了doctorId）
+    if (doctorId) {
+      const doctorInfo = await getDb("SELECT name FROM users WHERE id = ? AND role = 'doctor'", [doctorId]);
+      if (doctorInfo && doctorInfo.name) {
+        doctorName = doctorInfo.name;
+      } else {
+        console.warn(`無法找到 ID 為 ${doctorId} 的醫生資訊。`);
+      }
     }
   } catch (dbError) {
-     console.error("預約時查詢病人電話失敗:", dbError);
+     console.error("預約時查詢用戶資訊失敗:", dbError);
      return res.status(500).json({ success: false, message: "資料庫錯誤，無法完成預約。" });
   }
-
 
   // --- 輸入驗證 ---
   if (!date || !time || !patientName || !patientEmail) {
@@ -598,10 +609,10 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
 
         // 2. 創建預約記錄
         const appointmentSql = `INSERT INTO appointments
-          (date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason, notes, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          (date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason, notes, status, doctorId, doctorName)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         const appointmentResult = await runDb(appointmentSql, [
-          date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason || '', notes || '', 'confirmed'
+          date, time, patientId, patientName, patientPhone, patientEmail, appointmentReason || '', notes || '', 'confirmed', doctorId || null, doctorName || ''
         ]);
         const newAppointmentId = appointmentResult.lastID;
 
@@ -611,14 +622,16 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
         bookedSlots[time] = { // 儲存預約信息
              appointmentId: newAppointmentId,
              patientId: patientId,
-             patientName: patientName
+             patientName: patientName,
+             doctorId: doctorId || null, // 添加醫生ID到預約資訊
+             doctorName: doctorName || '' // 添加醫生姓名到預約資訊
         };
         const updateScheduleSql = "UPDATE schedule SET availableSlots = ?, bookedSlots = ? WHERE date = ?";
         await runDb(updateScheduleSql, [JSON.stringify(updatedAvailableSlots), JSON.stringify(bookedSlots), date]);
 
         // 4. 提交事務
         await runDb('COMMIT;');
-        console.log(`預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail})`);
+        console.log(`預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail}), 醫生 ${doctorName || '未指定'}`);
         res.status(201).json({ success: true, message: "預約成功！", appointmentId: newAppointmentId });
 
       } catch (innerError) {

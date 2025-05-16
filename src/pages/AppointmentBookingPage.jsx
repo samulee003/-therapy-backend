@@ -23,7 +23,11 @@ import {
   Chip,
   CircularProgress,
   DialogContentText,
-  Divider
+  Divider,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText
 } from '@mui/material';
 import { ArrowBackIosNew, ArrowForwardIos, EventAvailable as EventAvailableIcon, AccessTime as AccessTimeIcon, Screenshot as ScreenshotIcon } from '@mui/icons-material';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isSameDay, parseISO } from 'date-fns';
@@ -45,6 +49,11 @@ const AppointmentBookingPage = () => {
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleSuccess, setScheduleSuccess] = useState('');
+  
+  // 新增醫生列表狀態
+  const [doctors, setDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [doctorsError, setDoctorsError] = useState('');
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingDetails, setBookingDetails] = useState({
@@ -56,6 +65,7 @@ const AppointmentBookingPage = () => {
     isNewPatient: 'yes',
     gender: '',
     birthDate: '',
+    doctorId: '', // 添加醫生ID欄位
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
@@ -86,8 +96,30 @@ const AppointmentBookingPage = () => {
     }
   };
 
+  // 新增獲取醫生列表的函數
+  const fetchDoctors = async () => {
+    setLoadingDoctors(true);
+    setDoctorsError('');
+    try {
+      // 模擬API調用 - 實際專案中應替換為真實的API調用
+      // 這裡使用預設的兩位醫生，實際應該從後端獲取
+      const mockDoctors = [
+        { id: 1, name: '陳醫師', specialization: '臨床心理學' },
+        { id: 2, name: '林醫師', specialization: '兒童與青少年心理學' }
+      ];
+      setDoctors(mockDoctors);
+    } catch (err) {
+      console.error("獲取醫生列表失敗:", err);
+      const formattedError = err.formatted || formatApiError(err, '無法獲取醫生列表，請稍後重試。');
+      setDoctorsError(formattedError.message);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
+
   useEffect(() => {
     fetchSchedule();
+    fetchDoctors(); // 獲取醫生列表
   }, [currentDate]);
   
   // Update form with user data when user context changes
@@ -162,10 +194,8 @@ const AppointmentBookingPage = () => {
       patientEmail: bookingDetails.patientEmail,
       appointmentReason: bookingDetails.appointmentReason,
       notes: bookingDetails.notes,
+      doctorId: bookingDetails.doctorId || null, // 添加醫生ID到預約數據
       // Add other fields if necessary based on backend requirements
-      // isNewPatient: bookingDetails.isNewPatient === 'yes',
-      // gender: bookingDetails.gender,
-      // birthDate: bookingDetails.birthDate ? format(new Date(bookingDetails.birthDate), 'yyyy-MM-dd') : null,
     };
 
     try {
@@ -418,6 +448,36 @@ const AppointmentBookingPage = () => {
                   <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>就診資訊</Typography>
                   <Divider sx={{ mb: 2 }} />
                 </Grid>
+                
+                {/* 添加醫生選擇下拉框 */}
+                <Grid item xs={12}>
+                  <FormControl 
+                    fullWidth
+                    margin="normal"
+                    disabled={bookingLoading || loadingDoctors}
+                  >
+                    <InputLabel id="doctor-select-label" shrink>選擇心理治療師</InputLabel>
+                    <Select
+                      labelId="doctor-select-label"
+                      id="doctor-select"
+                      name="doctorId"
+                      value={bookingDetails.doctorId}
+                      onChange={handleBookingDetailsChange}
+                      displayEmpty
+                      label="選擇心理治療師"
+                    >
+                      <MenuItem value="">
+                        <em>由系統安排</em>
+                      </MenuItem>
+                      {doctors.map((doctor) => (
+                        <MenuItem key={doctor.id} value={doctor.id}>
+                          {doctor.name} - {doctor.specialization}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    <FormHelperText>如果您沒有特別偏好的治療師，系統將自動為您安排</FormHelperText>
+                  </FormControl>
+                </Grid>
 
                 <Grid item xs={12}>
                   <TextField
@@ -486,6 +546,11 @@ const AppointmentBookingPage = () => {
                   <Typography variant="body1" gutterBottom>
                     <strong>姓名：</strong> {bookingDetails.patientName}
                   </Typography>
+                  {bookingDetails.doctorId && doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
+                    <Typography variant="body1" gutterBottom>
+                      <strong>心理治療師：</strong> {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
+                    </Typography>
+                  )}
                   {bookingDetails.appointmentReason && (
                     <Typography variant="body1" gutterBottom>
                       <strong>預約原因：</strong> {bookingDetails.appointmentReason}
