@@ -496,6 +496,7 @@ const DoctorDashboard = () => {
     setCancelSuccess('');
     
     try {
+      console.log(`嘗試取消預約: ID=${appointmentToCancel._id}, 日期=${appointmentToCancel.date}, 時間=${appointmentToCancel.time}`);
       await cancelAdminAppointment(appointmentToCancel._id);
       
       // 更新 UI
@@ -508,6 +509,7 @@ const DoctorDashboard = () => {
       );
       
       setCancelSuccess(`預約已成功取消`);
+      console.log(`預約取消成功: ID=${appointmentToCancel._id}`);
       
       // 如果正在查看被取消的預約，則更新選中的預約資訊
       if (selectedAppointment && selectedAppointment._id === appointmentToCancel._id) {
@@ -523,7 +525,23 @@ const DoctorDashboard = () => {
       
     } catch (err) {
       console.error('Failed to cancel appointment:', err);
-      const formattedError = err.formatted || formatApiError(err, '無法取消預約，請稍後再試');
+      // 添加更詳細的錯誤日誌
+      console.error('Error details:', {
+        appointmentId: appointmentToCancel?._id,
+        response: err.response,
+        message: err.message,
+        stack: err.stack,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      // 嘗試顯示更具體的錯誤訊息
+      let errorMessage = '無法取消預約，請稍後再試';
+      if (err.response?.data?.message) {
+        errorMessage = `伺服器回應: ${err.response.data.message}`;
+      } else if (err.message) {
+        errorMessage = `錯誤: ${err.message}`;
+      }
+      const formattedError = err.formatted || formatApiError(err, errorMessage);
       setCancelError(formattedError.message);
     } finally {
       setCancellingId(null);
