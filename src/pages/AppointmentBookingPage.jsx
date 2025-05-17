@@ -450,7 +450,8 @@ const AppointmentBookingPage = () => {
                       }}
                     >
                       {slot.time}
-                      {slot.doctorName && (
+                      {/* 只有在未指定醫生ID時才顯示醫生姓名 */}
+                      {!bookingDetails.doctorId && slot.doctorName && (
                         <Typography variant="caption" sx={{ display: 'block', width: '100%', textAlign: 'center', mt: 0.5 }}>
                           {slot.doctorName}
                         </Typography>
