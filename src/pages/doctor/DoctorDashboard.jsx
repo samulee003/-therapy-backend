@@ -177,16 +177,63 @@ const DoctorDashboard = () => {
   };
 
   const fetchSchedule = async (year, month) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('嘗試獲取排班但用戶未登入');
+      return;
+    }
+    
     setLoadingSchedule(true);
     setErrorSchedule('');
+    
     try {
-      const response = await getScheduleForMonth(year, month);
-      setSchedule(response.data.schedule || {}); // Backend returns { success: true, schedule: { ... } }
+      console.log(`開始獲取 ${year}年${month}月 的排班數據，用戶ID=${user.id}, 角色=${user.role}`);
+      
+      // 將用戶 ID 作為 doctorId 參數傳遞，確保醫生查看自己的排班
+      const doctorId = user.role === 'doctor' ? user.id : null;
+      console.log(`使用 doctorId=${doctorId} 獲取排班`);
+      
+      const response = await getScheduleForMonth(year, month, doctorId);
+      console.log(`排班數據 (${year}年${month}月): 成功, 狀態=${response.status}`, response.data);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || '獲取排班失敗，服務器未返回成功標誌');
+      }
+      
+      if (!response.data.schedule) {
+        console.warn('獲取排班成功但返回空數據');
+        setSchedule({});
+        return;
+      }
+      
+      setSchedule(response.data.schedule);
     } catch (err) {
-      console.error(`Failed to fetch schedule for ${year}-${month}:`, err);
-      setErrorSchedule(err.response?.data?.message || err.message || `無法加載 ${year}年${month}月 的排班。`);
-      setSchedule({}); // Clear schedule on error
+      console.error(`獲取排班失敗 (${year}年${month}月):`, err);
+      
+      // 添加詳細的錯誤日誌
+      const errorDetails = {
+        message: err.message,
+        response: err.response ? {
+          status: err.response.status,
+          data: err.response.data
+        } : '無回應',
+        request: err.request ? '請求已發送但無回應' : '請求未發送',
+        config: err.config ? {
+          url: err.config.url,
+          method: err.config.method,
+          baseURL: err.config.baseURL,
+          headers: err.config.headers
+        } : '無配置'
+      };
+      
+      console.error('錯誤詳情:', errorDetails);
+      
+      // 設置用戶友好的錯誤訊息
+      const errorMessage = err.response?.data?.message || 
+                         err.message || 
+                         `無法加載 ${year}年${month}月 的排班。`;
+      
+      setErrorSchedule(errorMessage);
+      setSchedule({}); // 清空排班數據
     } finally {
       setLoadingSchedule(false);
     }
@@ -757,8 +804,18 @@ const DoctorDashboard = () => {
         // Add actual days
         for (let day = 1; day <= daysInMonth; day++) { calendarDays.push(day); }
 
+        // 以下函數添加在適當位置，用於調試排班數據
+        const debugSchedule = () => {
+          console.log('當前排班數據:', schedule);
+          if (Object.keys(schedule).length === 0) {
+            console.warn('排班數據為空！檢查 API 回應是否正確。');
+          }
+          return null;
+        };
+
         return (
           <Box>
+            {debugSchedule()}
             <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
               排班管理 ({monthStr})
             </Typography>

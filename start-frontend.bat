@@ -1,0 +1,3 @@
+@echo off
+echo 啟動心理諮詢預約系統前端服務...
+npm run dev 

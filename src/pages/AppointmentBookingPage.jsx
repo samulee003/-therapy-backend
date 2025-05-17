@@ -79,15 +79,40 @@ const AppointmentBookingPage = () => {
     setScheduleError('');
     setScheduleSuccess('');
     try {
+      console.log(`開始獲取排班數據: 年=${currentYear}, 月=${currentMonth + 1}`);
+      
       const response = await getScheduleForMonth(currentYear, currentMonth + 1); // API expects 1-indexed month
+      console.log('排班數據回應:', response.data);
+      
       if (response.data && response.data.success) {
-        setSchedule(response.data.schedule || {});
+        const scheduleData = response.data.schedule || {};
+        console.log('獲取到的排班數據:', scheduleData);
+        setSchedule(scheduleData);
         setScheduleSuccess(`已成功載入 ${format(currentDate, 'yyyy年 MMMM', { locale: zhTW })} 的排班資料`);
       } else {
+        console.warn('API 回應格式不符合預期:', response.data);
         throw new Error('無法獲取排班數據');
       }
     } catch (err) {
       console.error("Failed to fetch schedule:", err);
+      
+      // 添加詳細的錯誤日誌
+      const errorDetails = {
+        message: err.message,
+        response: err.response ? {
+          status: err.response.status,
+          data: err.response.data
+        } : '無回應',
+        request: err.request ? '請求已發送但無回應' : '請求未發送',
+        config: err.config ? {
+          url: err.config.url,
+          method: err.config.method,
+          baseURL: err.config.baseURL
+        } : '無配置'
+      };
+      
+      console.error('獲取排班錯誤詳情:', errorDetails);
+      
       const formattedError = err.formatted || formatApiError(err, '獲取排班失敗，請稍後重試。');
       setScheduleError(formattedError.message);
       setSchedule({});

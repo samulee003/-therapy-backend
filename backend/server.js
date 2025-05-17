@@ -16,10 +16,17 @@ app.use(cors({
   // 注意：對於生產環境，最好明確列出允許的來源
   origin: (origin, callback) => {
     // 允許來自 Zeabur 部署和本地開發的請求
-    const allowedOrigins = ['https://therapy-booking.zeabur.app', 'http://localhost:3000'];
+    const allowedOrigins = [
+      'https://therapy-booking.zeabur.app',
+      'http://localhost:3000',
+      'http://localhost:5173'  // Vite 預設端口
+    ];
+    
+    // 寬鬆規則：無來源 (如 Postman) 或在允許列表中的請求
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`CORS 拒絕請求來自: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
