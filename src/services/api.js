@@ -3,15 +3,17 @@ import axios from 'axios';
 // Determine the base URL based on the environment
 // IMPORTANT: Set VITE_API_BASE_URL in your frontend service environment variables on Zeabur
 // to your backend service URL (e.g., https://psy-backend.zeabur.app)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // Default to empty string, forcing env var usage
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'; // 默認使用本地開發環境的URL
 
 // If API_BASE_URL is empty after checking env var, log an error or throw, 
 // because relative paths won't work correctly with separate frontend/backend services.
-if (!API_BASE_URL) {
-  console.error("ERROR: VITE_API_BASE_URL is not set. API calls will likely fail.");
-  // Optionally throw an error to prevent the app from running with incorrect config
-  // throw new Error("VITE_API_BASE_URL environment variable is not set.");
-}
+console.info("API 配置信息:", {
+  baseURL: API_BASE_URL,
+  environment: import.meta.env.MODE,
+  environmentVariables: {
+    VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '(未設置)'
+  }
+});
 
 /**
  * 格式化 API 錯誤
@@ -74,6 +76,11 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true, // 重要：啟用憑證 (Cookies) 跨域發送，用於 Session 認證
+  timeout: 10000, // 增加超時設置，10秒
+  // 嘗試解決CORS問題
+  validateStatus: function (status) {
+    return status >= 200 && status < 500; // 自訂驗證狀態
+  }
 });
 
 // Add a request interceptor to include the token (if any)
@@ -81,6 +88,7 @@ const apiClient = axios.create({
 // This interceptor remains for potential future use but won't affect current backend.
 apiClient.interceptors.request.use(
   (config) => {
+    console.log(`API 請求: ${config.method?.toUpperCase()} ${config.url}`);
     const token = localStorage.getItem('token'); // Currently unused by backend
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -88,6 +96,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('API 請求錯誤:', error);
     return Promise.reject(error);
   }
 );
@@ -95,17 +104,35 @@ apiClient.interceptors.request.use(
 // 添加響應攔截器來標準化錯誤處理
 apiClient.interceptors.response.use(
   (response) => {
+    console.log(`API 回應: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
     // 對成功響應不做處理
     return response;
   },
   (error) => {
+    // 檢查是否是網絡錯誤（無響應）
+    if (!error.response) {
+      console.error('API 網絡錯誤: 無法連接到伺服器', {
+        url: error.config?.url || '未知URL',
+        method: error.config?.method?.toUpperCase() || '未知方法',
+      });
+      // 增強錯誤訊息以提供更多調試信息
+      error.message = '無法連接到伺服器 (' + API_BASE_URL + ')，請檢查後端服務是否運行中。';
+    }
+  
     // 格式化錯誤
     const formattedError = formatApiError(error);
+    console.error('API 錯誤:', {
+      url: error.config?.url || '未知URL',
+      method: error.config?.method?.toUpperCase() || '未知方法',
+      status: error.response?.status || '無狀態碼',
+      message: formattedError.message,
+      details: error.response?.data || error.message || '未提供詳細信息'
+    });
     
     // 針對特定錯誤碼的處理
     if (formattedError.code === 401) {
       // 401 錯誤可能需要重定向到登入頁面
-      console.warn('Authentication error:', formattedError.message);
+      console.warn('認證錯誤:', formattedError.message);
       // 如果需要，可以觸發登出或重定向到登入頁面
       // window.location.href = '/login';
     }
@@ -156,16 +183,50 @@ export const updateSettings = (settingsData) => {
 // --- Schedule --- //
 
 // Get Schedule for a specific month (Matches GET /api/schedule/:year/:month)
-export const getScheduleForMonth = (year, month) => {
-  // Ensure month is zero-padded if necessary, though backend seems to handle it.
+export const getScheduleForMonth = (year, month, doctorId = null) => {
+  // 確保參數有效
+  if (!year || !month) {
+    console.error('getScheduleForMonth: 缺少必要參數', { year, month });
+    return Promise.reject(new Error('排班查詢需要有效的年份和月份'));
+  }
+
+  // Ensure month is zero-padded if necessary
   const paddedMonth = String(month).padStart(2, '0');
-  return apiClient.get(`/api/schedule/${year}/${paddedMonth}`);
+  
+  // 構建基本 URL
+  let url = `/api/schedule/${year}/${paddedMonth}`;
+  
+  // 如果提供了 doctorId，將其作為查詢參數添加
+  if (doctorId) {
+    url = `${url}?doctorId=${doctorId}`;
+    console.log(`排班查詢 URL (帶醫生ID): ${url}`);
+  } else {
+    console.log(`排班查詢 URL (不帶醫生ID): ${url}`);
+  }
+  
+  // 返回 promise
+  return apiClient.get(url)
+    .catch(error => {
+      console.error(`排班查詢失敗 (${year}-${paddedMonth}):`, error);
+      throw error; // 重新拋出以便上層處理
+    });
 };
 
 // Save schedule for a specific date (Matches POST /api/schedule)
 // Backend expects { date, availableSlots: string[], isRestDay: boolean }
 export const saveScheduleForDate = (date, availableSlots, isRestDay = false) => {
-  return apiClient.post('/api/schedule', { date, availableSlots, isRestDay });
+  // 驗證輸入
+  if (!date || !Array.isArray(availableSlots)) {
+    console.error('saveScheduleForDate: 無效輸入', { date, availableSlots, isRestDay });
+    return Promise.reject(new Error('排班保存需要有效的日期和時段數組'));
+  }
+  
+  console.log(`保存排班: ${date}, 時段數: ${availableSlots.length}, 是否休息日: ${isRestDay}`);
+  return apiClient.post('/api/schedule', { date, availableSlots, isRestDay })
+    .catch(error => {
+      console.error(`保存排班失敗 (${date}):`, error);
+      throw error;
+    });
 };
 
 // Book an Appointment (Matches POST /api/book)
