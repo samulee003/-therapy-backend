@@ -18,28 +18,20 @@ app.use(cors({
     // 允許來自 Zeabur 部署和本地開發的請求
     const allowedOrigins = [
       'https://therapy-booking.zeabur.app',
-      'https://psy-frontend.zeabur.app',
-      'https://psy-backend.zeabur.app',
       'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:3003',
       'http://localhost:5173'  // Vite 預設端口
     ];
     
     // 寬鬆規則：無來源 (如 Postman) 或在允許列表中的請求
     if (!origin || allowedOrigins.includes(origin)) {
-      console.log(`CORS 允許請求來自: ${origin || '(無來源/直接請求)'}`);
       callback(null, true);
     } else {
-      console.warn(`CORS 拒絕請求來自不允許的來源: ${origin}`);
-      callback(new Error(`Not allowed by CORS: ${origin}`));
+      console.warn(`CORS 拒絕請求來自: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true, // 允許憑證（Cookies）
   exposedHeaders: ['set-cookie'], // 明確暴露 Set-Cookie 標頭
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json()); // 解析 JSON 請求
 app.use(cookieParser()); // 解析 Cookie
@@ -53,17 +45,12 @@ const isAuthenticated = (req, res, next) => {
   try {
     // 從 cookie 讀取用戶信息
     const userCookie = req.cookies['therapy.userinfo'];
-    console.log(`認證檢查: ${req.method} ${req.originalUrl}`);
-    console.log(`Cookie 存在?: ${!!userCookie}`);
-    
     if (!userCookie) {
       return res.status(401).json({ success: false, message: "未授權：請先登入。" });
     }
     
     // 解析 JSON cookie
     const userInfo = JSON.parse(userCookie);
-    console.log(`用戶信息: ID=${userInfo?.userId}, 角色=${userInfo?.role || '未知'}`);
-    
     if (!userInfo || !userInfo.userId) {
       return res.status(401).json({ success: false, message: "無效的認證信息，請重新登入。" });
     }
@@ -79,20 +66,16 @@ const isAuthenticated = (req, res, next) => {
 };
 
 const isDoctor = (req, res, next) => {
-  console.log(`醫生權限檢查: 用戶=${req.user?.username}, 角色=${req.user?.role}`);
   if (req.user && req.user.role === 'doctor') {
     return next();
   }
-  console.error(`拒絕訪問: 需要醫生權限，但用戶角色是 ${req.user?.role}`);
   res.status(403).json({ success: false, message: "禁止訪問：此操作需要醫生權限。" });
 };
 
 const isPatient = (req, res, next) => {
-  console.log(`病人權限檢查: 用戶=${req.user?.username}, 角色=${req.user?.role}`);
   if (req.user && req.user.role === 'patient') {
     return next();
   }
-  console.error(`拒絕訪問: 需要病人權限，但用戶角色是 ${req.user?.role}`);
   res.status(403).json({ success: false, message: "禁止訪問：此操作需要病人權限。" });
 };
 
@@ -307,9 +290,7 @@ app.post('/api/login', async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 24小時
       httpOnly: true,
       secure: true, // Zeabur 是 HTTPS
-      sameSite: 'none',
-      domain: '.zeabur.app', // 設置為 Zeabur 域名，以便子域名共享
-      path: '/'
+      sameSite: 'none'
     });
 
     // 設置一個普通的測試 cookie
@@ -317,9 +298,7 @@ app.post('/api/login', async (req, res) => {
       maxAge: 60 * 1000, // 1分鐘
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
-      domain: '.zeabur.app', // 設置為 Zeabur 域名
-      path: '/'
+      sameSite: 'none'
     });
 
     // 檢查設置的標頭
@@ -358,20 +337,16 @@ app.post('/api/logout', (req, res) => {
     console.error('登出時解析用戶 cookie 出錯:', e);
   }
 
-  // 清除 cookie，使用與設置時相同的參數
+  // 清除 cookie
   res.clearCookie('therapy.userinfo', {
     httpOnly: true,
     secure: true,
-    sameSite: 'none',
-    domain: '.zeabur.app',
-    path: '/'
+    sameSite: 'none'
   });
   res.clearCookie('therapy.test', {
     httpOnly: true,
     secure: true,
-    sameSite: 'none',
-    domain: '.zeabur.app',
-    path: '/'
+    sameSite: 'none'
   });
 
   console.log(`用戶 ${username} 已登出`);
@@ -505,11 +480,8 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
   const userId = req.user.userId;
   const userRole = req.user.role;
   
-  console.log(`獲取排班: 年=${year}, 月=${month}, 用戶ID=${userId}, 用戶角色=${userRole}, 請求的醫生ID=${doctorId || '未指定'}`);
-  
   // 驗證年和月
   if (!/^\d{4}$/.test(year) || !/^(0?[1-9]|1[0-2])$/.test(month)) {
-    console.error(`無效的年份或月份格式: 年=${year}, 月=${month}`);
     return res.status(400).json({ success: false, message: "無效的年份或月份格式。" });
   }
   const monthPadded = String(month).padStart(2, '0');
@@ -518,39 +490,34 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = `${year}-${monthPadded}-${String(lastDay).padStart(2, '0')}`;
 
-  console.log(`查詢日期範圍: ${startDate} 至 ${endDate}`);
-
   try {
     let scheduleRows;
-    let queryParams;
-    let sqlQuery;
     
     // 根據角色和請求參數決定查詢邏輯
     if (userRole === 'doctor' && !doctorId) {
       // 醫生查看自己的排班
-      sqlQuery = "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?";
-      queryParams = [startDate, endDate, userId];
-      console.log(`醫生查看自己排班: SQL=${sqlQuery}, 參數=${JSON.stringify(queryParams)}`);
+      scheduleRows = await allDb(
+        "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
+        [startDate, endDate, userId]
+      );
     } else if (doctorId) {
       // 查詢特定醫生的排班
-      sqlQuery = "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?";
-      queryParams = [startDate, endDate, doctorId];
-      console.log(`查詢特定醫生排班: SQL=${sqlQuery}, 參數=${JSON.stringify(queryParams)}`);
+      scheduleRows = await allDb(
+        "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
+        [startDate, endDate, doctorId]
+      );
     } else {
       // 患者查看：獲取所有醫生的排班
-      sqlQuery = "SELECT s.date, s.doctorId, u.name as doctorName, s.availableSlots, s.bookedSlots FROM schedule s JOIN users u ON s.doctorId = u.id WHERE s.date BETWEEN ? AND ? AND u.role = 'doctor' ORDER BY s.date";
-      queryParams = [startDate, endDate];
-      console.log(`患者查看所有醫生排班: SQL=${sqlQuery}, 參數=${JSON.stringify(queryParams)}`);
+      scheduleRows = await allDb(
+        "SELECT s.date, s.doctorId, u.name as doctorName, s.availableSlots, s.bookedSlots FROM schedule s JOIN users u ON s.doctorId = u.id WHERE s.date BETWEEN ? AND ? AND u.role = 'doctor' ORDER BY s.date",
+        [startDate, endDate]
+      );
     }
-    
-    scheduleRows = await allDb(sqlQuery, queryParams);
-    console.log(`查詢結果: 找到 ${scheduleRows.length} 筆記錄`);
 
     // 將結果轉換為前端期望的格式
     const scheduleMap = {};
     
-    if ((userRole === 'doctor' && !doctorId) || doctorId) {
-      console.log('使用醫生視圖格式處理結果');
+    if (userRole === 'doctor' && !doctorId || doctorId) {
       // 醫生查看自己排班 或 查詢特定醫生排班：保持原有格式
       scheduleRows.forEach(row => {
         let availableSlots = [];
@@ -564,7 +531,6 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
         scheduleMap[row.date] = { availableSlots, bookedSlots };
       });
     } else {
-      console.log('使用患者視圖格式處理結果');
       // 患者查看所有醫生排班：新格式，按日期分組，每天包含多個醫生的信息
       scheduleRows.forEach(row => {
         let availableSlots = [];
@@ -593,11 +559,10 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
       });
     }
 
-    console.log(`回應: 成功處理 ${Object.keys(scheduleMap).length} 天的排班數據`);
     res.json({ success: true, schedule: scheduleMap });
   } catch (error) {
     console.error(`獲取 ${year}-${month} 排班錯誤:`, error);
-    res.status(500).json({ success: false, message: "獲取排班失敗。", error: error.message });
+    res.status(500).json({ success: false, message: "獲取排班失敗。" });
   }
 });
 
