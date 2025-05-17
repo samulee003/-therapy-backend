@@ -124,7 +124,7 @@ function allDb(sql, params = []) {
       }
     });
   });
-}
+});
 
 // --- 資料庫表結構定義 ---
 // 使用分號結束每個 SQL 語句，並確保字符串格式正確
@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS schedule (
     doctorId INTEGER NOT NULL,
     availableSlots TEXT,
     bookedSlots TEXT, -- 儲存已預約時段的詳細信息，例如 { "09:00": { patientId: 1, patientName: "..." } }
+    isRestDay INTEGER DEFAULT 0, -- 新增休假日標記，0=正常日，1=休假日
     PRIMARY KEY (date, doctorId),
     FOREIGN KEY (doctorId) REFERENCES users(id)
 );`;
@@ -497,19 +498,19 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
     if (userRole === 'doctor' && !doctorId) {
       // 醫生查看自己的排班
       scheduleRows = await allDb(
-        "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
+        "SELECT date, availableSlots, bookedSlots, isRestDay FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
         [startDate, endDate, userId]
       );
     } else if (doctorId) {
       // 查詢特定醫生的排班
       scheduleRows = await allDb(
-        "SELECT date, availableSlots, bookedSlots FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
+        "SELECT date, availableSlots, bookedSlots, isRestDay FROM schedule WHERE date BETWEEN ? AND ? AND doctorId = ?",
         [startDate, endDate, doctorId]
       );
     } else {
       // 患者查看：獲取所有醫生的排班
       scheduleRows = await allDb(
-        "SELECT s.date, s.doctorId, u.name as doctorName, s.availableSlots, s.bookedSlots FROM schedule s JOIN users u ON s.doctorId = u.id WHERE s.date BETWEEN ? AND ? AND u.role = 'doctor' ORDER BY s.date",
+        "SELECT s.date, s.doctorId, u.name as doctorName, s.availableSlots, s.bookedSlots, s.isRestDay FROM schedule s JOIN users u ON s.doctorId = u.id WHERE s.date BETWEEN ? AND ? AND u.role = 'doctor' ORDER BY s.date",
         [startDate, endDate]
       );
     }
@@ -528,7 +529,13 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
         try {
           bookedSlots = JSON.parse(row.bookedSlots || '{}');
         } catch (e) { console.error(`解析 ${row.date} 的 bookedSlots 失敗:`, e); }
-        scheduleMap[row.date] = { availableSlots, bookedSlots };
+        
+        // 添加 isRestDay 標記到返回數據中
+        scheduleMap[row.date] = { 
+          availableSlots, 
+          bookedSlots,
+          isRestDay: row.isRestDay === 1 // 將數字轉換為布爾值
+        };
       });
     } else {
       // 患者查看所有醫生排班：新格式，按日期分組，每天包含多個醫生的信息
@@ -554,7 +561,8 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
           doctorId: row.doctorId,
           doctorName: row.doctorName || '未指定',
           availableSlots,
-          bookedSlots
+          bookedSlots,
+          isRestDay: row.isRestDay === 1 // 將數字轉換為布爾值
         });
       });
     }
@@ -568,7 +576,7 @@ app.get('/api/schedule/:year/:month', isAuthenticated, async (req, res) => {
 
 // 保存指定日期的可用時段 (僅限醫生)
 app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
-  const { date, availableSlots } = req.body;
+  const { date, availableSlots, isRestDay } = req.body;
   const doctorId = req.user.userId; // 從登入用戶獲取醫生ID
 
   // 驗證日期和時段
@@ -587,15 +595,20 @@ app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
     const existingSchedule = await getDb("SELECT bookedSlots FROM schedule WHERE date = ? AND doctorId = ?", [date, doctorId]);
     const bookedSlotsJson = existingSchedule ? existingSchedule.bookedSlots : '{}';
 
-    // 使用 UPSERT 邏輯更新或插入排班
+    // 記錄操作類型用於日誌
+    const operationType = isRestDay ? '設置為休假日' : '更新可用時段';
+    console.log(`醫生 ID ${doctorId} 正在${operationType}: ${date}, 時段數: ${availableSlots.length}`);
+
+    // 使用 UPSERT 邏輯更新或插入排班，增加 isRestDay 欄位
     await runDb(
-      `INSERT INTO schedule (date, doctorId, availableSlots, bookedSlots)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO schedule (date, doctorId, availableSlots, bookedSlots, isRestDay)
+       VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(date, doctorId) DO UPDATE SET
-         availableSlots=excluded.availableSlots;`, // 只更新 availableSlots
-      [date, doctorId, slotsJson, bookedSlotsJson] // 如果是插入，也提供 bookedSlots 的初始值
+         availableSlots=excluded.availableSlots,
+         isRestDay=excluded.isRestDay;`, // 更新 availableSlots 和 isRestDay
+      [date, doctorId, slotsJson, bookedSlotsJson, isRestDay ? 1 : 0] // 使用 1/0 儲存布爾值
     );
-    res.json({ success: true, message: `日期 ${date} 的排班已保存。` });
+    res.json({ success: true, message: `日期 ${date} 的排班已保存。${isRestDay ? '已設為休假日。' : ''}` });
   } catch (error) {
     console.error(`保存 ${date} 排班錯誤:`, error);
     res.status(500).json({ success: false, message: "保存排班失敗。" });

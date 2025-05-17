@@ -205,36 +205,21 @@ const DoctorDashboard = () => {
         return;
       }
       
-      setSchedule(response.data.schedule);
+      const scheduleData = response.data.schedule;
+      
+      // 檢查並日誌休假日信息
+      for (const date in scheduleData) {
+        const dayData = scheduleData[date];
+        if (dayData.isRestDay) {
+          console.log(`發現休假日: ${date}, isRestDay=${dayData.isRestDay}`);
+        }
+      }
+      
+      setSchedule(scheduleData);
+      setLoadingSchedule(false);
     } catch (err) {
-      console.error(`獲取排班失敗 (${year}年${month}月):`, err);
-      
-      // 添加詳細的錯誤日誌
-      const errorDetails = {
-        message: err.message,
-        response: err.response ? {
-          status: err.response.status,
-          data: err.response.data
-        } : '無回應',
-        request: err.request ? '請求已發送但無回應' : '請求未發送',
-        config: err.config ? {
-          url: err.config.url,
-          method: err.config.method,
-          baseURL: err.config.baseURL,
-          headers: err.config.headers
-        } : '無配置'
-      };
-      
-      console.error('錯誤詳情:', errorDetails);
-      
-      // 設置用戶友好的錯誤訊息
-      const errorMessage = err.response?.data?.message || 
-                         err.message || 
-                         `無法加載 ${year}年${month}月 的排班。`;
-      
-      setErrorSchedule(errorMessage);
-      setSchedule({}); // 清空排班數據
-    } finally {
+      console.error("獲取排班失敗:", err);
+      setErrorSchedule(err.response?.data?.message || err.message || '無法獲取排班數據。');
       setLoadingSchedule(false);
     }
   };
@@ -339,7 +324,7 @@ const DoctorDashboard = () => {
     console.log("編輯日期", dateStr, "當前時段", currentSlots);
     setAvailableSlotsForEdit([...currentSlots]); // Use spread to create a new array
     // 檢查該日期是否已標記為休假日
-    setIsRestDay(schedule[dateStr]?.isRestDay || false);
+    setIsRestDay(schedule[dateStr]?.isRestDay === true);
   };
   
   // 新增處理程序：點擊預設時段將其添加到編輯中的時段列表
@@ -420,6 +405,13 @@ const DoctorDashboard = () => {
       validSlots.sort(); 
     }
 
+    // 詳細記錄操作用於調試
+    console.log(`正在保存 ${editingDate} 的排班資料:`, {
+      isRestDay,
+      validSlots: validSlots.length > 0 ? validSlots : "空陣列",
+      schedule: schedule[editingDate] ? "已存在" : "尚未存在"
+    });
+
     setLoadingSchedule(true); // Indicate loading
     setErrorSchedule('');
     try {
@@ -434,7 +426,7 @@ const DoctorDashboard = () => {
       const month = currentScheduleDate.getMonth() + 1;
       fetchSchedule(year, month);
     } catch (err) {
-      console.error(`Failed to save schedule for ${editingDate}:`, err);
+      console.error(`保存 ${editingDate} 排班失敗:`, err);
       setErrorSchedule(err.response?.data?.message || err.message || `保存 ${editingDate} 的排班失敗。`);
       setLoadingSchedule(false); // Stop loading on error
     }
@@ -864,7 +856,12 @@ const DoctorDashboard = () => {
                     const daySchedule = dateStr ? schedule[dateStr] : null;
                     const hasAvailable = daySchedule?.availableSlots?.length > 0;
                     const hasBooked = daySchedule?.bookedSlots && Object.keys(daySchedule.bookedSlots).length > 0;
-                    const isRest = daySchedule?.isRestDay; // 檢查是否為休假日
+                    // 從排班數據中獲取休假日狀態，如果數據不存在則預設為 false
+                    const isRest = daySchedule?.isRestDay === true;
+                    
+                    // 如果是休假日，即使沒有排班數據也應該顯示
+                    console.log(`${dateStr} 是否為休假日:`, isRest);
+                    
                     return (
                         <Grid item xs={12/7} key={index} sx={{ height: 80, border: '1px solid lightgray', p: 0.5 }}>
                         {day && (
@@ -879,11 +876,12 @@ const DoctorDashboard = () => {
                                   flexDirection: 'column', 
                                   alignItems: 'flex-start', 
                                   justifyContent: 'flex-start',
-                                  backgroundColor: isRest ? 'rgba(255, 99, 71, 0.1)' : 'inherit' // 休假日背景顏色
+                                  backgroundColor: isRest ? 'rgba(255, 99, 71, 0.1)' : 'inherit', // 休假日背景顏色
+                                  borderColor: isRest ? 'red' : 'inherit' // 休假日邊框顏色
                                 }}
                             >
                             <Typography variant="body2" component="div">{day}</Typography>
-                            {/* Display indicators or slot count */} 
+                            {/* 顯示休假日指示器 - 確保它被渲染 */}
                             {isRest && <Chip size="small" label="休假" color="error" sx={{mt:0.5}} />}
                             {hasAvailable && !isRest && <Chip size="small" label="可預約" color="success" sx={{mt:0.5}} />} 
                             {hasBooked && <Chip size="small" label="已預約" color="warning" sx={{mt:0.5}} />}
@@ -906,8 +904,20 @@ const DoctorDashboard = () => {
                           <Checkbox
                             checked={isRestDay}
                             onChange={(e) => {
-                              setIsRestDay(e.target.checked);
-                              console.log("設置休假日:", e.target.checked);
+                              const newValue = e.target.checked;
+                              setIsRestDay(newValue);
+                              console.log("設置休假日:", newValue);
+                              
+                              // 如果切換為休假日，清空時段列表並顯示通知
+                              if (newValue && availableSlotsForEdit.length > 0) {
+                                if (window.confirm('設為休假日將清空所有已添加的時段。確定要繼續嗎？')) {
+                                  setAvailableSlotsForEdit([]);
+                                } else {
+                                  // 用戶取消，恢復為非休假日
+                                  setIsRestDay(false);
+                                  return;
+                                }
+                              }
                             }}
                             color="error"
                           />
@@ -915,14 +925,18 @@ const DoctorDashboard = () => {
                         label={
                           <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
                             <Typography sx={{ mr: 1 }}>設為休假日</Typography>
-                            {isRestDay && (
-                              <Tooltip title="休假日將不會顯示任何可預約時段">
-                                <InfoIcon fontSize="small" color="info" />
-                              </Tooltip>
-                            )}
+                            <Tooltip title="休假日將不會顯示任何可預約時段，患者無法在此日預約">
+                              <InfoIcon fontSize="small" color="info" />
+                            </Tooltip>
                           </Box>
                         }
                       />
+                      
+                      {isRestDay && (
+                        <Alert severity="info" sx={{ mt: 1 }}>
+                          已設為休假日。此日期將顯示為不可預約，所有時段將被隱藏。
+                        </Alert>
+                      )}
                     </Box>
                     
                     {/* 預設時段區塊 - 僅在非休假日時顯示 */}
