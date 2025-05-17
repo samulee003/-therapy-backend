@@ -535,7 +535,14 @@ const DoctorDashboard = () => {
 
   // 關閉預約詳情對話框
   const handleCloseAppointmentDetails = () => {
-    setAppointmentDetailsOpen(false);
+    setSelectedAppointment(null);
+    // 確保取消確認對話框也被關閉
+    if (cancelConfirmOpen) {
+      setCancelConfirmOpen(false);
+      setAppointmentToCancel(null);
+      setCancelError('');
+      setCancelSuccess('');
+    }
   };
 
   // 取消預約功能
@@ -585,12 +592,12 @@ const DoctorDashboard = () => {
           setSelectedAppointment(prev => ({...prev, status: 'cancelled'}));
         }
         
-        // 關閉確認對話框並重新加載預約列表
+        // 延遲關閉對話框並重新加載預約列表
         setTimeout(() => {
-          setCancelConfirmOpen(false);
-          setCancelSuccess('');
           fetchAppointments(); // 重新加載預約列表確保數據同步
-        }, 1500);
+        }, 1000);
+        
+        // 不再自動關閉確認對話框，讓用戶手動關閉
       } else {
         throw new Error(response.data?.message || '取消預約失敗，伺服器返回未知錯誤');
       }
@@ -629,6 +636,17 @@ const DoctorDashboard = () => {
     setAppointmentToCancel(null);
     setCancelError('');
     setCancelSuccess('');
+    
+    // 確保關閉預約詳情對話框中的取消按鈕已更新
+    if (selectedAppointment) {
+      fetchAppointments().then(() => {
+        // 重新獲取預約詳情並更新UI
+        const updatedAppointment = appointments.find(app => app.id === selectedAppointment.id);
+        if (updatedAppointment) {
+          setSelectedAppointment(updatedAppointment);
+        }
+      });
+    }
   };
 
   // --- UI Rendering --- //
@@ -1531,14 +1549,14 @@ const DoctorDashboard = () => {
               color="error" 
               onClick={() => {
                 handleCancelAppointment(selectedAppointment);
-                handleCloseAppointmentDetails();
+                // 不再立即關閉詳情對話框，等用戶在取消確認對話框中操作完成後再關閉
               }}
               disabled={!!cancellingId}
             >
               {cancellingId === selectedAppointment.id ? '處理中...' : '取消此預約'}
             </Button>
           )}
-          <Button onClick={handleCloseAppointmentDetails}>關閉</Button>
+          <Button onClick={handleCloseAppointmentDetails} variant="outlined">關閉</Button>
         </DialogActions>
       </Dialog>
       
@@ -1549,7 +1567,7 @@ const DoctorDashboard = () => {
         aria-labelledby="cancel-appointment-title"
       >
         <DialogTitle id="cancel-appointment-title" sx={{ color: theme.palette.error.main }}>
-          確認取消預約
+          {cancelSuccess ? "取消成功" : "確認取消預約"}
         </DialogTitle>
         <DialogContent>
           {cancelSuccess ? (
@@ -1579,7 +1597,7 @@ const DoctorDashboard = () => {
           )}
         </DialogContent>
         <DialogActions>
-          {!cancelSuccess && (
+          {!cancelSuccess ? (
             <>
               <Button onClick={closeCancelConfirm} disabled={cancellingId !== null}>
                 返回
@@ -1592,9 +1610,8 @@ const DoctorDashboard = () => {
                 {cancellingId !== null ? '處理中...' : '確認取消'}
               </Button>
             </>
-          )}
-          {cancelSuccess && (
-            <Button onClick={closeCancelConfirm}>
+          ) : (
+            <Button onClick={closeCancelConfirm} color="primary" variant="contained">
               關閉
             </Button>
           )}
