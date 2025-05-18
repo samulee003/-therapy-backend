@@ -69,15 +69,53 @@ console.log('[APP] API 路由已成功掛載');
 
 // --- 靜態檔案服務 ---
 console.log('[APP] 準備設定靜態檔案目錄...');
-const clientBuildPath = path.join(__dirname, '../dist');
+// 嘗試多個可能的路徑來查找前端構建文件
+let clientBuildPath = path.join(__dirname, '../dist');
+if (!require('fs').existsSync(clientBuildPath)) {
+  // 嘗試其他可能的路徑
+  const altPaths = [
+    path.join(__dirname, '/dist'),
+    path.join(__dirname, '../../dist'),
+    path.join(process.cwd(), '/dist')
+  ];
+  
+  for (const altPath of altPaths) {
+    console.log(`[APP] 嘗試替代靜態檔案路徑: ${altPath}`);
+    if (require('fs').existsSync(altPath)) {
+      clientBuildPath = altPath;
+      console.log(`[APP] 找到有效的靜態檔案目錄: ${clientBuildPath}`);
+      break;
+    }
+  }
+}
+
 app.use(express.static(clientBuildPath));
 console.log(`[APP] 靜態檔案目錄已設定: ${clientBuildPath}`);
 
 // --- 前端 SPA 回退路由 (應在 API 和靜態文件之後) ---
 console.log('[APP] 準備設定前端 SPA 路由處理...');
 app.get('*', (req, res) => {
-  console.log(`[APP] SPA 回退：將請求 ${req.url} 導向到 index.html`);
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  console.log(`[APP] SPA 回退：將請求 ${req.url} 導向到 index.html (${indexPath})`);
+  
+  // 確認 index.html 是否存在
+  if (require('fs').existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    // 如果找不到文件，返回一個友好的錯誤信息
+    console.error(`[APP] 錯誤: 找不到 index.html 文件: ${indexPath}`);
+    res.status(500).send(`
+      <html>
+        <head><title>前端檔案未找到</title></head>
+        <body>
+          <h1>系統錯誤: 找不到前端文件</h1>
+          <p>伺服器無法找到前端 SPA 的主文件 (index.html)。</p>
+          <p>請確認前端已正確構建，並且 dist 目錄在正確的位置。</p>
+          <p>伺服器嘗試的路徑: ${indexPath}</p>
+        </body>
+      </html>
+    `);
+  }
 });
 console.log('[APP] 前端 SPA 路由處理已設定');
 
