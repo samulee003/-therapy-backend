@@ -2,7 +2,6 @@ import React, { useContext } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Box, Container, CssBaseline, CircularProgress } from '@mui/material';
 import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import PatientDashboard from './pages/patient/PatientDashboard';
@@ -80,7 +79,6 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Container>
-      <Footer />
     </Box>
   );
 }
