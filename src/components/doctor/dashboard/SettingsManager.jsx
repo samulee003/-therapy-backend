@@ -16,6 +16,8 @@ import {
   FormControlLabel,
   Switch,
   Snackbar,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,6 +29,9 @@ import { getSettings, updateSettings } from '../../../services/api';
 import { defaultSlotOptions } from './utils';
 
 const SettingsManager = ({ user }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   // 設置狀態
   const [defaultTimeSlots, setDefaultTimeSlots] = useState([]);
   const [newTimeSlot, setNewTimeSlot] = useState('');
@@ -164,16 +169,26 @@ const SettingsManager = ({ user }) => {
 
   return (
     <Box>
-      <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
+      <Typography 
+        variant={isMobile ? "h5" : "h5"} 
+        component="h2" 
+        gutterBottom 
+        fontWeight="medium"
+        sx={{ fontSize: isMobile ? '1.3rem' : undefined }}
+      >
         系統設置
       </Typography>
-      <Typography variant="body1" paragraph>
+      <Typography 
+        variant="body1" 
+        paragraph
+        sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+      >
         管理系統設置和個人資料。
       </Typography>
 
       {/* 錯誤信息 */}
       {errorSettings && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, fontSize: isMobile ? '0.85rem' : undefined }}>
           {errorSettings}
         </Alert>
       )}
@@ -185,7 +200,7 @@ const SettingsManager = ({ user }) => {
         onClose={() => setSettingsUpdateSuccess(false)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert severity="success" sx={{ width: '100%' }}>
+        <Alert severity="success" sx={{ width: '100%', fontSize: isMobile ? '0.85rem' : undefined }}>
           設置更新成功
         </Alert>
       </Snackbar>
@@ -195,23 +210,34 @@ const SettingsManager = ({ user }) => {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={isMobile ? 2 : 3}>
           {/* 個人資料設置 */}
           <Grid item xs={12}>
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper sx={{ p: isMobile ? 2 : 3, mb: isMobile ? 2 : 3, borderRadius: '8px' }}>
+              <Typography 
+                variant="h6" 
+                gutterBottom
+                sx={{ fontSize: isMobile ? '1.1rem' : undefined }}
+              >
                 個人資料
               </Typography>
-              <Grid container spacing={2}>
+              <Grid container spacing={isMobile ? 1.5 : 2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     label="治療師姓名"
                     fullWidth
                     margin="normal"
+                    size={isMobile ? "small" : "medium"}
                     value={doctorName}
                     onChange={e => {
                       setDoctorName(e.target.value);
                       setSettingsDirty(true);
+                    }}
+                    InputLabelProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
+                    }}
+                    InputProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
                     }}
                   />
                 </Grid>
@@ -220,10 +246,17 @@ const SettingsManager = ({ user }) => {
                     label="診所名稱"
                     fullWidth
                     margin="normal"
+                    size={isMobile ? "small" : "medium"}
                     value={clinicName}
                     onChange={e => {
                       setClinicName(e.target.value);
                       setSettingsDirty(true);
+                    }}
+                    InputLabelProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
+                    }}
+                    InputProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
                     }}
                   />
                 </Grid>
@@ -232,6 +265,7 @@ const SettingsManager = ({ user }) => {
                     label="通知電子郵件"
                     fullWidth
                     margin="normal"
+                    size={isMobile ? "small" : "medium"}
                     type="email"
                     value={notificationEmail}
                     onChange={e => {
@@ -239,6 +273,15 @@ const SettingsManager = ({ user }) => {
                       setSettingsDirty(true);
                     }}
                     helperText="用於接收預約通知和系統提醒"
+                    InputLabelProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
+                    }}
+                    InputProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
+                    }}
+                    FormHelperTextProps={{
+                      style: { fontSize: isMobile ? '0.75rem' : undefined }
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -247,98 +290,175 @@ const SettingsManager = ({ user }) => {
 
           {/* 預設時段設置 */}
           <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
+            <Paper sx={{ p: isMobile ? 2 : 3, borderRadius: '8px' }}>
+              <Typography 
+                variant="h6" 
+                gutterBottom
+                sx={{ fontSize: isMobile ? '1.1rem' : undefined }}
+              >
                 預設時段設置
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                paragraph
+                sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+              >
                 設置常用時段，方便排班時快速選擇。這些時段將顯示在排班頁面的快速選擇區域。
               </Typography>
 
               {/* 預定義時段組 */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
+              <Box sx={{ mb: isMobile ? 2 : 3 }}>
+                <Typography 
+                  variant="subtitle2" 
+                  gutterBottom
+                  sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                >
                   快速添加預定義時段組
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" gutterBottom>
+                <Grid container spacing={isMobile ? 1 : 2}>
+                  <Grid item xs={6} sm={6} md={3}>
+                    <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                      <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
+                        <Typography 
+                          variant="subtitle2" 
+                          gutterBottom
+                          sx={{ fontSize: isMobile ? '0.85rem' : undefined }}
+                        >
                           週一至週五
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
                           {defaultSlotOptions.weekdaySlots.map(slot => (
-                            <Chip key={slot} label={slot} size="small" />
+                            <Chip 
+                              key={slot} 
+                              label={slot} 
+                              size="small" 
+                              sx={{ 
+                                fontSize: isMobile ? '0.7rem' : undefined,
+                                height: isMobile ? '20px' : undefined
+                              }}
+                            />
                           ))}
                         </Box>
                         <Button
                           size="small"
                           onClick={() => handleAddPredefinedSlots('weekdaySlots')}
-                          startIcon={<AddIcon />}
+                          startIcon={<AddIcon sx={{ fontSize: isMobile ? '0.9rem' : undefined }} />}
+                          sx={{ 
+                            fontSize: isMobile ? '0.75rem' : undefined,
+                            minHeight: isMobile ? '28px' : undefined
+                          }}
                         >
                           全部添加
                         </Button>
                       </CardContent>
                     </Card>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" gutterBottom>
+                  <Grid item xs={6} sm={6} md={3}>
+                    <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                      <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
+                        <Typography 
+                          variant="subtitle2" 
+                          gutterBottom
+                          sx={{ fontSize: isMobile ? '0.85rem' : undefined }}
+                        >
                           週六
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
                           {defaultSlotOptions.saturdaySlots.map(slot => (
-                            <Chip key={slot} label={slot} size="small" />
+                            <Chip 
+                              key={slot} 
+                              label={slot} 
+                              size="small" 
+                              sx={{ 
+                                fontSize: isMobile ? '0.7rem' : undefined,
+                                height: isMobile ? '20px' : undefined
+                              }}
+                            />
                           ))}
                         </Box>
                         <Button
                           size="small"
                           onClick={() => handleAddPredefinedSlots('saturdaySlots')}
-                          startIcon={<AddIcon />}
+                          startIcon={<AddIcon sx={{ fontSize: isMobile ? '0.9rem' : undefined }} />}
+                          sx={{ 
+                            fontSize: isMobile ? '0.75rem' : undefined,
+                            minHeight: isMobile ? '28px' : undefined
+                          }}
                         >
                           全部添加
                         </Button>
                       </CardContent>
                     </Card>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" gutterBottom>
+                  <Grid item xs={6} sm={6} md={3}>
+                    <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                      <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
+                        <Typography 
+                          variant="subtitle2" 
+                          gutterBottom
+                          sx={{ fontSize: isMobile ? '0.85rem' : undefined }}
+                        >
                           下午
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
                           {defaultSlotOptions.afternoonSlots.map(slot => (
-                            <Chip key={slot} label={slot} size="small" />
+                            <Chip 
+                              key={slot} 
+                              label={slot} 
+                              size="small" 
+                              sx={{ 
+                                fontSize: isMobile ? '0.7rem' : undefined,
+                                height: isMobile ? '20px' : undefined
+                              }}
+                            />
                           ))}
                         </Box>
                         <Button
                           size="small"
                           onClick={() => handleAddPredefinedSlots('afternoonSlots')}
-                          startIcon={<AddIcon />}
+                          startIcon={<AddIcon sx={{ fontSize: isMobile ? '0.9rem' : undefined }} />}
+                          sx={{ 
+                            fontSize: isMobile ? '0.75rem' : undefined,
+                            minHeight: isMobile ? '28px' : undefined
+                          }}
                         >
                           全部添加
                         </Button>
                       </CardContent>
                     </Card>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" gutterBottom>
+                  <Grid item xs={6} sm={6} md={3}>
+                    <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                      <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
+                        <Typography 
+                          variant="subtitle2" 
+                          gutterBottom
+                          sx={{ fontSize: isMobile ? '0.85rem' : undefined }}
+                        >
                           其他時段
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
                           {defaultSlotOptions.otherSlots.map(slot => (
-                            <Chip key={slot} label={slot} size="small" />
+                            <Chip 
+                              key={slot} 
+                              label={slot} 
+                              size="small" 
+                              sx={{ 
+                                fontSize: isMobile ? '0.7rem' : undefined,
+                                height: isMobile ? '20px' : undefined
+                              }}
+                            />
                           ))}
                         </Box>
                         <Button
                           size="small"
                           onClick={() => handleAddPredefinedSlots('otherSlots')}
-                          startIcon={<AddIcon />}
+                          startIcon={<AddIcon sx={{ fontSize: isMobile ? '0.9rem' : undefined }} />}
+                          sx={{ 
+                            fontSize: isMobile ? '0.75rem' : undefined,
+                            minHeight: isMobile ? '28px' : undefined
+                          }}
                         >
                           全部添加
                         </Button>
@@ -348,37 +468,64 @@ const SettingsManager = ({ user }) => {
                 </Grid>
               </Box>
 
-              <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
 
               {/* 自定義時段 */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
+              <Box sx={{ mb: isMobile ? 2 : 3 }}>
+                <Typography 
+                  variant="subtitle2" 
+                  gutterBottom
+                  sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                >
                   自定義時段
                 </Typography>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexDirection: isMobile ? 'column' : 'row' }}>
                   <TextField
                     label="新增時段"
                     size="small"
                     placeholder="HH:MM"
                     value={newTimeSlot}
                     onChange={e => setNewTimeSlot(e.target.value)}
-                    sx={{ mr: 1 }}
+                    sx={{ 
+                      mr: isMobile ? 0 : 1, 
+                      mb: isMobile ? 1 : 0,
+                      width: isMobile ? '100%' : 'auto'
+                    }}
+                    InputLabelProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
+                    }}
+                    InputProps={{
+                      style: { fontSize: isMobile ? '0.9rem' : undefined }
+                    }}
                   />
                   <Button 
                     variant="outlined" 
                     startIcon={<AddIcon />} 
                     onClick={handleAddDefaultTimeSlot}
+                    fullWidth={isMobile}
+                    sx={{ 
+                      minHeight: isMobile ? '40px' : undefined,
+                      fontSize: isMobile ? '0.85rem' : undefined
+                    }}
                   >
                     添加
                   </Button>
                 </Box>
 
-                <Typography variant="subtitle2" gutterBottom>
+                <Typography 
+                  variant="subtitle2" 
+                  gutterBottom
+                  sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                >
                   已設置時段
                 </Typography>
                 {defaultTimeSlots.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+                  >
                     尚未設置任何預設時段
                   </Typography>
                 ) : (
@@ -387,9 +534,13 @@ const SettingsManager = ({ user }) => {
                       <Chip
                         key={slot}
                         label={slot}
-                        icon={<TimeIcon />}
+                        icon={<TimeIcon sx={{ fontSize: isMobile ? '1rem' : undefined }} />}
                         onDelete={() => handleRemoveDefaultTimeSlot(slot)}
                         color="primary"
+                        sx={{ 
+                          fontSize: isMobile ? '0.8rem' : undefined,
+                          height: isMobile ? '32px' : undefined
+                        }}
                       />
                     ))}
                   </Box>
@@ -400,13 +551,20 @@ const SettingsManager = ({ user }) => {
 
           {/* 保存按鈕 */}
           <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: isMobile ? 1 : 2 }}>
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<SaveIcon />}
                 onClick={handleSaveSettings}
                 disabled={loadingSettings || !settingsDirty}
+                size={isMobile ? "medium" : "large"}
+                sx={{ 
+                  fontSize: isMobile ? '0.9rem' : undefined,
+                  minHeight: isMobile ? '42px' : undefined,
+                  px: isMobile ? 2 : 3,
+                  borderRadius: '8px'
+                }}
               >
                 {loadingSettings ? '保存中...' : '保存設置'}
               </Button>
