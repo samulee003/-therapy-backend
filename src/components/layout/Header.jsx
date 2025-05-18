@@ -64,7 +64,7 @@ const Header = () => {
   const generateMenuItems = () => {
     const baseItems = [
       { text: '首頁', icon: <HomeIcon />, path: '/' },
-      { text: '預約諮詢', icon: <CalendarMonthIcon />, path: '/appointment' },
+      { text: '預約治療', icon: <CalendarMonthIcon />, path: '/appointment' },
     ];
 
     if (isAuthenticated) {
@@ -97,7 +97,7 @@ const Header = () => {
           component="div"
           sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}
         >
-          心理諮詢預約系統
+          心理治療預約系統
         </Typography>
       </Box>
       <Divider />
@@ -158,7 +158,7 @@ const Header = () => {
           }}
         >
           <CalendarMonthIcon sx={{ mr: 1 }} />
-          心理諮詢預約系統
+          心理治療預約系統
         </Typography>
 
         {!isMobile && (
@@ -179,7 +179,7 @@ const Header = () => {
               startIcon={<CalendarMonthIcon />}
               sx={{ fontWeight: 500 }}
             >
-              預約諮詢
+              預約治療
             </Button>
 
             {isLoading ? (
