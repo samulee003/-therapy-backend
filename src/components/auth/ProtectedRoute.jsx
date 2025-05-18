@@ -11,7 +11,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
   if (isLoading) {
     // Show a loading indicator while checking auth status
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -27,7 +29,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     // Redirect to an unauthorized page or home page if role is not allowed
     // For simplicity, redirecting to home page here
-    console.warn(`User role '${user.role}' not allowed for this route. Allowed: ${allowedRoles.join(', ')}`);
+    console.warn(
+      `User role '${user.role}' not allowed for this route. Allowed: ${allowedRoles.join(', ')}`
+    );
     return <Navigate to="/" replace />;
   }
 
@@ -36,4 +40,3 @@ const ProtectedRoute = ({ allowedRoles }) => {
 };
 
 export default ProtectedRoute;
-

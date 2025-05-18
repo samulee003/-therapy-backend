@@ -1,5 +1,14 @@
 import React from 'react';
-import { Box, Container, Typography, Link, Grid, Divider, useTheme, useMediaQuery } from '@mui/material';
+import {
+  Box,
+  Container,
+  Typography,
+  Link,
+  Grid,
+  Divider,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import InstagramIcon from '@mui/icons-material/Instagram';
@@ -11,14 +20,14 @@ const Footer = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   return (
-    <Box 
-      component="footer" 
-      sx={{ 
+    <Box
+      component="footer"
+      sx={{
         backgroundColor: 'white',
         py: 4,
         borderTop: '1px solid',
         borderColor: 'divider',
-        mt: 'auto'
+        mt: 'auto',
       }}
     >
       <Container maxWidth="lg">
@@ -42,7 +51,7 @@ const Footer = () => {
               </Link>
             </Box>
           </Grid>
-          
+
           <Grid item xs={12} sm={4}>
             <Typography variant="h6" color="text.primary" gutterBottom fontWeight="medium">
               快速連結
@@ -51,7 +60,12 @@ const Footer = () => {
               <Link component={RouterLink} to="/" color="text.secondary" underline="hover">
                 首頁
               </Link>
-              <Link component={RouterLink} to="/appointment" color="text.secondary" underline="hover">
+              <Link
+                component={RouterLink}
+                to="/appointment"
+                color="text.secondary"
+                underline="hover"
+              >
                 預約諮詢
               </Link>
               <Link component={RouterLink} to="/patient" color="text.secondary" underline="hover">
@@ -62,7 +76,7 @@ const Footer = () => {
               </Link>
             </Box>
           </Grid>
-          
+
           <Grid item xs={12} sm={4}>
             <Typography variant="h6" color="text.primary" gutterBottom fontWeight="medium">
               聯絡我們
@@ -83,25 +97,29 @@ const Footer = () => {
             </Box>
           </Grid>
         </Grid>
-        
+
         <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'center' : 'flex-start',
-          gap: isMobile ? 1 : 0
-        }}>
+
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'center' : 'flex-start',
+            gap: isMobile ? 1 : 0,
+          }}
+        >
           <Typography variant="body2" color="text.secondary">
             © {new Date().getFullYear()} 心理諮詢預約系統. 保留所有權利.
           </Typography>
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 2,
-            flexWrap: 'wrap',
-            justifyContent: isMobile ? 'center' : 'flex-end'
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              flexWrap: 'wrap',
+              justifyContent: isMobile ? 'center' : 'flex-end',
+            }}
+          >
             <Link href="#" color="text.secondary" underline="hover" variant="body2">
               隱私政策
             </Link>

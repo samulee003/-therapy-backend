@@ -5,19 +5,19 @@ import axios from 'axios';
 // to your backend service URL (e.g., https://psy-backend.zeabur.app)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'; // 默認使用本地開發環境的URL
 
-// If API_BASE_URL is empty after checking env var, log an error or throw, 
+// If API_BASE_URL is empty after checking env var, log an error or throw,
 // because relative paths won't work correctly with separate frontend/backend services.
-console.info("API 配置信息:", {
+console.info('API 配置信息:', {
   baseURL: API_BASE_URL,
   environment: import.meta.env.MODE,
   environmentVariables: {
-    VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '(未設置)'
-  }
+    VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '(未設置)',
+  },
 });
 
 /**
  * 格式化 API 錯誤
- * 
+ *
  * @param {Error} error - Axios 錯誤對象
  * @param {string} defaultMessage - 預設錯誤訊息
  * @returns {Object} 標準化錯誤對象 { message, code, details }
@@ -27,25 +27,25 @@ export const formatApiError = (error, defaultMessage = '發生錯誤，請稍後
   if (error.response) {
     // 伺服器回應了錯誤狀態碼
     const { data, status } = error.response;
-    
+
     return {
       message: data?.message || getStatusMessage(status) || defaultMessage,
       code: status,
-      details: data || {}
+      details: data || {},
     };
   } else if (error.request) {
     // 請求已發出但沒有收到回應，可能是網絡問題
     return {
       message: '無法連接到伺服器，請檢查您的網絡連接。',
       code: 'NETWORK_ERROR',
-      details: { request: error.request }
+      details: { request: error.request },
     };
   } else {
     // 發生了其他錯誤
     return {
       message: error.message || defaultMessage,
       code: 'UNKNOWN_ERROR',
-      details: error
+      details: error,
     };
   }
 };
@@ -53,7 +53,7 @@ export const formatApiError = (error, defaultMessage = '發生錯誤，請稍後
 /**
  * 根據 HTTP 狀態碼返回適當的錯誤訊息
  */
-const getStatusMessage = (status) => {
+const getStatusMessage = status => {
   const messages = {
     400: '請求參數有誤',
     401: '您需要登入或重新登入',
@@ -64,9 +64,9 @@ const getStatusMessage = (status) => {
     429: '請求太頻繁，請稍後再試',
     500: '伺服器內部錯誤',
     502: '網關錯誤',
-    503: '服務暫時不可用'
+    503: '服務暫時不可用',
   };
-  
+
   return messages[status] || null;
 };
 
@@ -80,14 +80,14 @@ const apiClient = axios.create({
   // 嘗試解決CORS問題
   validateStatus: function (status) {
     return status >= 200 && status < 500; // 自訂驗證狀態
-  }
+  },
 });
 
 // Add a request interceptor to include the token (if any)
 // NOTE: Current backend does not use token authentication after login.
 // This interceptor remains for potential future use but won't affect current backend.
 apiClient.interceptors.request.use(
-  (config) => {
+  config => {
     console.log(`API 請求: ${config.method?.toUpperCase()} ${config.url}`);
     const token = localStorage.getItem('token'); // Currently unused by backend
     if (token) {
@@ -95,7 +95,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
+  error => {
     console.error('API 請求錯誤:', error);
     return Promise.reject(error);
   }
@@ -103,12 +103,14 @@ apiClient.interceptors.request.use(
 
 // 添加響應攔截器來標準化錯誤處理
 apiClient.interceptors.response.use(
-  (response) => {
-    console.log(`API 回應: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+  response => {
+    console.log(
+      `API 回應: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`
+    );
     // 對成功響應不做處理
     return response;
   },
-  (error) => {
+  error => {
     // 檢查是否是網絡錯誤（無響應）
     if (!error.response) {
       console.error('API 網絡錯誤: 無法連接到伺服器', {
@@ -118,7 +120,7 @@ apiClient.interceptors.response.use(
       // 增強錯誤訊息以提供更多調試信息
       error.message = '無法連接到伺服器 (' + API_BASE_URL + ')，請檢查後端服務是否運行中。';
     }
-  
+
     // 格式化錯誤
     const formattedError = formatApiError(error);
     console.error('API 錯誤:', {
@@ -126,9 +128,9 @@ apiClient.interceptors.response.use(
       method: error.config?.method?.toUpperCase() || '未知方法',
       status: error.response?.status || '無狀態碼',
       message: formattedError.message,
-      details: error.response?.data || error.message || '未提供詳細信息'
+      details: error.response?.data || error.message || '未提供詳細信息',
     });
-    
+
     // 針對特定錯誤碼的處理
     if (formattedError.code === 401) {
       // 401 錯誤可能需要重定向到登入頁面
@@ -136,7 +138,7 @@ apiClient.interceptors.response.use(
       // 如果需要，可以觸發登出或重定向到登入頁面
       // window.location.href = '/login';
     }
-    
+
     // 仍然拒絕承諾，但使用格式化後的錯誤
     return Promise.reject(Object.assign(error, { formatted: formattedError }));
   }
@@ -147,7 +149,7 @@ apiClient.interceptors.response.use(
 // User Login (Matches POST /api/login)
 // Backend expects { password }, frontend might send { username, password }
 // The calling component might need adjustment if username is not needed by backend.
-export const loginUser = (credentials) => {
+export const loginUser = credentials => {
   // Sending the full credentials object as backend requires both username and password
   return apiClient.post('/api/login', credentials); // Send the whole credentials object
 };
@@ -163,7 +165,7 @@ export const getCurrentUser = () => {
 };
 
 // ADDED: User Registration (Matches POST /api/register)
-export const registerUser = (registrationData) => {
+export const registerUser = registrationData => {
   // registrationData should contain { username, password, name, role }
   return apiClient.post('/api/register', registrationData);
 };
@@ -176,7 +178,7 @@ export const getSettings = () => {
 };
 
 // Update Settings (Matches PUT /api/settings)
-export const updateSettings = (settingsData) => {
+export const updateSettings = settingsData => {
   return apiClient.put('/api/settings', settingsData);
 };
 
@@ -192,10 +194,10 @@ export const getScheduleForMonth = (year, month, doctorId = null) => {
 
   // Ensure month is zero-padded if necessary
   const paddedMonth = String(month).padStart(2, '0');
-  
+
   // 構建基本 URL
   let url = `/api/schedule/${year}/${paddedMonth}`;
-  
+
   // 如果提供了 doctorId，將其作為查詢參數添加
   if (doctorId) {
     url = `${url}?doctorId=${doctorId}`;
@@ -203,13 +205,12 @@ export const getScheduleForMonth = (year, month, doctorId = null) => {
   } else {
     console.log(`排班查詢 URL (不帶醫生ID): ${url}`);
   }
-  
+
   // 返回 promise
-  return apiClient.get(url)
-    .catch(error => {
-      console.error(`排班查詢失敗 (${year}-${paddedMonth}):`, error);
-      throw error; // 重新拋出以便上層處理
-    });
+  return apiClient.get(url).catch(error => {
+    console.error(`排班查詢失敗 (${year}-${paddedMonth}):`, error);
+    throw error; // 重新拋出以便上層處理
+  });
 };
 
 // Save schedule for a specific date (Matches POST /api/schedule)
@@ -220,18 +221,17 @@ export const saveScheduleForDate = (date, availableSlots, isRestDay = false) => 
     console.error('saveScheduleForDate: 無效輸入', { date, availableSlots, isRestDay });
     return Promise.reject(new Error('排班保存需要有效的日期和時段數組'));
   }
-  
+
   console.log(`保存排班: ${date}, 時段數: ${availableSlots.length}, 是否休息日: ${isRestDay}`);
-  return apiClient.post('/api/schedule', { date, availableSlots, isRestDay })
-    .catch(error => {
-      console.error(`保存排班失敗 (${date}):`, error);
-      throw error;
-    });
+  return apiClient.post('/api/schedule', { date, availableSlots, isRestDay }).catch(error => {
+    console.error(`保存排班失敗 (${date}):`, error);
+    throw error;
+  });
 };
 
 // Book an Appointment (Matches POST /api/book)
 // Backend expects { date, time, patientName, patientPhone, patientEmail, ... }
-export const bookAppointment = (appointmentDetails) => {
+export const bookAppointment = appointmentDetails => {
   return apiClient.post('/api/book', appointmentDetails);
 };
 
@@ -254,7 +254,7 @@ export const getAllAppointments = () => {
 
 // Cancel an Appointment (Matches PUT /api/appointments/:id/cancel)
 // Backend endpoint doesn't differentiate roles for cancellation
-export const cancelAppointment = (appointmentId) => {
+export const cancelAppointment = appointmentId => {
   return apiClient.put(`/api/appointments/${appointmentId}/cancel`);
 };
 // Aliases for different roles
@@ -275,6 +275,4 @@ export const getDoctors = () => {
 // bulkGenerateDoctorSlots
 // loginAdmin
 
-
 export default apiClient;
-

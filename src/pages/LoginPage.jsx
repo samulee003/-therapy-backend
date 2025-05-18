@@ -1,10 +1,10 @@
 import React, { useState, useContext } from 'react';
-import { 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Paper,
   Container,
   Grid,
   Link,
@@ -15,7 +15,7 @@ import {
   useMediaQuery,
   CircularProgress,
   Alert,
-  FormHelperText
+  FormHelperText,
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -68,7 +68,7 @@ const LoginPage = () => {
     return formIsValid;
   };
 
-  const handleEmailChange = (e) => {
+  const handleEmailChange = e => {
     const value = e.target.value;
     setEmail(value);
     // 即時驗證電子郵件格式
@@ -81,7 +81,7 @@ const LoginPage = () => {
     }
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = e => {
     const value = e.target.value;
     setPassword(value);
     // 即時驗證密碼
@@ -92,29 +92,30 @@ const LoginPage = () => {
     }
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async event => {
     event.preventDefault();
-    
+
     // 進行表單驗證
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
     setError('');
     try {
       // Use email as username for login
       const response = await loginUser({ username: email, password });
       console.log('Login successful:', response.data);
-      
+
       // Use the login function from AuthContext
       // Check if the user object exists in the response
-      if (response.data && response.data.user) { // Changed condition to only check for user
+      if (response.data && response.data.user) {
+        // Changed condition to only check for user
         login(response.data.user, null); // Pass user data, token is null for now
-        
+
         // Redirect based on user role
         if (response.data.user.role === 'doctor' || response.data.user.role === 'admin') {
-          navigate('/therapist-dashboard'); 
+          navigate('/therapist-dashboard');
         } else {
           navigate('/patient-dashboard');
         }
@@ -122,11 +123,11 @@ const LoginPage = () => {
         // This case should ideally not happen if backend sends { success: true, user: ... }
         throw new Error('登入成功，但未收到用戶資料。'); // More accurate error message
       }
-
     } catch (err) {
       console.error('Login failed:', err);
       // Check for specific error response from backend
-      const errorMessage = err.response?.data?.message || err.message || '登入失敗，請檢查您的帳號或密碼。';
+      const errorMessage =
+        err.response?.data?.message || err.message || '登入失敗，請檢查您的帳號或密碼。';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -143,7 +144,7 @@ const LoginPage = () => {
           flexDirection: 'column',
           alignItems: 'center',
           borderRadius: 2,
-          mt: isMobile ? 2 : 8
+          mt: isMobile ? 2 : 8,
         }}
       >
         <Typography component="h1" variant="h4" color="primary" fontWeight="bold" gutterBottom>
@@ -153,7 +154,11 @@ const LoginPage = () => {
           歡迎回來！請登入您的帳號以繼續使用心理治療預約系統。
         </Typography>
 
-        {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>} 
+        {error && (
+          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', mt: 1 }}>
           <TextField
@@ -212,13 +217,13 @@ const LoginPage = () => {
               ),
             }}
           />
-          
+
           <Box sx={{ textAlign: 'right', mt: 1 }}>
             <Link component={RouterLink} to="/forgot-password" variant="body2" color="primary">
               忘記密碼？
             </Link>
           </Box>
-          
+
           <Box sx={{ position: 'relative', mt: 3, mb: 2 }}>
             <Button
               type="submit"
@@ -232,11 +237,17 @@ const LoginPage = () => {
               {loading ? <CircularProgress size={24} color="inherit" /> : '登入'}
             </Button>
           </Box>
-          
+
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               還沒有帳號？{' '}
-              <Link component={RouterLink} to="/register" variant="body2" color="primary" fontWeight="medium">
+              <Link
+                component={RouterLink}
+                to="/register"
+                variant="body2"
+                color="primary"
+                fontWeight="medium"
+              >
                 立即註冊
               </Link>
             </Typography>
@@ -248,4 +259,3 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-

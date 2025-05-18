@@ -27,15 +27,31 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormHelperText
+  FormHelperText,
 } from '@mui/material';
-import { ArrowBackIosNew, ArrowForwardIos, EventAvailable as EventAvailableIcon, AccessTime as AccessTimeIcon, Screenshot as ScreenshotIcon } from '@mui/icons-material';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isSameDay, parseISO } from 'date-fns';
+import {
+  ArrowBackIosNew,
+  ArrowForwardIos,
+  EventAvailable as EventAvailableIcon,
+  AccessTime as AccessTimeIcon,
+  Screenshot as ScreenshotIcon,
+} from '@mui/icons-material';
+import {
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  getDay,
+  isSameMonth,
+  isSameDay,
+  parseISO,
+} from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { getScheduleForMonth, bookAppointment, formatApiError, getDoctors } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LoadingIndicator, ErrorAlert, ApiStateHandler } from '../components/common';
-
 
 const AppointmentBookingPage = () => {
   const theme = useTheme();
@@ -49,7 +65,7 @@ const AppointmentBookingPage = () => {
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleSuccess, setScheduleSuccess] = useState('');
-  
+
   // 新增醫生列表狀態
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
@@ -80,39 +96,45 @@ const AppointmentBookingPage = () => {
     setScheduleSuccess('');
     try {
       console.log(`開始獲取排班數據: 年=${currentYear}, 月=${currentMonth + 1}`);
-      
+
       const response = await getScheduleForMonth(currentYear, currentMonth + 1); // API expects 1-indexed month
       console.log('排班數據回應:', response.data);
-      
+
       if (response.data && response.data.success) {
         const scheduleData = response.data.schedule || {};
         console.log('獲取到的排班數據:', scheduleData);
         setSchedule(scheduleData);
-        setScheduleSuccess(`已成功載入 ${format(currentDate, 'yyyy年 MMMM', { locale: zhTW })} 的排班資料`);
+        setScheduleSuccess(
+          `已成功載入 ${format(currentDate, 'yyyy年 MMMM', { locale: zhTW })} 的排班資料`
+        );
       } else {
         console.warn('API 回應格式不符合預期:', response.data);
         throw new Error('無法獲取排班數據');
       }
     } catch (err) {
-      console.error("Failed to fetch schedule:", err);
-      
+      console.error('Failed to fetch schedule:', err);
+
       // 添加詳細的錯誤日誌
       const errorDetails = {
         message: err.message,
-        response: err.response ? {
-          status: err.response.status,
-          data: err.response.data
-        } : '無回應',
+        response: err.response
+          ? {
+              status: err.response.status,
+              data: err.response.data,
+            }
+          : '無回應',
         request: err.request ? '請求已發送但無回應' : '請求未發送',
-        config: err.config ? {
-          url: err.config.url,
-          method: err.config.method,
-          baseURL: err.config.baseURL
-        } : '無配置'
+        config: err.config
+          ? {
+              url: err.config.url,
+              method: err.config.method,
+              baseURL: err.config.baseURL,
+            }
+          : '無配置',
       };
-      
+
       console.error('獲取排班錯誤詳情:', errorDetails);
-      
+
       const formattedError = err.formatted || formatApiError(err, '獲取排班失敗，請稍後重試。');
       setScheduleError(formattedError.message);
       setSchedule({});
@@ -133,7 +155,7 @@ const AppointmentBookingPage = () => {
         throw new Error('無法獲取醫生列表');
       }
     } catch (err) {
-      console.error("獲取醫生列表失敗:", err);
+      console.error('獲取醫生列表失敗:', err);
       const formattedError = err.formatted || formatApiError(err, '無法獲取醫生列表，請稍後重試。');
       setDoctorsError(formattedError.message);
       setDoctors([]);
@@ -146,7 +168,7 @@ const AppointmentBookingPage = () => {
     fetchSchedule();
     fetchDoctors(); // 獲取醫生列表
   }, [currentDate]);
-  
+
   // Update form with user data when user context changes
   useEffect(() => {
     if (user) {
@@ -158,7 +180,6 @@ const AppointmentBookingPage = () => {
       }));
     }
   }, [user]);
-
 
   const handlePreviousMonth = () => {
     setCurrentDate(subMonths(currentDate, 1));
@@ -172,18 +193,18 @@ const AppointmentBookingPage = () => {
     setSelectedTimeSlot(null);
   };
 
-  const handleDateClick = (day) => {
+  const handleDateClick = day => {
     setSelectedDate(day);
     setSelectedTimeSlot(null); // Reset time slot when new date is selected
   };
 
-  const handleTimeSlotClick = (slot) => {
+  const handleTimeSlotClick = slot => {
     setSelectedTimeSlot(slot.time);
     // 如果時段包含醫生信息，自動設置醫生
     if (slot.doctorId) {
       setBookingDetails({
         ...bookingDetails,
-        doctorId: slot.doctorId.toString()
+        doctorId: slot.doctorId.toString(),
       });
     }
     setBookingDialogOpen(true);
@@ -195,7 +216,7 @@ const AppointmentBookingPage = () => {
     setBookingSuccess('');
   };
 
-  const handleBookingDetailsChange = (e) => {
+  const handleBookingDetailsChange = e => {
     const { name, value } = e.target;
     setBookingDetails({
       ...bookingDetails,
@@ -220,7 +241,7 @@ const AppointmentBookingPage = () => {
     const appointmentData = {
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTimeSlot,
-      patientId: user.id, 
+      patientId: user.id,
       patientName: bookingDetails.patientName,
       patientPhone: bookingDetails.patientPhone,
       patientEmail: bookingDetails.patientEmail,
@@ -235,12 +256,12 @@ const AppointmentBookingPage = () => {
       if (response.data && response.data.success) {
         setBookingSuccess('預約成功！請截圖保存此預約資訊作為憑證。');
         // Refresh schedule to reflect the booked slot
-        fetchSchedule(); 
+        fetchSchedule();
       } else {
         throw new Error(response.data?.message || '預約失敗。');
       }
     } catch (err) {
-      console.error("Failed to book appointment:", err);
+      console.error('Failed to book appointment:', err);
       const formattedError = err.formatted || formatApiError(err, '預約失敗，請稍後重試。');
       setBookingError(formattedError.message);
     } finally {
@@ -253,21 +274,27 @@ const AppointmentBookingPage = () => {
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startingDayOfWeek = getDay(monthStart); // 0 (Sunday) to 6 (Saturday)
 
-  const getAvailableSlotsForDate = (dateStr) => {
+  const getAvailableSlotsForDate = dateStr => {
     const daySchedule = schedule[dateStr];
     // 判斷是否是新的數據格式（包含多個醫生）
     if (daySchedule && daySchedule.doctors) {
       // 依據目前是否選擇了醫生決定顯示哪些時段
       if (bookingDetails.doctorId) {
         // 只顯示選定醫生的時段
-        const selectedDoctor = daySchedule.doctors.find(doc => doc.doctorId === parseInt(bookingDetails.doctorId));
+        const selectedDoctor = daySchedule.doctors.find(
+          doc => doc.doctorId === parseInt(bookingDetails.doctorId)
+        );
         if (selectedDoctor) {
-          const bookedTimes = selectedDoctor.bookedSlots ? Object.keys(selectedDoctor.bookedSlots) : [];
-          return selectedDoctor.availableSlots.filter(slot => !bookedTimes.includes(slot)).map(slot => ({
-            time: slot,
-            doctorId: selectedDoctor.doctorId,
-            doctorName: selectedDoctor.doctorName
-          }));
+          const bookedTimes = selectedDoctor.bookedSlots
+            ? Object.keys(selectedDoctor.bookedSlots)
+            : [];
+          return selectedDoctor.availableSlots
+            .filter(slot => !bookedTimes.includes(slot))
+            .map(slot => ({
+              time: slot,
+              doctorId: selectedDoctor.doctorId,
+              doctorName: selectedDoctor.doctorName,
+            }));
         }
         return [];
       } else {
@@ -280,7 +307,7 @@ const AppointmentBookingPage = () => {
             .map(slot => ({
               time: slot,
               doctorId: doctor.doctorId,
-              doctorName: doctor.doctorName
+              doctorName: doctor.doctorName,
             }));
           allSlots = [...allSlots, ...availableSlots];
         });
@@ -297,10 +324,10 @@ const AppointmentBookingPage = () => {
   };
 
   // 添加選擇醫生的處理函數
-  const handleDoctorChange = (doctorId) => {
+  const handleDoctorChange = doctorId => {
     setBookingDetails({
       ...bookingDetails,
-      doctorId: doctorId
+      doctorId: doctorId,
     });
     // 重置選中的時段，因為醫生變了，可用時段也會變
     setSelectedTimeSlot(null);
@@ -317,7 +344,9 @@ const AppointmentBookingPage = () => {
 
       {/* 顯示醫生選擇 */}
       <Paper elevation={3} sx={{ p: isMobile ? 2 : 4, borderRadius: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>選擇心理醫師</Typography>
+        <Typography variant="h6" gutterBottom>
+          選擇心理醫師
+        </Typography>
         <ApiStateHandler
           loading={loadingDoctors}
           error={doctorsError}
@@ -327,18 +356,26 @@ const AppointmentBookingPage = () => {
           loadingType="inline"
         >
           <Grid container spacing={2}>
-            {doctors.map((doctor) => (
+            {doctors.map(doctor => (
               <Grid item key={doctor.id} xs={12} sm={6} md={4}>
                 <Button
                   fullWidth
-                  variant={bookingDetails.doctorId === doctor.id.toString() ? "contained" : "outlined"}
+                  variant={
+                    bookingDetails.doctorId === doctor.id.toString() ? 'contained' : 'outlined'
+                  }
                   onClick={() => handleDoctorChange(doctor.id.toString())}
-                  sx={{ 
+                  sx={{
                     py: 2,
-                    justifyContent: "flex-start",
-                    textAlign: "left",
-                    bgcolor: bookingDetails.doctorId === doctor.id.toString() ? 'primary.main' : 'background.paper',
-                    color: bookingDetails.doctorId === doctor.id.toString() ? 'common.white' : 'text.primary',
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    bgcolor:
+                      bookingDetails.doctorId === doctor.id.toString()
+                        ? 'primary.main'
+                        : 'background.paper',
+                    color:
+                      bookingDetails.doctorId === doctor.id.toString()
+                        ? 'common.white'
+                        : 'text.primary',
                   }}
                 >
                   <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -372,44 +409,65 @@ const AppointmentBookingPage = () => {
           loading={authLoading || loadingSchedule}
           error={scheduleError}
           success={scheduleSuccess}
-          loadingMessage={authLoading ? "載入用戶資訊..." : "載入排班中..."}
+          loadingMessage={authLoading ? '載入用戶資訊...' : '載入排班中...'}
           onErrorClose={() => setScheduleError('')}
           onSuccessClose={() => setScheduleSuccess('')}
           loadingType="linear"
         >
           {/* Calendar Grid */}
           <Grid container spacing={1}>
-            {['日', '一', '二', '三', '四', '五', '六'].map((dayName) => (
-              <Grid item xs={12/7} key={dayName} sx={{ textAlign: 'center', fontWeight: 'bold', color: 'text.secondary', py:1 }}>
+            {['日', '一', '二', '三', '四', '五', '六'].map(dayName => (
+              <Grid
+                item
+                xs={12 / 7}
+                key={dayName}
+                sx={{ textAlign: 'center', fontWeight: 'bold', color: 'text.secondary', py: 1 }}
+              >
                 {dayName}
               </Grid>
             ))}
             {Array.from({ length: startingDayOfWeek }).map((_, index) => (
-              <Grid item xs={12/7} key={`empty-${index}`} />
+              <Grid item xs={12 / 7} key={`empty-${index}`} />
             ))}
-            {daysInMonth.map((day) => {
+            {daysInMonth.map(day => {
               const dayStr = format(day, 'yyyy-MM-dd');
               const availableSlots = getAvailableSlotsForDate(dayStr);
               const isSelectable = availableSlots.length > 0 && isSameMonth(day, currentDate);
               const isSelected = selectedDate && isSameDay(day, selectedDate);
 
               return (
-                <Grid item xs={12/7} key={dayStr} sx={{ p: 0.5 }}>
+                <Grid item xs={12 / 7} key={dayStr} sx={{ p: 0.5 }}>
                   <Button
                     fullWidth
-                    variant={isSelected ? "contained" : "outlined"}
+                    variant={isSelected ? 'contained' : 'outlined'}
                     onClick={() => isSelectable && handleDateClick(day)}
                     disabled={!isSelectable}
                     sx={{
-                      height: isMobile? 'auto' : 80,
+                      height: isMobile ? 'auto' : 80,
                       minWidth: 'auto',
-                      p: isMobile? 1: 1.5,
+                      p: isMobile ? 1 : 1.5,
                       flexDirection: 'column',
-                      borderColor: isSelected ? 'primary.main' : (isSameDay(day, new Date()) ? 'primary.light' : 'divider'),
-                      bgcolor: isSelected ? 'primary.main' : (isSelectable ? 'background.paper' : 'action.disabledBackground'),
-                      color: isSelected ? 'common.white' : (isSelectable ? 'text.primary' : 'text.disabled'),
+                      borderColor: isSelected
+                        ? 'primary.main'
+                        : isSameDay(day, new Date())
+                          ? 'primary.light'
+                          : 'divider',
+                      bgcolor: isSelected
+                        ? 'primary.main'
+                        : isSelectable
+                          ? 'background.paper'
+                          : 'action.disabledBackground',
+                      color: isSelected
+                        ? 'common.white'
+                        : isSelectable
+                          ? 'text.primary'
+                          : 'text.disabled',
                       '&:hover': {
-                        bgcolor: isSelectable ? (isSelected? 'primary.dark' : 'primary.lighter') : undefined,
+                        bgcolor: isSelectable
+                          ? isSelected
+                            ? 'primary.dark'
+                            : 'primary.lighter'
+                          : undefined,
                       },
                     }}
                   >
@@ -417,7 +475,15 @@ const AppointmentBookingPage = () => {
                       {format(day, 'd')}
                     </Typography>
                     {isSelectable && (
-                       <Chip label={`${availableSlots.length} 時段`} size="small" sx={{mt:0.5, bgcolor: isSelected? 'primary.dark' : 'secondary.lighter', color: isSelected? 'common.white' : 'secondary.darker'}} />
+                      <Chip
+                        label={`${availableSlots.length} 時段`}
+                        size="small"
+                        sx={{
+                          mt: 0.5,
+                          bgcolor: isSelected ? 'primary.dark' : 'secondary.lighter',
+                          color: isSelected ? 'common.white' : 'secondary.darker',
+                        }}
+                      />
                     )}
                   </Button>
                 </Grid>
@@ -436,8 +502,15 @@ const AppointmentBookingPage = () => {
               <Typography color="text.secondary">此日期已無可用時段。</Typography>
             ) : (
               <Grid container spacing={1}>
-                {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).map((slot) => (
-                  <Grid item key={`${slot.time}-${slot.doctorId || 'unknown'}`} xs={6} sm={4} md={3} lg={2}>
+                {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).map(slot => (
+                  <Grid
+                    item
+                    key={`${slot.time}-${slot.doctorId || 'unknown'}`}
+                    xs={6}
+                    sm={4}
+                    md={3}
+                    lg={2}
+                  >
                     <Button
                       fullWidth
                       variant="contained"
@@ -445,14 +518,18 @@ const AppointmentBookingPage = () => {
                       onClick={() => handleTimeSlotClick(slot)}
                       startIcon={<AccessTimeIcon />}
                       sx={{
-                        bgcolor: selectedTimeSlot === slot.time ? 'secondary.dark' : 'secondary.main',
+                        bgcolor:
+                          selectedTimeSlot === slot.time ? 'secondary.dark' : 'secondary.main',
                         '&:hover': { bgcolor: 'secondary.dark' },
                       }}
                     >
                       {slot.time}
                       {/* 只有在未指定醫生ID時才顯示醫生姓名 */}
                       {!bookingDetails.doctorId && slot.doctorName && (
-                        <Typography variant="caption" sx={{ display: 'block', width: '100%', textAlign: 'center', mt: 0.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ display: 'block', width: '100%', textAlign: 'center', mt: 0.5 }}
+                        >
                           {slot.doctorName}
                         </Typography>
                       )}
@@ -468,9 +545,9 @@ const AppointmentBookingPage = () => {
       {/* Booking Dialog */}
       <Dialog open={bookingDialogOpen} onClose={handleBookingDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'common.white' }}>
-          {bookingSuccess ? "預約成功" : "確認預約資訊"}
+          {bookingSuccess ? '預約成功' : '確認預約資訊'}
         </DialogTitle>
-        <DialogContent dividers sx={{pt: 2}}>
+        <DialogContent dividers sx={{ pt: 2 }}>
           <ApiStateHandler
             loading={bookingLoading}
             error={bookingError}
@@ -484,17 +561,26 @@ const AppointmentBookingPage = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
-                    預約: {format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} - {selectedTimeSlot}
+                    預約: {format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} -{' '}
+                    {selectedTimeSlot}
                   </Typography>
-                  {bookingDetails.doctorId && doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
-                    <Typography variant="subtitle1" color="primary.main" fontWeight="medium" gutterBottom>
-                      醫師: {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
-                    </Typography>
-                  )}
+                  {bookingDetails.doctorId &&
+                    doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
+                      <Typography
+                        variant="subtitle1"
+                        color="primary.main"
+                        fontWeight="medium"
+                        gutterBottom
+                      >
+                        醫師: {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
+                      </Typography>
+                    )}
                 </Grid>
-                
+
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>個人資料</Typography>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    個人資料
+                  </Typography>
                   <Divider sx={{ mb: 2 }} />
                 </Grid>
 
@@ -506,17 +592,17 @@ const AppointmentBookingPage = () => {
                     onChange={handleBookingDetailsChange}
                     fullWidth
                     required
-                    size="medium"  
+                    size="medium"
                     margin="normal"
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
                     }}
                     InputProps={{
-                      style: { 
+                      style: {
                         paddingTop: '8px',
-                        paddingBottom: '8px'
-                      }
+                        paddingBottom: '8px',
+                      },
                     }}
                   />
                 </Grid>
@@ -536,10 +622,10 @@ const AppointmentBookingPage = () => {
                       shrink: true,
                     }}
                     InputProps={{
-                      style: { 
+                      style: {
                         paddingTop: '8px',
-                        paddingBottom: '8px'
-                      }
+                        paddingBottom: '8px',
+                      },
                     }}
                   />
                 </Grid>
@@ -560,19 +646,21 @@ const AppointmentBookingPage = () => {
                       shrink: true,
                     }}
                     InputProps={{
-                      style: { 
+                      style: {
                         paddingTop: '8px',
-                        paddingBottom: '8px'
-                      }
+                        paddingBottom: '8px',
+                      },
                     }}
                   />
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>就診資訊</Typography>
+                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
+                    就診資訊
+                  </Typography>
                   <Divider sx={{ mb: 2 }} />
                 </Grid>
-                
+
                 <Grid item xs={12}>
                   <TextField
                     label="預約原因 (簡述)"
@@ -588,10 +676,10 @@ const AppointmentBookingPage = () => {
                       shrink: true,
                     }}
                     InputProps={{
-                      style: { 
+                      style: {
                         paddingTop: '8px',
-                        paddingBottom: '8px'
-                      }
+                        paddingBottom: '8px',
+                      },
                     }}
                   />
                 </Grid>
@@ -611,25 +699,29 @@ const AppointmentBookingPage = () => {
                       shrink: true,
                     }}
                     InputProps={{
-                      style: { 
+                      style: {
                         paddingTop: '8px',
-                        paddingBottom: '8px'
-                      }
+                        paddingBottom: '8px',
+                      },
                     }}
                   />
                 </Grid>
               </Grid>
             )}
-            
+
             {bookingSuccess && (
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 <DialogContentText sx={{ mb: 2, fontWeight: 'medium' }}>
                   以下是您的預約摘要：
                 </DialogContentText>
-                <Paper variant="outlined" sx={{ p: 2, my: 2, textAlign: 'left', display: 'inline-block' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, my: 2, textAlign: 'left', display: 'inline-block' }}
+                >
                   {selectedDate && (
                     <Typography variant="body1" gutterBottom>
-                      <strong>日期：</strong> {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })}
+                      <strong>日期：</strong>{' '}
+                      {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })}
                     </Typography>
                   )}
                   {selectedTimeSlot && (
@@ -640,11 +732,13 @@ const AppointmentBookingPage = () => {
                   <Typography variant="body1" gutterBottom>
                     <strong>姓名：</strong> {bookingDetails.patientName}
                   </Typography>
-                  {bookingDetails.doctorId && doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
-                    <Typography variant="body1" gutterBottom>
-                      <strong>心理治療師：</strong> {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
-                    </Typography>
-                  )}
+                  {bookingDetails.doctorId &&
+                    doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
+                      <Typography variant="body1" gutterBottom>
+                        <strong>心理治療師：</strong>{' '}
+                        {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
+                      </Typography>
+                    )}
                   {bookingDetails.appointmentReason && (
                     <Typography variant="body1" gutterBottom>
                       <strong>預約原因：</strong> {bookingDetails.appointmentReason}
@@ -660,14 +754,14 @@ const AppointmentBookingPage = () => {
           </ApiStateHandler>
         </DialogContent>
         {!bookingSuccess ? (
-          <DialogActions sx={{p:2}}>
+          <DialogActions sx={{ p: 2 }}>
             <Button onClick={handleBookingDialogClose} disabled={bookingLoading}>
               取消
             </Button>
-            <Button 
-              onClick={handleBookingSubmit} 
-              variant="contained" 
-              color="primary" 
+            <Button
+              onClick={handleBookingSubmit}
+              variant="contained"
+              color="primary"
               disabled={bookingLoading}
               startIcon={bookingLoading ? <CircularProgress size={20} color="inherit" /> : null}
             >
@@ -675,7 +769,7 @@ const AppointmentBookingPage = () => {
             </Button>
           </DialogActions>
         ) : (
-          <DialogActions sx={{p:2}}>
+          <DialogActions sx={{ p: 2 }}>
             <Button onClick={handleBookingDialogClose} variant="outlined">
               關閉
             </Button>
@@ -687,4 +781,3 @@ const AppointmentBookingPage = () => {
 };
 
 export default AppointmentBookingPage;
-
