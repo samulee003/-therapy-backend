@@ -88,19 +88,26 @@ app.get('/api/doctors', (req, res) => {
 });
 
 // 直接處理 /api/me 請求
-app.get('/api/me', (req, res) => {
+app.get('/api/me', (req, res, next) => {
   console.log('[APP] 直接處理 /api/me 請求');
   try {
     const { authenticateUser } = require('./middlewares/auth');
     const authController = require('./controllers/authController')(db);
     
     // 手動執行驗證中間件，然後執行 getCurrentUser
-    authenticateUser(req, res, () => {
+    authenticateUser(req, res, (err) => {
+      if (err) {
+        // 如果驗證中間件返回錯誤 (例如 token 無效)，則直接返回錯誤
+        // authenticateUser 已經處理了 res.status 和 json
+        return;
+      }
       if (req.user) {
         return authController.getCurrentUser(req, res);
       } else {
-        // 這不應該發生，因為 authenticateUser 會攔截無效的令牌
-        return res.status(401).json({ error: '驗證失敗' });
+        // 即使 authenticateUser 成功 (next() 被調用)，req.user 可能仍未設置
+        // 這種情況通常不應發生，但為保險起見，返回 401
+        console.error('[APP] /api/me: authenticateUser 成功但 req.user 未設置');
+        return res.status(401).json({ error: '驗證成功但無法獲取用戶資訊' });
       }
     });
   } catch (err) {

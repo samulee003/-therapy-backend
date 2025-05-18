@@ -18,6 +18,9 @@ module.exports = (db) => {
   // 獲取預約列表 (根據用戶角色過濾)
   router.get('/', authenticateUser, appointmentController.getAppointments);
 
+  // 新增：獲取「我的」預約，取代舊的 / (GET) 路由中的部分邏輯
+  router.get('/my', authenticateUser, appointmentController.getMyAppointments);
+
   // 獲取單個預約 (根據用戶角色檢查權限)
   router.get('/:appointmentId', authenticateUser, appointmentController.getAppointmentById);
 
