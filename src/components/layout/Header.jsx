@@ -55,7 +55,7 @@ const Header = () => {
   };
 
   const toggleDrawer = open => event => {
-    if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
+    if (event && event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
       return;
     }
     setDrawerOpen(open);
@@ -72,7 +72,16 @@ const Header = () => {
         user?.role === 'doctor' || user?.role === 'admin'
           ? '/therapist-dashboard'
           : '/patient-dashboard';
-      return [...baseItems];
+      
+      const authItems = [
+        { 
+          text: '我的儀表板', 
+          icon: <DashboardIcon />, 
+          path: dashboardPath 
+        }
+      ];
+      
+      return [...baseItems, ...authItems];
     } else {
       return [
         ...baseItems,
@@ -95,14 +104,14 @@ const Header = () => {
         <Typography
           variant="h6"
           component="div"
-          sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}
+          sx={{ fontWeight: 'bold', color: theme.palette.primary.main, textAlign: 'center', lineHeight: 1.3 }}
         >
           心理治療預約系統
         </Typography>
       </Box>
       <Divider />
       <List>
-        {generateMenuItems().map(item => (
+        {menuItems.map(item => (
           <ListItem
             button
             key={item.text}
@@ -110,16 +119,20 @@ const Header = () => {
             to={item.path}
             onClick={item.action}
           >
-            <ListItemIcon sx={{ color: theme.palette.primary.main }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
+            <ListItemIcon sx={{ color: theme.palette.primary.main, minWidth: 40 }}>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.text} primaryTypographyProps={{ 
+              sx: { fontSize: '0.95rem' } 
+            }} />
           </ListItem>
         ))}
         {isAuthenticated && (
           <ListItem button key="logout-drawer" onClick={handleLogout}>
-            <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+            <ListItemIcon sx={{ color: theme.palette.primary.main, minWidth: 40 }}>
               <LogoutIcon />
             </ListItemIcon>
-            <ListItemText primary="登出" />
+            <ListItemText primary="登出" primaryTypographyProps={{ 
+              sx: { fontSize: '0.95rem' } 
+            }} />
           </ListItem>
         )}
       </List>
@@ -155,6 +168,11 @@ const Header = () => {
             color: theme.palette.primary.main,
             display: 'flex',
             alignItems: 'center',
+            fontSize: isMobile ? '1.1rem' : undefined,
+            lineHeight: 1.3,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <CalendarMonthIcon sx={{ mr: 1 }} />

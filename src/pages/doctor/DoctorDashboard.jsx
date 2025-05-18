@@ -8,6 +8,8 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
+  Container,
+  Paper,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -67,43 +69,86 @@ const DoctorDashboard = () => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Tab Navigation */}
-      <Tabs
-        value={tabValue}
-        onChange={handleTabChange}
-        variant={isMobile ? 'fullWidth' : 'standard'}
-        centered={!isMobile}
-        aria-label="doctor dashboard tabs"
-        sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+    <Container maxWidth="lg" sx={{ pt: isMobile ? 1 : 2, pb: isMobile ? 2 : 4, px: isMobile ? 1 : 2 }}>
+      <Paper 
+        elevation={1} 
+        sx={{ 
+          borderRadius: 2,
+          overflow: 'hidden'
+        }}
       >
-        <Tab
-          icon={<DashboardIcon />}
-          label={isMobile ? undefined : '總覽'}
-          aria-label="Dashboard Overview"
-        />
-        <Tab
-          icon={<CalendarIcon />}
-          label={isMobile ? undefined : '排班管理'}
-          aria-label="Schedule Management"
-        />
-        <Tab
-          icon={<PeopleIcon />}
-          label={isMobile ? undefined : '預約管理'}
-          aria-label="Appointments Management"
-        />
-        <Tab
-          icon={<SettingsIcon />}
-          label={isMobile ? undefined : '設定'}
-          aria-label="Settings"
-        />
-      </Tabs>
+        <Box sx={{ 
+          flexGrow: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          height: '100%'
+        }}>
+          {/* Tab Navigation */}
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            variant={isMobile ? 'fullWidth' : 'standard'}
+            centered={!isMobile}
+            aria-label="doctor dashboard tabs"
+            sx={{ 
+              borderBottom: 1, 
+              borderColor: 'divider', 
+              mb: isMobile ? 1 : 3,
+              minHeight: isMobile ? '48px' : undefined,
+              '& .MuiTabs-indicator': {
+                height: 3
+              }
+            }}
+          >
+            <Tab
+              icon={<DashboardIcon fontSize={isMobile ? "small" : "medium"} />}
+              label={isMobile ? undefined : '總覽'}
+              aria-label="Dashboard Overview"
+              sx={{ 
+                minHeight: isMobile ? '48px' : undefined,
+                py: isMobile ? 1 : 1.5
+              }}
+            />
+            <Tab
+              icon={<CalendarIcon fontSize={isMobile ? "small" : "medium"} />}
+              label={isMobile ? undefined : '排班管理'}
+              aria-label="Schedule Management"
+              sx={{ 
+                minHeight: isMobile ? '48px' : undefined,
+                py: isMobile ? 1 : 1.5
+              }}
+            />
+            <Tab
+              icon={<PeopleIcon fontSize={isMobile ? "small" : "medium"} />}
+              label={isMobile ? undefined : '預約管理'}
+              aria-label="Appointments Management"
+              sx={{ 
+                minHeight: isMobile ? '48px' : undefined,
+                py: isMobile ? 1 : 1.5
+              }}
+            />
+            <Tab
+              icon={<SettingsIcon fontSize={isMobile ? "small" : "medium"} />}
+              label={isMobile ? undefined : '設定'}
+              aria-label="Settings"
+              sx={{ 
+                minHeight: isMobile ? '48px' : undefined,
+                py: isMobile ? 1 : 1.5
+              }}
+            />
+          </Tabs>
 
-      {/* Tab Content */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-        {renderDashboardContent()}
-      </Box>
-    </Box>
+          {/* Tab Content */}
+          <Box sx={{ 
+            flexGrow: 1, 
+            overflow: 'auto', 
+            p: isMobile ? 1.5 : 2 
+          }}>
+            {renderDashboardContent()}
+          </Box>
+        </Box>
+      </Paper>
+    </Container>
   );
 };
 
