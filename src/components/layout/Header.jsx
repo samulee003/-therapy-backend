@@ -1,5 +1,22 @@
 import React, { useContext } from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, useMediaQuery, Drawer, List, ListItem, ListItemText, ListItemIcon, Divider, Menu, MenuItem, CircularProgress } from '@mui/material';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Box,
+  useMediaQuery,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Menu,
+  MenuItem,
+  CircularProgress,
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
@@ -23,7 +40,7 @@ const Header = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const openUserMenu = Boolean(anchorEl);
 
-  const handleUserMenuClick = (event) => {
+  const handleUserMenuClick = event => {
     setAnchorEl(event.currentTarget);
   };
 
@@ -37,7 +54,7 @@ const Header = () => {
     navigate('/');
   };
 
-  const toggleDrawer = (open) => (event) => {
+  const toggleDrawer = open => event => {
     if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
       return;
     }
@@ -51,10 +68,11 @@ const Header = () => {
     ];
 
     if (isAuthenticated) {
-      const dashboardPath = user?.role === 'doctor' || user?.role === 'admin' ? '/therapist-dashboard' : '/patient-dashboard';
-      return [
-        ...baseItems,
-      ];
+      const dashboardPath =
+        user?.role === 'doctor' || user?.role === 'admin'
+          ? '/therapist-dashboard'
+          : '/patient-dashboard';
+      return [...baseItems];
     } else {
       return [
         ...baseItems,
@@ -74,33 +92,35 @@ const Header = () => {
       onKeyDown={toggleDrawer(false)}
     >
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+        <Typography
+          variant="h6"
+          component="div"
+          sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}
+        >
           心理諮詢預約系統
         </Typography>
       </Box>
       <Divider />
       <List>
-        {generateMenuItems().map((item) => (
-          <ListItem 
-            button 
-            key={item.text} 
+        {generateMenuItems().map(item => (
+          <ListItem
+            button
+            key={item.text}
             component={item.path ? RouterLink : 'button'}
             to={item.path}
             onClick={item.action}
           >
-            <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-              {item.icon}
-            </ListItemIcon>
+            <ListItemIcon sx={{ color: theme.palette.primary.main }}>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
         {isAuthenticated && (
-             <ListItem button key="logout-drawer" onClick={handleLogout}>
-                <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-                    <LogoutIcon />
-                </ListItemIcon>
-                <ListItemText primary="登出" />
-            </ListItem>
+          <ListItem button key="logout-drawer" onClick={handleLogout}>
+            <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary="登出" />
+          </ListItem>
         )}
       </List>
     </Box>
@@ -120,75 +140,115 @@ const Header = () => {
             >
               <MenuIcon />
             </IconButton>
-            <Drawer
-              anchor="left"
-              open={drawerOpen}
-              onClose={toggleDrawer(false)}
-            >
+            <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
               {drawer}
             </Drawer>
           </>
         ) : null}
-        
-        <Typography variant="h6" component="div" sx={{ 
-          flexGrow: 1, 
-          fontWeight: 'bold',
-          color: theme.palette.primary.main,
-          display: 'flex',
-          alignItems: 'center'
-        }}>
+
+        <Typography
+          variant="h6"
+          component="div"
+          sx={{
+            flexGrow: 1,
+            fontWeight: 'bold',
+            color: theme.palette.primary.main,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
           <CalendarMonthIcon sx={{ mr: 1 }} />
           心理諮詢預約系統
         </Typography>
-        
+
         {!isMobile && (
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <Button color="inherit" component={RouterLink} to="/" startIcon={<HomeIcon />} sx={{ fontWeight: 500 }}>首頁</Button>
-            <Button color="inherit" component={RouterLink} to="/appointment" startIcon={<CalendarMonthIcon />} sx={{ fontWeight: 500 }}>預約諮詢</Button>
+            <Button
+              color="inherit"
+              component={RouterLink}
+              to="/"
+              startIcon={<HomeIcon />}
+              sx={{ fontWeight: 500 }}
+            >
+              首頁
+            </Button>
+            <Button
+              color="inherit"
+              component={RouterLink}
+              to="/appointment"
+              startIcon={<CalendarMonthIcon />}
+              sx={{ fontWeight: 500 }}
+            >
+              預約諮詢
+            </Button>
 
             {isLoading ? (
               <CircularProgress size={24} color="inherit" />
             ) : isAuthenticated ? (
               <>
                 <Button
-                    color="inherit"
-                    onClick={handleUserMenuClick}
-                    startIcon={<AccountCircleIcon />}
-                    aria-controls={openUserMenu ? 'user-menu' : undefined}
-                    aria-haspopup="true"
-                    aria-expanded={openUserMenu ? 'true' : undefined}
-                    sx={{ fontWeight: 500, textTransform: 'none' }}
-                 >
-                    {user?.name || user?.username}
+                  color="inherit"
+                  onClick={handleUserMenuClick}
+                  startIcon={<AccountCircleIcon />}
+                  aria-controls={openUserMenu ? 'user-menu' : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={openUserMenu ? 'true' : undefined}
+                  sx={{ fontWeight: 500, textTransform: 'none' }}
+                >
+                  {user?.name || user?.username}
                 </Button>
                 <Menu
-                    id="user-menu"
-                    anchorEl={anchorEl}
-                    open={openUserMenu}
-                    onClose={handleUserMenuClose}
-                    MenuListProps={{
+                  id="user-menu"
+                  anchorEl={anchorEl}
+                  open={openUserMenu}
+                  onClose={handleUserMenuClose}
+                  MenuListProps={{
                     'aria-labelledby': 'basic-button',
-                    }}
+                  }}
                 >
-                    <MenuItem 
-                        component={RouterLink} 
-                        to={user?.role === 'doctor' || user?.role === 'admin' ? '/therapist-dashboard' : '/patient-dashboard'} 
-                        onClick={handleUserMenuClose}
-                    >
-                        <ListItemIcon><DashboardIcon fontSize="small" /></ListItemIcon>
-                        我的儀表板
-                    </MenuItem>
-                    <Divider />
-                    <MenuItem onClick={handleLogout}>
-                        <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
-                        登出
-                    </MenuItem>
+                  <MenuItem
+                    component={RouterLink}
+                    to={
+                      user?.role === 'doctor' || user?.role === 'admin'
+                        ? '/therapist-dashboard'
+                        : '/patient-dashboard'
+                    }
+                    onClick={handleUserMenuClose}
+                  >
+                    <ListItemIcon>
+                      <DashboardIcon fontSize="small" />
+                    </ListItemIcon>
+                    我的儀表板
+                  </MenuItem>
+                  <Divider />
+                  <MenuItem onClick={handleLogout}>
+                    <ListItemIcon>
+                      <LogoutIcon fontSize="small" />
+                    </ListItemIcon>
+                    登出
+                  </MenuItem>
                 </Menu>
-               </>
+              </>
             ) : (
               <>
-                <Button color="inherit" component={RouterLink} to="/login" startIcon={<LoginIcon />} sx={{ fontWeight: 500 }}>登入</Button>
-                <Button color="inherit" component={RouterLink} to="/register" startIcon={<PersonIcon />} sx={{ fontWeight: 500 }}>註冊</Button>
+                <Button
+                  color="inherit"
+                  component={RouterLink}
+                  to="/login"
+                  startIcon={<LoginIcon />}
+                  sx={{ fontWeight: 500 }}
+                >
+                  登入
+                </Button>
+                <Button
+                  color="inherit"
+                  component={RouterLink}
+                  to="/register"
+                  startIcon={<PersonIcon />}
+                  sx={{ fontWeight: 500 }}
+                >
+                  註冊
+                </Button>
               </>
             )}
           </Box>

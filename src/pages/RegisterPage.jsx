@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Paper,
   Container,
   Grid,
   Link,
@@ -24,7 +24,7 @@ import {
   useMediaQuery,
   Alert,
   CircularProgress,
-  FormHelperText
+  FormHelperText,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -42,25 +42,25 @@ const RegisterPage = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'patient' 
+    role: 'patient',
   });
-  
+
   // 表單驗證錯誤
   const [errors, setErrors] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ const RegisterPage = () => {
 
   const validateField = (name, value) => {
     let errorMessage = '';
-    
+
     switch (name) {
       case 'name':
         if (!value.trim()) {
@@ -93,7 +93,7 @@ const RegisterPage = () => {
           errorMessage = '姓名應為 2-30 個漢字或英文字母';
         }
         break;
-      
+
       case 'email':
         if (!value.trim()) {
           errorMessage = '請輸入您的電子郵件';
@@ -101,7 +101,7 @@ const RegisterPage = () => {
           errorMessage = '請輸入有效的電子郵件格式 (例如: user@example.com)';
         }
         break;
-      
+
       case 'phone':
         if (!value.trim()) {
           errorMessage = '請輸入您的電話號碼';
@@ -109,7 +109,7 @@ const RegisterPage = () => {
           errorMessage = '請輸入有效的電話號碼（至少 8 位數字，可包含 +()-）';
         }
         break;
-      
+
       case 'password':
         if (!value) {
           errorMessage = '請輸入密碼';
@@ -119,7 +119,7 @@ const RegisterPage = () => {
           errorMessage = '密碼需包含至少一個字母和一個數字';
         }
         break;
-      
+
       case 'confirmPassword':
         if (!value) {
           errorMessage = '請確認您的密碼';
@@ -127,108 +127,111 @@ const RegisterPage = () => {
           errorMessage = '兩次密碼輸入不一致';
         }
         break;
-      
+
       default:
         break;
     }
-    
+
     return errorMessage;
   };
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     const { name, value } = e.target;
-    
+
     // 更新表單數據
     setFormData({
       ...formData,
-      [name]: value
+      [name]: value,
     });
-    
+
     // 更新錯誤訊息
     setErrors({
       ...errors,
-      [name]: validateField(name, value)
+      [name]: validateField(name, value),
     });
-    
+
     // 在確認密碼欄位變化時，重新驗證確認密碼
     if (name === 'password') {
       setErrors(prev => ({
         ...prev,
-        confirmPassword: formData.confirmPassword 
-          ? (value === formData.confirmPassword ? '' : '兩次密碼輸入不一致') 
-          : prev.confirmPassword
+        confirmPassword: formData.confirmPassword
+          ? value === formData.confirmPassword
+            ? ''
+            : '兩次密碼輸入不一致'
+          : prev.confirmPassword,
       }));
     }
   };
 
   const validateCurrentStep = () => {
-    if (activeStep === 0) { // 基本信息
+    if (activeStep === 0) {
+      // 基本信息
       const stepErrors = {};
-      
+
       // 驗證姓名
       stepErrors.name = validateField('name', formData.name);
-      
+
       // 驗證電子郵件
       stepErrors.email = validateField('email', formData.email);
-      
+
       // 驗證電話號碼
       stepErrors.phone = validateField('phone', formData.phone);
-      
-      setErrors({...errors, ...stepErrors});
-      
+
+      setErrors({ ...errors, ...stepErrors });
+
       return !stepErrors.name && !stepErrors.email && !stepErrors.phone;
-    } 
-    else if (activeStep === 1) { // 帳號設置
+    } else if (activeStep === 1) {
+      // 帳號設置
       const stepErrors = {};
-      
+
       // 驗證密碼
       stepErrors.password = validateField('password', formData.password);
-      
+
       // 驗證確認密碼
       stepErrors.confirmPassword = validateField('confirmPassword', formData.confirmPassword);
-      
-      setErrors({...errors, ...stepErrors});
-      
+
+      setErrors({ ...errors, ...stepErrors });
+
       return !stepErrors.password && !stepErrors.confirmPassword;
     }
-    
+
     return true;
   };
 
   const handleNext = () => {
     if (validateCurrentStep()) {
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
+      setActiveStep(prevActiveStep => prevActiveStep + 1);
     }
   };
 
   const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async event => {
     event.preventDefault();
     setError('');
-    
+
     // 最後確認所有表單都驗證通過
     const nameError = validateField('name', formData.name);
     const emailError = validateField('email', formData.email);
     const phoneError = validateField('phone', formData.phone);
     const passwordError = validateField('password', formData.password);
     const confirmPasswordError = validateField('confirmPassword', formData.confirmPassword);
-    
+
     setErrors({
       name: nameError,
       email: emailError,
       phone: phoneError,
       password: passwordError,
-      confirmPassword: confirmPasswordError
+      confirmPassword: confirmPasswordError,
     });
-    
+
     // 如果有任何錯誤，阻止表單提交
     if (nameError || emailError || phoneError || passwordError || confirmPasswordError) {
       return;
     }
-    
+
     setLoading(true);
 
     const registrationData = {
@@ -247,12 +250,12 @@ const RegisterPage = () => {
       // 使用格式化的錯誤訊息
       const formattedError = err.formatted || formatApiError(err, '註冊失敗，請稍後再試');
       setError(formattedError.message);
-      
+
       // 如果伺服器返回的是電子郵件已存在的錯誤，設置對應欄位的錯誤
       if (formattedError.code === 409) {
         setErrors(prev => ({
           ...prev,
-          email: '此電子郵件已被註冊'
+          email: '此電子郵件已被註冊',
         }));
       }
     } finally {
@@ -262,7 +265,7 @@ const RegisterPage = () => {
 
   const steps = ['基本信息', '帳號設置', '完成註冊'];
 
-  const getStepContent = (step) => {
+  const getStepContent = step => {
     switch (step) {
       case 0:
         return (
@@ -340,7 +343,11 @@ const RegisterPage = () => {
                   onChange={handleChange}
                 >
                   <FormControlLabel value="patient" control={<Radio />} label="患者 (Patient)" />
-                  <FormControlLabel value="doctor" control={<Radio />} label="心理治療師 (Therapist)" />
+                  <FormControlLabel
+                    value="doctor"
+                    control={<Radio />}
+                    label="心理治療師 (Therapist)"
+                  />
                 </RadioGroup>
               </FormControl>
             </Grid>
@@ -427,7 +434,9 @@ const RegisterPage = () => {
       case 2:
         return (
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>註冊資訊確認</Typography>
+            <Typography variant="h6" gutterBottom>
+              註冊資訊確認
+            </Typography>
             <Grid container spacing={2} sx={{ mt: 2 }}>
               <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
                 <Typography>姓名:</Typography>
@@ -474,7 +483,7 @@ const RegisterPage = () => {
           flexDirection: 'column',
           alignItems: 'center',
           borderRadius: 2,
-          mt: isMobile ? 2 : 8
+          mt: isMobile ? 2 : 8,
         }}
       >
         <Typography component="h1" variant="h4" color="primary" fontWeight="bold" gutterBottom>
@@ -485,7 +494,7 @@ const RegisterPage = () => {
         </Typography>
 
         <Stepper activeStep={activeStep} alternativeLabel sx={{ width: '100%', mb: 4 }}>
-          {steps.map((label) => (
+          {steps.map(label => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
             </Step>
@@ -493,16 +502,12 @@ const RegisterPage = () => {
         </Stepper>
 
         {error && (
-          <ErrorAlert 
-            message={error} 
-            onClose={() => setError('')} 
-            sx={{ width: '100%', mb: 3 }} 
-          />
+          <ErrorAlert message={error} onClose={() => setError('')} sx={{ width: '100%', mb: 3 }} />
         )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           {getStepContent(activeStep)}
-          
+
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             <Button
               disabled={activeStep === 0}
@@ -522,11 +527,7 @@ const RegisterPage = () => {
                   sx={{ py: 1, px: 4 }}
                   disabled={loading}
                 >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    '完成註冊'
-                  )}
+                  {loading ? <CircularProgress size={24} color="inherit" /> : '完成註冊'}
                 </Button>
               ) : (
                 <Button
@@ -542,14 +543,20 @@ const RegisterPage = () => {
             </Box>
           </Box>
         </Box>
-        
+
         <Box sx={{ width: '100%', mt: 4 }}>
           <Divider sx={{ mb: 2 }} />
-          
+
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               已有帳號？{' '}
-              <Link component={RouterLink} to="/login" variant="body2" color="primary" fontWeight="medium">
+              <Link
+                component={RouterLink}
+                to="/login"
+                variant="body2"
+                color="primary"
+                fontWeight="medium"
+              >
                 立即登入
               </Link>
             </Typography>

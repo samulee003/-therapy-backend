@@ -19,7 +19,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
   if (isLoading) {
     // Show loading indicator while checking auth status
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -32,10 +34,12 @@ const ProtectedRoute = ({ allowedRoles }) => {
 
   // Optional: Check for allowed roles if provided
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
-      // Redirect to an unauthorized page or home page if role not allowed
-      // For simplicity, redirecting home for now
-      console.warn(`User role (${user?.role}) not authorized for this route. Allowed: ${allowedRoles}`);
-      return <Navigate to="/" replace />;
+    // Redirect to an unauthorized page or home page if role not allowed
+    // For simplicity, redirecting home for now
+    console.warn(
+      `User role (${user?.role}) not authorized for this route. Allowed: ${allowedRoles}`
+    );
+    return <Navigate to="/" replace />;
   }
 
   // Render the child route element if authenticated (and authorized)
@@ -61,16 +65,16 @@ function App() {
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={['patient']} />}>
-             <Route path="/patient-dashboard" element={<PatientDashboard />} />
-             <Route path="/appointment" element={<AppointmentBookingPage />} />
-             {/* Add other patient specific routes here */}
+            <Route path="/patient-dashboard" element={<PatientDashboard />} />
+            <Route path="/appointment" element={<AppointmentBookingPage />} />
+            {/* Add other patient specific routes here */}
           </Route>
-          
-           {/* Fallback for any other authenticated user? Or handle specific roles above?*/}
+
+          {/* Fallback for any other authenticated user? Or handle specific roles above?*/}
           {/* Example: Route for any logged in user (if needed) */}
-          {/* <Route element={<ProtectedRoute />}> */} 
-          {/*   <Route path="/some-generic-page" element={<SomeGenericPage />} /> */} 
-          {/* </Route> */} 
+          {/* <Route element={<ProtectedRoute />}> */}
+          {/*   <Route path="/some-generic-page" element={<SomeGenericPage />} /> */}
+          {/* </Route> */}
 
           {/* Not Found Route */}
           <Route path="*" element={<NotFoundPage />} />
@@ -82,4 +86,3 @@ function App() {
 }
 
 export default App;
-

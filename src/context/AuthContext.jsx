@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
   }, [checkAuth]);
 
   // 登入函數
-  const login = (userData) => {
+  const login = userData => {
     setUser(userData);
     setLoading(false);
   };
@@ -66,10 +66,5 @@ export const AuthProvider = ({ children }) => {
     refreshUser: checkAuth, // 提供刷新用戶資料的方法
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
