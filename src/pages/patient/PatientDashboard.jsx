@@ -217,41 +217,59 @@ const PatientDashboard = () => {
     { icon: <SettingsIcon />, label: '設置', value: 2 }, // Adjusted value
   ];
 
-  const renderAppointmentList = () => {
-    if (!Array.isArray(appointments)) {
-      return <Typography color="text.secondary">預約記錄正在加載或不可用。</Typography>;
-    }
-
-    if (appointments.length === 0) {
-      return <Typography color="text.secondary">您目前沒有任何預約記錄。</Typography>;
-    }
-
+  const renderAppointmentItems = appointments => {
     return (
-      <List>
+      <List sx={{ p: 0 }}>
         {appointments.map(appointment => (
           <ListItem
-            key={appointment._id}
+            key={appointment.id}
+            sx={{
+              p: isMobile ? 1.5 : 2,
+              mb: 2,
+              borderRadius: 2,
+              backgroundColor: 'background.paper',
+              boxShadow: 1,
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              alignItems: isMobile ? 'flex-start' : 'center',
+            }}
             secondaryAction={
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                mt: isMobile ? 1 : 0,
+                position: isMobile ? 'static' : 'absolute',
+                right: isMobile ? 'auto' : 16
+              }}>
                 <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<VisibilityIcon />}
                   size="small"
+                  variant="outlined"
                   onClick={() => handleViewDetails(appointment)}
+                  disabled={loading || cancellingId !== null}
+                  sx={{ 
+                    minWidth: isMobile ? '60px' : 'auto',
+                    fontSize: isMobile ? '0.75rem' : undefined 
+                  }}
                 >
-                  查看詳情
+                  詳情
                 </Button>
-                {/* 移除取消預約按鈕，只保留查看詳情按鈕 */}
+                {appointment.status !== 'cancelled' && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleCancelClick(appointment)}
+                    disabled={loading || cancellingId !== null}
+                    sx={{ 
+                      minWidth: isMobile ? '60px' : 'auto',
+                      fontSize: isMobile ? '0.75rem' : undefined 
+                    }}
+                  >
+                    取消
+                  </Button>
+                )}
               </Box>
             }
-            sx={{
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-              '&:last-child': {
-                borderBottom: 'none',
-              },
-            }}
           >
             <ListItemAvatar>
               <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
@@ -260,24 +278,47 @@ const PatientDashboard = () => {
             </ListItemAvatar>
             <ListItemText
               primary={
-                <Typography variant="body1" fontWeight="medium">
+                <Typography 
+                  variant="body1" 
+                  fontWeight="medium"
+                  sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                >
                   {appointment.doctorName || appointment.doctor?.name || '心理治療師 (已排定)'}
                 </Typography>
               }
               secondary={
                 <Box
-                  sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 0.5 }}
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    flexWrap: 'wrap', 
+                    gap: 1, 
+                    mt: 0.5,
+                    pr: isMobile ? 0 : 15 // 在非手機版中為右側按鈕預留空間
+                  }}
                 >
                   <Chip
                     size="small"
                     label={appointment.date}
-                    sx={{ bgcolor: 'background.paper' }}
+                    sx={{ 
+                      bgcolor: 'background.paper',
+                      height: isMobile ? '24px' : '32px',
+                      '& .MuiChip-label': {
+                        fontSize: isMobile ? '0.7rem' : '0.8rem'
+                      }
+                    }}
                   />
                   <Chip
                     size="small"
                     icon={<TimeIcon fontSize="small" />}
                     label={appointment.time}
-                    sx={{ bgcolor: 'background.paper' }}
+                    sx={{ 
+                      bgcolor: 'background.paper',
+                      height: isMobile ? '24px' : '32px',
+                      '& .MuiChip-label': {
+                        fontSize: isMobile ? '0.7rem' : '0.8rem'
+                      }
+                    }}
                   />
                   <Chip
                     size="small"
@@ -296,6 +337,12 @@ const PatientDashboard = () => {
                           : 'warning'
                     }
                     variant="outlined"
+                    sx={{ 
+                      height: isMobile ? '24px' : '32px',
+                      '& .MuiChip-label': {
+                        fontSize: isMobile ? '0.7rem' : '0.8rem'
+                      }
+                    }}
                   />
                 </Box>
               }
@@ -324,19 +371,34 @@ const PatientDashboard = () => {
             case 0: // Dashboard Overview
               return (
                 <Box>
-                  <Typography variant="h5" component="h2" gutterBottom fontWeight="medium">
+                  <Typography 
+                    variant="h5" 
+                    component="h2" 
+                    gutterBottom 
+                    fontWeight="medium"
+                    sx={{ fontSize: isMobile ? '1.25rem' : undefined }}
+                  >
                     患者儀表板
                   </Typography>
-                  <Typography variant="body1" color="text.secondary" paragraph>
+                  <Typography 
+                    variant="body1" 
+                    color="text.secondary" 
+                    paragraph
+                    sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                  >
                     歡迎回來，{user?.name || user?.username}！在這裡管理您的預約。
                   </Typography>
 
-                  <Grid container spacing={3} sx={{ mt: 1 }}>
+                  <Grid container spacing={isMobile ? 2 : 3} sx={{ mt: isMobile ? 0 : 1 }}>
                     {/* Stat Cards */}
                     <Grid item xs={12} sm={6} md={4}>
                       <Card sx={{ height: '100%', borderRadius: 2 }}>
-                        <CardContent>
-                          <Typography color="text.secondary" gutterBottom>
+                        <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                          <Typography 
+                            color="text.secondary" 
+                            gutterBottom
+                            sx={{ fontSize: isMobile ? '0.85rem' : undefined }}
+                          >
                             即將到來的預約
                           </Typography>
                           <Typography
@@ -344,6 +406,7 @@ const PatientDashboard = () => {
                             component="div"
                             color="primary"
                             fontWeight="medium"
+                            sx={{ fontSize: isMobile ? '1.8rem' : undefined }}
                           >
                             {upcomingAppointments.length}
                           </Typography>
@@ -353,8 +416,12 @@ const PatientDashboard = () => {
 
                     <Grid item xs={12} sm={6} md={4}>
                       <Card sx={{ height: '100%', borderRadius: 2 }}>
-                        <CardContent>
-                          <Typography color="text.secondary" gutterBottom>
+                        <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                          <Typography 
+                            color="text.secondary" 
+                            gutterBottom
+                            sx={{ fontSize: isMobile ? '0.85rem' : undefined }}
+                          >
                             歷史預約
                           </Typography>
                           <Typography
@@ -362,6 +429,7 @@ const PatientDashboard = () => {
                             component="div"
                             color="primary"
                             fontWeight="medium"
+                            sx={{ fontSize: isMobile ? '1.8rem' : undefined }}
                           >
                             {pastAppointments.length}
                           </Typography>
@@ -554,7 +622,7 @@ const PatientDashboard = () => {
                       <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
                         所有預約記錄
                       </Typography>
-                      {renderAppointmentList()}
+                      {renderAppointmentItems(appointments)}
 
                       {/* 添加預約政策提示 */}
                       <Alert severity="info" sx={{ mt: 2 }}>
@@ -604,11 +672,11 @@ const PatientDashboard = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={3}>
+    <Container maxWidth="lg" sx={{ mt: isMobile ? 2 : 4, mb: isMobile ? 2 : 4, px: isMobile ? 1 : 2 }}>
+      <Grid container spacing={isMobile ? 2 : 3}>
         {/* Sidebar */}
         <Grid item xs={12} md={3}>
-          <Paper sx={{ p: 2, borderRadius: 2 }}>
+          <Paper sx={{ p: isMobile ? 1 : 2, borderRadius: 2 }}>
             <Tabs
               orientation={isMobile ? 'horizontal' : 'vertical'}
               variant={isMobile ? 'scrollable' : 'standard'}
@@ -619,6 +687,9 @@ const PatientDashboard = () => {
                 borderRight: isMobile ? 0 : 1,
                 borderBottom: isMobile ? 1 : 0,
                 borderColor: 'divider',
+                '.MuiTabs-flexContainer': {
+                  justifyContent: isMobile ? 'space-between' : 'flex-start'
+                }
               }}
             >
               {menuItems.map(item => (
@@ -633,6 +704,11 @@ const PatientDashboard = () => {
                     alignItems: 'center',
                     textTransform: 'none',
                     mb: isMobile ? 0 : 1,
+                    fontSize: isMobile ? '0.8rem' : undefined,
+                    minHeight: isMobile ? '48px' : undefined,
+                    maxWidth: isMobile ? '33%' : '100%',
+                    minWidth: 0,
+                    py: isMobile ? 0.5 : 1
                   }}
                 />
               ))}
@@ -642,7 +718,7 @@ const PatientDashboard = () => {
 
         {/* Main Content */}
         <Grid item xs={12} md={9}>
-          <Paper sx={{ p: isMobile ? 2 : 3, borderRadius: 2 }}>{renderDashboardContent()}</Paper>
+          <Paper sx={{ p: isMobile ? 1.5 : 3, borderRadius: 2 }}>{renderDashboardContent()}</Paper>
         </Grid>
       </Grid>
 
