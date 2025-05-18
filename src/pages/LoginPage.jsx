@@ -103,8 +103,8 @@ const LoginPage = () => {
     setLoading(true);
     setError('');
     try {
-      // Use email as username for login
-      const response = await loginUser({ username: email, password });
+      // 修改：使用 email 而不是 username
+      const response = await loginUser({ email, password });
       console.log('Login successful:', response.data);
 
       // Use the login function from AuthContext

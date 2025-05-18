@@ -19,6 +19,11 @@ module.exports = (db) => {
   router.use('/api/appointments', appointmentRoutes);
   router.use('/api/schedules', scheduleRoutes);
 
+  // 直接添加登入與註冊路由，以匹配前端的 API 調用
+  const authController = require('../controllers/authController')(db);
+  router.post('/api/login1', authController.login);
+  router.post('/api/register1', authController.register);
+
   // 健康檢查端點
   router.get('/api/health', (req, res) => {
     res.status(200).json({

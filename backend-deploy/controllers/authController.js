@@ -83,15 +83,17 @@ const register = (db) => async (req, res) => {
 // 用戶登入
 const login = (db) => async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // 修改：使用 email 或 username
+    const { email, username, password } = req.body;
+    const userEmail = email || username; // 優先使用 email，若沒有則使用 username
 
     // 驗證必填欄位
-    if (!email || !password) {
+    if (!userEmail || !password) {
       return res.status(400).json({ error: '電子郵件和密碼都是必填的' });
     }
 
     // 查詢用戶
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
+    db.get('SELECT * FROM users WHERE email = ?', [userEmail], async (err, user) => {
       if (err) {
         console.error('查詢用戶時發生錯誤:', err.message);
         return res.status(500).json({ error: '伺服器錯誤' });
