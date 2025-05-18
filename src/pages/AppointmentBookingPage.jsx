@@ -345,18 +345,20 @@ const AppointmentBookingPage = () => {
       {/* 顯示醫生選擇 */}
       <Paper elevation={3} sx={{ p: isMobile ? 2 : 4, borderRadius: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          選擇心理醫師
+          選擇心理治療師
         </Typography>
         <ApiStateHandler
           loading={loadingDoctors}
           error={doctorsError}
           success=""
-          loadingMessage="載入醫生列表..."
+          loadingMessage="載入治療師列表..."
           onErrorClose={() => setDoctorsError('')}
           loadingType="inline"
         >
           <Grid container spacing={2}>
-            {doctors.map(doctor => (
+            {doctors
+              .filter(doctor => doctor.name !== "Dr. Demo") // 過濾掉 Dr. Demo
+              .map(doctor => (
               <Grid item key={doctor.id} xs={12} sm={6} md={4}>
                 <Button
                   fullWidth
@@ -572,7 +574,7 @@ const AppointmentBookingPage = () => {
                         fontWeight="medium"
                         gutterBottom
                       >
-                        醫師: {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
+                        心理治療師: {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
                       </Typography>
                     )}
                 </Grid>
