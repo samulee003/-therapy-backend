@@ -691,9 +691,9 @@ app.post('/api/schedule', isAuthenticated, isDoctor, async (req, res) => {
 app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
   const { date, time, appointmentReason, notes, doctorId } = req.body;
 
-  // 檢查是否提供了醫生ID
+  // 檢查是否提供了治療師ID
   if (!doctorId) {
-    return res.status(400).json({ success: false, message: '請選擇一位醫生進行預約。' });
+    return res.status(400).json({ success: false, message: '請選擇一位治療師進行預約。' });
   }
 
   const patientId = req.user.userId;
@@ -711,15 +711,15 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
       console.warn(`無法找到 ID 為 ${patientId} 的病人的電話號碼。`);
     }
 
-    // 獲取醫生資訊（如果提供了doctorId）
+    // 獲取治療師資訊（如果提供了doctorId）
     const doctorInfo = await getDb("SELECT name FROM users WHERE id = ? AND role = 'doctor'", [
       doctorId,
     ]);
     if (doctorInfo && doctorInfo.name) {
       doctorName = doctorInfo.name;
     } else {
-      console.warn(`無法找到 ID 為 ${doctorId} 的醫生資訊。`);
-      return res.status(404).json({ success: false, message: '找不到指定的醫生，請重新選擇。' });
+      console.warn(`無法找到 ID 為 ${doctorId} 的治療師資訊。`);
+      return res.status(404).json({ success: false, message: '找不到指定的治療師，請重新選擇。' });
     }
   } catch (dbError) {
     console.error('預約時查詢用戶資訊失敗:', dbError);
@@ -755,7 +755,7 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
           await runDb('ROLLBACK;');
           return res
             .status(400)
-            .json({ success: false, message: `醫生 ${doctorName} 在 ${date} 沒有可預約的時段。` });
+            .json({ success: false, message: `治療師 ${doctorName} 在 ${date} 沒有可預約的時段。` });
         }
 
         let availableSlots = [];
@@ -774,7 +774,7 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
             .status(409)
             .json({
               success: false,
-              message: `醫生 ${doctorName} 在 ${date} ${time} 的時段不可用或已被預約。`,
+              message: `治療師 ${doctorName} 在 ${date} ${time} 的時段不可用或已被預約。`,
             }); // 409 Conflict
         }
 
@@ -819,7 +819,7 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
         // 4. 提交事務
         await runDb('COMMIT;');
         console.log(
-          `預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail}), 醫生 ${doctorName}`
+          `預約成功: ID ${newAppointmentId}, 日期 ${date}, 時間 ${time}, 患者 ${patientName} (${patientEmail}), 治療師 ${doctorName}`
         );
         res
           .status(201)
@@ -839,7 +839,7 @@ app.post('/api/book', isAuthenticated, isPatient, async (req, res) => {
             .status(409)
             .json({
               success: false,
-              message: `醫生 ${doctorName} 在 ${date} ${time} 的時段已被預約。`,
+              message: `治療師 ${doctorName} 在 ${date} ${time} 的時段已被預約。`,
             });
         } else {
           res.status(500).json({ success: false, message: '預約過程中發生錯誤。' });
@@ -1072,7 +1072,7 @@ app.get('/api/doctors', async (req, res) => {
     const doctors = await allDb("SELECT id, name FROM users WHERE role = 'doctor' ORDER BY name");
     res.json({ success: true, doctors });
   } catch (error) {
-    console.error('獲取醫生列表失敗:', error);
-    res.status(500).json({ success: false, message: '無法獲取醫生列表。' });
+    console.error('獲取治療師列表失敗:', error);
+    res.status(500).json({ success: false, message: '無法獲取治療師列表。' });
   }
 });
