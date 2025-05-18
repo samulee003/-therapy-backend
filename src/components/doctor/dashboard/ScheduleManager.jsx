@@ -66,27 +66,61 @@ const ScheduleManager = ({ user }) => {
       const response = await getScheduleForMonth(year, month, doctorId);
       console.log(`排班數據 (${year}年${month}月): 成功, 狀態=${response.status}`, response.data);
 
-      if (!response.data.success) {
-        throw new Error(response.data.message || '獲取排班失敗，服務器未返回成功標誌');
-      }
+      // 修正：適應後端API不同的回應格式
+      // 檢查是否成功及數據格式
+      if (response.data && response.data.schedules) {
+        // 將後端返回的排班數據轉換為前端需要的格式
+        const scheduleData = {};
+        
+        // 遍歷返回的排班數據，按日期組織
+        response.data.schedules.forEach(scheduleItem => {
+          const dateStr = scheduleItem.date;
+          
+          // 如果是休息日
+          if (scheduleItem.is_rest_day) {
+            scheduleData[dateStr] = {
+              isRestDay: true,
+              availableSlots: []
+            };
+          } else {
+            // 生成可用時間段
+            const availableSlots = [];
+            if (scheduleItem.start_time && scheduleItem.end_time && scheduleItem.slot_duration) {
+              // 如果有開始和結束時間，根據持續時間生成時間段
+              const startMinutes = timeToMinutes(scheduleItem.start_time);
+              const endMinutes = timeToMinutes(scheduleItem.end_time);
+              
+              for (let i = startMinutes; i < endMinutes; i += scheduleItem.slot_duration) {
+                availableSlots.push(minutesToTime(i));
+              }
+            }
+            
+            scheduleData[dateStr] = {
+              isRestDay: false,
+              availableSlots
+            };
+          }
+        });
+        
+        console.log('轉換後的排班數據:', scheduleData);
+        setSchedule(scheduleData);
+      } else if (response.data && response.data.success && response.data.schedule) {
+        // 保留舊的處理邏輯，以防後端API返回舊格式
+        const scheduleData = response.data.schedule;
 
-      if (!response.data.schedule) {
-        console.warn('獲取排班成功但返回空數據');
-        setSchedule({});
-        return;
-      }
-
-      const scheduleData = response.data.schedule;
-
-      // 檢查並日誌休假日信息
-      for (const date in scheduleData) {
-        const dayData = scheduleData[date];
-        if (dayData.isRestDay) {
-          console.log(`發現休假日: ${date}, isRestDay=${dayData.isRestDay}`);
+        // 檢查並日誌休假日信息
+        for (const date in scheduleData) {
+          const dayData = scheduleData[date];
+          if (dayData.isRestDay) {
+            console.log(`發現休假日: ${date}, isRestDay=${dayData.isRestDay}`);
+          }
         }
-      }
 
-      setSchedule(scheduleData);
+        setSchedule(scheduleData);
+      } else {
+        console.warn('獲取排班成功但返回格式不明確:', response.data);
+        setSchedule({});
+      }
     } catch (err) {
       console.error('獲取排班失敗:', err);
       setErrorSchedule(err.response?.data?.message || err.message || '無法獲取排班數據。');

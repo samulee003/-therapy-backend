@@ -51,13 +51,38 @@ const SettingsManager = ({ user }) => {
     setErrorSettings('');
     try {
       const response = await getSettings();
-      if (response.data && response.data.success && response.data.settings) {
+      console.log('獲取設置響應:', response.data);
+      
+      // 適應新的API響應格式
+      if (response.data) {
+        let settings = response.data;
+        
+        // 處理與舊版本API兼容性
+        if (response.data.settings) {
+          // 舊版本API格式
+          settings = response.data.settings;
+        }
+        
         // 設置預設時段
-        setDefaultTimeSlots(response.data.settings.defaultTimeSlots || []);
+        if (Array.isArray(settings.defaultTimeSlots)) {
+          setDefaultTimeSlots(settings.defaultTimeSlots);
+        } else if (typeof settings.defaultTimeSlots === 'string') {
+          try {
+            // 嘗試解析JSON字符串
+            const parsed = JSON.parse(settings.defaultTimeSlots);
+            setDefaultTimeSlots(Array.isArray(parsed) ? parsed : []);
+          } catch (e) {
+            console.error('解析defaultTimeSlots失敗:', e);
+            setDefaultTimeSlots([]);
+          }
+        } else {
+          setDefaultTimeSlots([]);
+        }
+        
         // 設置治療師資料
-        setDoctorName(response.data.settings.doctorName || '');
-        setClinicName(response.data.settings.clinicName || '');
-        setNotificationEmail(response.data.settings.notificationEmail || '');
+        setDoctorName(settings.doctorName || '');
+        setClinicName(settings.clinicName || '');
+        setNotificationEmail(settings.notificationEmail || '');
       } else {
         throw new Error('無法獲取設置資料');
       }
@@ -133,25 +158,20 @@ const SettingsManager = ({ user }) => {
     setSettingsUpdateSuccess(false);
 
     try {
-      // 獲取當前設置，以保留其他設置字段
-      const response = await getSettings();
-      if (!response.data || !response.data.success) {
-        throw new Error('無法獲取當前設置');
-      }
-
-      const currentSettings = response.data.settings;
-      // 更新設置
+      // 直接更新設置，不需要先獲取
       const updatedSettings = {
-        ...currentSettings,
-        defaultTimeSlots: [...defaultTimeSlots],
+        defaultTimeSlots,
         doctorName,
         clinicName,
         notificationEmail,
       };
 
-      // 發送更新請求
+      console.log('發送更新設置請求:', updatedSettings);
       const updateResponse = await updateSettings(updatedSettings);
-      if (updateResponse.data && updateResponse.data.success) {
+      console.log('更新設置響應:', updateResponse.data);
+      
+      // 檢查響應格式
+      if (updateResponse.data) {
         setSettingsUpdateSuccess(true);
         setSettingsDirty(false);
         // 3秒後關閉成功提示
