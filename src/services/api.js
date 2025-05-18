@@ -151,7 +151,7 @@ apiClient.interceptors.response.use(
 // The calling component might need adjustment if username is not needed by backend.
 export const loginUser = credentials => {
   // Sending the full credentials object as backend requires both username and password
-  return apiClient.post('/api/login', credentials); // Send the whole credentials object
+  return apiClient.post('/api/auth/login', credentials); // 修改為標準路徑
 };
 
 // ADDED: User Logout (Matches POST /api/logout)
@@ -167,7 +167,7 @@ export const getCurrentUser = () => {
 // ADDED: User Registration (Matches POST /api/register)
 export const registerUser = registrationData => {
   // registrationData should contain { username, password, name, role }
-  return apiClient.post('/api/register', registrationData);
+  return apiClient.post('/api/auth/register', registrationData); // 修改為標準路徑
 };
 
 // --- Settings --- //
