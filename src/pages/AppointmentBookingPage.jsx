@@ -28,6 +28,8 @@ import {
   Select,
   MenuItem,
   FormHelperText,
+  SwipeableDrawer,
+  Tooltip
 } from '@mui/material';
 import {
   ArrowBackIosNew,
@@ -334,14 +336,14 @@ const AppointmentBookingPage = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: isMobile ? 2 : 4 }}>
+    <Container maxWidth="lg" sx={{ py: isMobile ? 1 : 4, px: isMobile ? 1 : 2 }}>
       <Typography 
         variant={isMobile ? "h5" : "h4"} 
         component="h1" 
         gutterBottom 
         fontWeight="bold" 
         color="primary"
-        sx={{ mt: isMobile ? 1 : 0 }}
+        sx={{ mt: isMobile ? 1 : 0, fontSize: isMobile ? '1.5rem' : undefined }}
       >
         預約心理治療師
       </Typography>
@@ -349,7 +351,7 @@ const AppointmentBookingPage = () => {
         variant="body1" 
         color="text.secondary" 
         paragraph 
-        sx={{ mb: isMobile ? 2 : 4 }}
+        sx={{ mb: isMobile ? 1 : 4, fontSize: isMobile ? '0.9rem' : undefined }}
       >
         請選擇您希望預約的日期和時段。
       </Typography>
@@ -358,14 +360,14 @@ const AppointmentBookingPage = () => {
       <Paper 
         elevation={3} 
         sx={{ 
-          p: isMobile ? 2 : 4, 
+          p: isMobile ? 1.5 : 4, 
           borderRadius: 2, 
           mb: isMobile ? 2 : 3,
           width: '100%',
-          overflowX: isMobile ? 'auto' : 'visible'
+          overflowX: 'auto'
         }}
       >
-        <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom>
+        <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight="medium">
           選擇心理治療師
         </Typography>
         <ApiStateHandler
@@ -380,7 +382,7 @@ const AppointmentBookingPage = () => {
             {doctors
               .filter(doctor => doctor.name !== "Dr. Demo") // 過濾掉 Dr. Demo
               .map(doctor => (
-              <Grid item key={doctor.id} xs={12} sm={6} md={4}>
+              <Grid item key={doctor.id} xs={6} sm={6} md={4}>
                 <Button
                   fullWidth
                   variant={
@@ -399,10 +401,13 @@ const AppointmentBookingPage = () => {
                       bookingDetails.doctorId === doctor.id.toString()
                         ? 'common.white'
                         : 'text.primary',
+                    fontSize: isMobile ? '0.85rem' : undefined,
+                    minHeight: isMobile ? '50px' : undefined,
+                    borderRadius: '8px',
                   }}
                 >
                   <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="subtitle1" fontWeight="bold">
+                    <Typography variant={isMobile ? "body1" : "subtitle1"} fontWeight="bold">
                       {doctor.name}
                     </Typography>
                   </Box>
@@ -413,16 +418,47 @@ const AppointmentBookingPage = () => {
         </ApiStateHandler>
       </Paper>
 
-      <Paper elevation={3} sx={{ p: isMobile ? 2 : 4, borderRadius: 2 }}>
+      <Paper elevation={3} sx={{ p: isMobile ? 1.5 : 4, borderRadius: 2 }}>
         {/* Month Navigation */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <IconButton onClick={handlePreviousMonth} aria-label="上個月" disabled={loadingSchedule} size={isMobile ? "small" : "medium"}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={isMobile ? 1 : 2}>
+          <IconButton 
+            onClick={handlePreviousMonth} 
+            aria-label="上個月" 
+            disabled={loadingSchedule} 
+            size={isMobile ? "medium" : "large"}
+            sx={{ 
+              width: isMobile ? 40 : 48, 
+              height: isMobile ? 40 : 48,
+              backgroundColor: 'rgba(0, 0, 0, 0.03)',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.08)',
+              }
+            }}
+          >
             <ArrowBackIosNew fontSize={isMobile ? "small" : "medium"} />
           </IconButton>
-          <Typography variant={isMobile ? "h6" : "h5"} component="div" fontWeight="medium">
+          <Typography 
+            variant={isMobile ? "h6" : "h5"} 
+            component="div" 
+            fontWeight="medium"
+            sx={{ fontSize: isMobile ? '1.1rem' : undefined }}
+          >
             {format(currentDate, 'yyyy年 MMMM', { locale: zhTW })}
           </Typography>
-          <IconButton onClick={handleNextMonth} aria-label="下個月" disabled={loadingSchedule} size={isMobile ? "small" : "medium"}>
+          <IconButton 
+            onClick={handleNextMonth} 
+            aria-label="下個月" 
+            disabled={loadingSchedule} 
+            size={isMobile ? "medium" : "large"}
+            sx={{ 
+              width: isMobile ? 40 : 48, 
+              height: isMobile ? 40 : 48,
+              backgroundColor: 'rgba(0, 0, 0, 0.03)',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.08)',
+              }
+            }}
+          >
             <ArrowForwardIos fontSize={isMobile ? "small" : "medium"} />
           </IconButton>
         </Box>
@@ -438,7 +474,7 @@ const AppointmentBookingPage = () => {
           loadingType="linear"
         >
           {/* Calendar Grid */}
-          <Grid container spacing={isMobile ? 0.5 : 1}>
+          <Grid container spacing={isMobile ? 0.3 : 1}>
             {['日', '一', '二', '三', '四', '五', '六'].map(dayName => (
               <Grid
                 item
@@ -448,8 +484,8 @@ const AppointmentBookingPage = () => {
                   textAlign: 'center', 
                   fontWeight: 'bold', 
                   color: 'text.secondary', 
-                  py: isMobile ? 0.5 : 1,
-                  fontSize: isMobile ? '0.8rem' : 'inherit'
+                  py: isMobile ? 0.3 : 1,
+                  fontSize: isMobile ? '0.7rem' : 'inherit'
                 }}
               >
                 {dayName}
@@ -465,16 +501,16 @@ const AppointmentBookingPage = () => {
               const isSelected = selectedDate && isSameDay(day, selectedDate);
 
               return (
-                <Grid item xs={12 / 7} key={dayStr} sx={{ p: isMobile ? 0.3 : 0.5 }}>
+                <Grid item xs={12 / 7} key={dayStr} sx={{ p: isMobile ? 0.2 : 0.5 }}>
                   <Button
                     fullWidth
                     variant={isSelected ? 'contained' : 'outlined'}
                     onClick={() => isSelectable && handleDateClick(day)}
                     disabled={!isSelectable}
                     sx={{
-                      height: isMobile ? 50 : 80,
+                      height: isMobile ? 40 : 80,
                       minWidth: 'auto',
-                      p: isMobile ? 0.5 : 1.5,
+                      p: isMobile ? 0.2 : 1.5,
                       flexDirection: 'column',
                       borderColor: isSelected
                         ? 'primary.main'
@@ -498,12 +534,14 @@ const AppointmentBookingPage = () => {
                             : 'primary.lighter'
                           : undefined,
                       },
-                      fontSize: isMobile ? '0.75rem' : 'inherit'
+                      fontSize: isMobile ? '0.7rem' : 'inherit',
+                      borderRadius: '8px'
                     }}
                   >
                     <Typography 
                       variant={isMobile ? "body2" : "body1"} 
                       fontWeight={isSelected ? 'bold' : 'normal'}
+                      sx={{ fontSize: isMobile ? '0.8rem' : 'inherit' }}
                     >
                       {format(day, 'd')}
                     </Typography>
@@ -512,11 +550,14 @@ const AppointmentBookingPage = () => {
                         label={`${availableSlots.length} 時段`}
                         size="small"
                         sx={{
-                          mt: 0.5,
-                          height: isMobile ? 16 : 24,
-                          fontSize: isMobile ? '0.6rem' : '0.75rem',
+                          mt: 0.3,
+                          height: isMobile ? 14 : 24,
+                          fontSize: isMobile ? '0.55rem' : '0.75rem',
                           bgcolor: isSelected ? 'primary.dark' : 'secondary.lighter',
                           color: isSelected ? 'common.white' : 'secondary.darker',
+                          '.MuiChip-label': {
+                            px: isMobile ? 0.3 : 0.75,
+                          }
                         }}
                       />
                     )}
@@ -530,18 +571,25 @@ const AppointmentBookingPage = () => {
         {/* Available Time Slots */}
         {selectedDate && !loadingSchedule && (
           <Box mt={isMobile ? 2 : 4}>
-            <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight="medium">
+            <Typography 
+              variant={isMobile ? "subtitle1" : "h6"} 
+              gutterBottom 
+              fontWeight="medium"
+              sx={{ fontSize: isMobile ? '0.95rem' : undefined }}
+            >
               {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })} 可用時段:
             </Typography>
             {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).length === 0 ? (
-              <Typography color="text.secondary">此日期已無可用時段。</Typography>
+              <Typography color="text.secondary" sx={{ fontSize: isMobile ? '0.85rem' : undefined }}>
+                此日期已無可用時段。
+              </Typography>
             ) : (
               <Grid container spacing={isMobile ? 0.5 : 1}>
                 {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).map(slot => (
                   <Grid
                     item
                     key={`${slot.time}-${slot.doctorId || 'unknown'}`}
-                    xs={6}
+                    xs={4}
                     sm={4}
                     md={3}
                     lg={2}
@@ -553,12 +601,14 @@ const AppointmentBookingPage = () => {
                       onClick={() => handleTimeSlotClick(slot)}
                       startIcon={isMobile ? null : <AccessTimeIcon />}
                       sx={{
-                        py: isMobile ? 0.75 : 1,
-                        px: isMobile ? 1 : 2,
+                        py: isMobile ? 1 : 1.5,
+                        px: isMobile ? 0.5 : 2,
                         bgcolor:
                           selectedTimeSlot === slot.time ? 'secondary.dark' : 'secondary.main',
                         '&:hover': { bgcolor: 'secondary.dark' },
-                        fontSize: isMobile ? '0.75rem' : 'inherit'
+                        fontSize: isMobile ? '0.8rem' : 'inherit',
+                        borderRadius: '8px',
+                        minHeight: isMobile ? '40px' : undefined
                       }}
                     >
                       {slot.time}
@@ -570,8 +620,11 @@ const AppointmentBookingPage = () => {
                             display: 'block', 
                             width: '100%', 
                             textAlign: 'center', 
-                            mt: 0.5,
-                            fontSize: isMobile ? '0.6rem' : 'inherit'
+                            mt: 0.3,
+                            fontSize: isMobile ? '0.55rem' : 'inherit',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}
                         >
                           {slot.doctorName}
@@ -593,11 +646,31 @@ const AppointmentBookingPage = () => {
         maxWidth="sm" 
         fullWidth
         fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: isMobile ? 0 : '8px'
+          }
+        }}
       >
-        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'common.white' }}>
+        <DialogTitle 
+          sx={{ 
+            bgcolor: 'primary.main', 
+            color: 'common.white',
+            px: isMobile ? 2 : 3,
+            py: isMobile ? 1.5 : 2,
+            fontSize: isMobile ? '1.1rem' : undefined
+          }}
+        >
           {bookingSuccess ? '預約成功' : '確認預約資訊'}
         </DialogTitle>
-        <DialogContent dividers sx={{ pt: 2 }}>
+        <DialogContent 
+          dividers 
+          sx={{ 
+            pt: isMobile ? 1.5 : 2,
+            px: isMobile ? 1.5 : 3,
+            pb: isMobile ? 1 : 2
+          }}
+        >
           <ApiStateHandler
             loading={bookingLoading}
             error={bookingError}
@@ -608,9 +681,13 @@ const AppointmentBookingPage = () => {
             loadingType="inline"
           >
             {!bookingSuccess && selectedDate && selectedTimeSlot && (
-              <Grid container spacing={2}>
+              <Grid container spacing={isMobile ? 1 : 2}>
                 <Grid item xs={12}>
-                  <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom>
+                  <Typography 
+                    variant={isMobile ? "subtitle1" : "h6"} 
+                    gutterBottom
+                    sx={{ fontSize: isMobile ? '1rem' : undefined }}
+                  >
                     預約: {format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} -{' '}
                     {selectedTimeSlot}
                   </Typography>
@@ -621,6 +698,7 @@ const AppointmentBookingPage = () => {
                         color="primary.main"
                         fontWeight="medium"
                         gutterBottom
+                        sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
                       >
                         心理治療師: {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
                       </Typography>
@@ -628,10 +706,13 @@ const AppointmentBookingPage = () => {
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  <Typography 
+                    variant="subtitle2" 
+                    sx={{ mb: 1, fontSize: isMobile ? '0.85rem' : undefined }}
+                  >
                     個人資料
                   </Typography>
-                  <Divider sx={{ mb: 2 }} />
+                  <Divider sx={{ mb: isMobile ? 1 : 2 }} />
                 </Grid>
 
                 <Grid item xs={12}>
@@ -642,16 +723,16 @@ const AppointmentBookingPage = () => {
                     onChange={handleBookingDetailsChange}
                     fullWidth
                     required
-                    size={isMobile ? "small" : "medium"}
-                    margin="normal"
+                    size="small"
+                    margin="dense"
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                      style: { fontSize: isMobile ? '0.85rem' : undefined }
                     }}
                     InputProps={{
                       style: {
-                        paddingTop: isMobile ? '4px' : '8px',
-                        paddingBottom: isMobile ? '4px' : '8px',
+                        fontSize: isMobile ? '0.85rem' : undefined
                       },
                     }}
                   />
@@ -665,16 +746,16 @@ const AppointmentBookingPage = () => {
                     onChange={handleBookingDetailsChange}
                     fullWidth
                     required
-                    size={isMobile ? "small" : "medium"}
-                    margin="normal"
+                    size="small"
+                    margin="dense"
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                      style: { fontSize: isMobile ? '0.85rem' : undefined }
                     }}
                     InputProps={{
                       style: {
-                        paddingTop: isMobile ? '4px' : '8px',
-                        paddingBottom: isMobile ? '4px' : '8px',
+                        fontSize: isMobile ? '0.85rem' : undefined
                       },
                     }}
                   />
@@ -689,26 +770,29 @@ const AppointmentBookingPage = () => {
                     onChange={handleBookingDetailsChange}
                     fullWidth
                     required
-                    size={isMobile ? "small" : "medium"}
-                    margin="normal"
+                    size="small"
+                    margin="dense"
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                      style: { fontSize: isMobile ? '0.85rem' : undefined }
                     }}
                     InputProps={{
                       style: {
-                        paddingTop: isMobile ? '4px' : '8px',
-                        paddingBottom: isMobile ? '4px' : '8px',
+                        fontSize: isMobile ? '0.85rem' : undefined
                       },
                     }}
                   />
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
+                  <Typography 
+                    variant="subtitle2" 
+                    sx={{ mt: isMobile ? 0.5 : 1, mb: 1, fontSize: isMobile ? '0.85rem' : undefined }}
+                  >
                     就診資訊
                   </Typography>
-                  <Divider sx={{ mb: 2 }} />
+                  <Divider sx={{ mb: isMobile ? 1 : 2 }} />
                 </Grid>
 
                 <Grid item xs={12}>
@@ -720,15 +804,16 @@ const AppointmentBookingPage = () => {
                     fullWidth
                     multiline
                     rows={isMobile ? 2 : 3}
-                    margin="normal"
+                    margin="dense"
+                    size="small"
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                      style: { fontSize: isMobile ? '0.85rem' : undefined }
                     }}
                     InputProps={{
                       style: {
-                        paddingTop: isMobile ? '4px' : '8px',
-                        paddingBottom: isMobile ? '4px' : '8px',
+                        fontSize: isMobile ? '0.85rem' : undefined
                       },
                     }}
                   />
@@ -743,15 +828,16 @@ const AppointmentBookingPage = () => {
                     fullWidth
                     multiline
                     rows={isMobile ? 2 : 2}
-                    margin="normal"
+                    margin="dense"
+                    size="small"
                     disabled={bookingLoading}
                     InputLabelProps={{
                       shrink: true,
+                      style: { fontSize: isMobile ? '0.85rem' : undefined }
                     }}
                     InputProps={{
                       style: {
-                        paddingTop: isMobile ? '4px' : '8px',
-                        paddingBottom: isMobile ? '4px' : '8px',
+                        fontSize: isMobile ? '0.85rem' : undefined
                       },
                     }}
                   />
@@ -760,43 +846,70 @@ const AppointmentBookingPage = () => {
             )}
 
             {bookingSuccess && (
-              <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <DialogContentText sx={{ mb: 2, fontWeight: 'medium' }}>
+              <Box sx={{ mt: isMobile ? 1 : 2, textAlign: 'center' }}>
+                <DialogContentText sx={{ mb: isMobile ? 1 : 2, fontWeight: 'medium', fontSize: isMobile ? '0.9rem' : undefined }}>
                   以下是您的預約摘要：
                 </DialogContentText>
                 <Paper
                   variant="outlined"
-                  sx={{ p: 2, my: 2, textAlign: 'left', display: 'inline-block', width: isMobile ? '100%' : 'auto' }}
+                  sx={{ 
+                    p: isMobile ? 1.5 : 2, 
+                    my: isMobile ? 1 : 2, 
+                    textAlign: 'left', 
+                    display: 'inline-block', 
+                    width: isMobile ? '100%' : 'auto',
+                    borderRadius: '8px'
+                  }}
                 >
                   {selectedDate && (
-                    <Typography variant="body1" gutterBottom>
+                    <Typography 
+                      variant="body1" 
+                      gutterBottom
+                      sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                    >
                       <strong>日期：</strong>{' '}
                       {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })}
                     </Typography>
                   )}
                   {selectedTimeSlot && (
-                    <Typography variant="body1" gutterBottom>
+                    <Typography 
+                      variant="body1" 
+                      gutterBottom
+                      sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                    >
                       <strong>時間：</strong> {selectedTimeSlot}
                     </Typography>
                   )}
-                  <Typography variant="body1" gutterBottom>
+                  <Typography 
+                    variant="body1" 
+                    gutterBottom
+                    sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                  >
                     <strong>姓名：</strong> {bookingDetails.patientName}
                   </Typography>
                   {bookingDetails.doctorId &&
                     doctors.find(d => d.id === parseInt(bookingDetails.doctorId)) && (
-                      <Typography variant="body1" gutterBottom>
+                      <Typography 
+                        variant="body1" 
+                        gutterBottom
+                        sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                      >
                         <strong>心理治療師：</strong>{' '}
                         {doctors.find(d => d.id === parseInt(bookingDetails.doctorId)).name}
                       </Typography>
                     )}
                   {bookingDetails.appointmentReason && (
-                    <Typography variant="body1" gutterBottom>
+                    <Typography 
+                      variant="body1" 
+                      gutterBottom
+                      sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                    >
                       <strong>預約原因：</strong> {bookingDetails.appointmentReason}
                     </Typography>
                   )}
                 </Paper>
-                <ScreenshotIcon color="primary" sx={{ fontSize: isMobile ? 40 : 60, mb: 1, mt: 3 }} />
-                <DialogContentText>
+                <ScreenshotIcon color="primary" sx={{ fontSize: isMobile ? 36 : 60, mb: 1, mt: isMobile ? 2 : 3 }} />
+                <DialogContentText sx={{ fontSize: isMobile ? '0.85rem' : undefined }}>
                   請截圖保存此預約資訊。此截圖將作為您的預約憑證，請在就診時出示。
                 </DialogContentText>
               </Box>
@@ -804,8 +917,16 @@ const AppointmentBookingPage = () => {
           </ApiStateHandler>
         </DialogContent>
         {!bookingSuccess ? (
-          <DialogActions sx={{ p: isMobile ? 1.5 : 2 }}>
-            <Button onClick={handleBookingDialogClose} disabled={bookingLoading}>
+          <DialogActions sx={{ p: isMobile ? 1.5 : 2, justifyContent: 'space-between' }}>
+            <Button 
+              onClick={handleBookingDialogClose} 
+              disabled={bookingLoading}
+              sx={{ 
+                fontSize: isMobile ? '0.9rem' : undefined,
+                minWidth: isMobile ? '80px' : undefined,
+                minHeight: isMobile ? '42px' : undefined
+              }}
+            >
               取消
             </Button>
             <Button
@@ -814,13 +935,26 @@ const AppointmentBookingPage = () => {
               color="primary"
               disabled={bookingLoading}
               startIcon={bookingLoading ? <CircularProgress size={20} color="inherit" /> : null}
+              sx={{ 
+                fontSize: isMobile ? '0.9rem' : undefined,
+                minWidth: isMobile ? '120px' : undefined,
+                minHeight: isMobile ? '42px' : undefined
+              }}
             >
               {bookingLoading ? '處理中...' : '確認預約'}
             </Button>
           </DialogActions>
         ) : (
           <DialogActions sx={{ p: isMobile ? 1.5 : 2 }}>
-            <Button onClick={handleBookingDialogClose} variant="outlined">
+            <Button 
+              onClick={handleBookingDialogClose} 
+              variant="outlined"
+              fullWidth={isMobile}
+              sx={{ 
+                fontSize: isMobile ? '0.9rem' : undefined,
+                minHeight: isMobile ? '42px' : undefined
+              }}
+            >
               關閉
             </Button>
           </DialogActions>
