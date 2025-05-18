@@ -36,9 +36,9 @@ const register = (db) => async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
         // 準備插入數據，包括可選的電話號碼
-        const fields = ['name', 'email', 'password', 'role'];
-        const values = [name, userEmail, hashedPassword, role];
-        let placeholders = '?, ?, ?, ?';
+        const fields = ['name', 'email', 'username', 'password', 'role'];
+        const values = [name, userEmail, userEmail, hashedPassword, role];
+        let placeholders = '?, ?, ?, ?, ?';
         
         // 如果提供了電話號碼，加入到查詢中
         if (phone) {
@@ -101,6 +101,8 @@ const register = (db) => async (req, res) => {
 // 用戶登入
 const login = (db) => async (req, res) => {
   try {
+    console.log('[Auth] 開始處理登入請求:', req.body);
+    
     // 修改：使用 email 或 username
     const { email, username, password } = req.body;
     const userEmail = email || username; // 優先使用 email，若沒有則使用 username
@@ -136,11 +138,16 @@ const login = (db) => async (req, res) => {
           { expiresIn: '24h' }
         );
 
-        // 設置cookie
+        console.log('[Auth] 登入成功，設置 Cookie:', user.id, user.email, user.role);
+
+        // 設置cookie 
+        // 修改：在生產環境中使用更安全的設置
         res.cookie('token', token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          maxAge: 24 * 60 * 60 * 1000 // 24小時
+          maxAge: 24 * 60 * 60 * 1000, // 24小時
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 允許跨站點使用
+          path: '/' // 確保整個網站都能訪問 cookie
         });
 
         // 回傳成功信息
@@ -166,21 +173,36 @@ const login = (db) => async (req, res) => {
 
 // 登出
 const logout = (req, res) => {
-  res.clearCookie('token');
+  console.log('[Auth] 處理登出請求');
+  res.clearCookie('token', { 
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });
   res.json({ message: '已成功登出' });
 };
 
 // 獲取當前用戶信息
 const getCurrentUser = (req, res) => {
-  // 用戶資訊已經在身份驗證中間件中被添加到請求對象
-  res.json({
-    user: {
-      id: req.user.id,
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role
-    }
-  });
+  console.log('[Auth] 處理獲取當前用戶信息請求');
+  // 用戶資訊應該已經在身份驗證中間件中被添加到請求對象 (req.user)
+  if (req.user) {
+    console.log('[Auth] 已找到認證用戶:', req.user.id, req.user.email, req.user.role);
+    res.json({
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } else {
+    // 這種情況理論上不應該發生，因為 authenticateUser 中間件會處理未授權的情況
+    // 但作為防禦性程式設計，還是加上
+    console.error('[AuthCtrl] getCurrentUser: req.user 未定義，即使在 authenticateUser 之後');
+    res.status(401).json({ error: '無法獲取用戶信息，請重新登入' });
+  }
 };
 
 module.exports = (db) => ({

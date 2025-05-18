@@ -59,11 +59,91 @@ console.log('[APP] 準備註冊 Cookie Parser 中間件...');
 app.use(cookieParser());
 console.log('[APP] Cookie Parser 中間件已註冊');
 
+// --- 記錄請求路徑以便調試 ---
+if (process.env.DEBUG) {
+  app.use((req, res, next) => {
+    console.log(`[DEBUG] 收到請求: ${req.method} ${req.path}`);
+    next();
+  });
+}
+
 // --- API 路由優先掛載 ---
 console.log('[APP] 準備載入 API 路由...');
 const routes = require('./routes')(db);
 console.log('[APP] API 路由已成功載入');
 console.log('[APP] 準備掛載 API 路由...');
+
+// 添加直接路由來處理常見的問題端點
+app.get('/api/doctors', (req, res) => {
+  console.log('[APP] 直接處理 /api/doctors 請求');
+  // 引入 userController 並調用 getDoctors 函數
+  try {
+    const userController = require('./controllers/userController')(db);
+    // 所有用戶都可以獲取醫生列表，所以跳過驗證
+    return userController.getDoctors(req, res);
+  } catch (err) {
+    console.error('處理 /api/doctors 時出錯:', err);
+    return res.status(500).json({ error: '無法獲取醫生列表，發生內部錯誤' });
+  }
+});
+
+// 直接處理 /api/me 請求
+app.get('/api/me', (req, res) => {
+  console.log('[APP] 直接處理 /api/me 請求');
+  try {
+    const { authenticateUser } = require('./middlewares/auth');
+    const authController = require('./controllers/authController')(db);
+    
+    // 手動執行驗證中間件，然後執行 getCurrentUser
+    authenticateUser(req, res, () => {
+      if (req.user) {
+        return authController.getCurrentUser(req, res);
+      } else {
+        // 這不應該發生，因為 authenticateUser 會攔截無效的令牌
+        return res.status(401).json({ error: '驗證失敗' });
+      }
+    });
+  } catch (err) {
+    console.error('處理 /api/me 時出錯:', err);
+    return res.status(500).json({ error: '無法獲取用戶資訊，發生內部錯誤' });
+  }
+});
+
+app.get('/api/schedule/:year/:month', (req, res) => {
+  console.log('[APP] 直接處理 /api/schedule/:year/:month 請求');
+  // 重寫路徑到 /api/schedules/:year/:month
+  req.url = req.url.replace('/api/schedule/', '/api/schedules/');
+  console.log(`[路由重寫] 從 /api/schedule/:year/:month 到 ${req.url}`);
+  // 繼續處理請求
+  routes(req, res, (err) => {
+    if (err) {
+      console.error('處理 schedule 路由時出錯:', err);
+      return res.status(500).json({ error: '處理排班請求時發生錯誤' });
+    }
+  });
+});
+
+// 修改：加入路由前綴檢查，確保所有 API 路由不進入靜態文件或 SPA 處理
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    console.log(`[API 請求攔截] ${req.method} ${req.path}`);
+    
+    // 手動檢查一些常見路由
+    if (req.path === '/api/me' || req.path === '/api/auth/me') {
+      // 轉發到 /api/auth/me
+      req.url = '/api/auth/me';
+    } else if (req.path.startsWith('/api/schedule/')) {
+      // 轉發到 /api/schedules/
+      req.url = req.url.replace('/api/schedule/', '/api/schedules/');
+      console.log(`[路由重寫] ${req.path} => ${req.url}`);
+    } else if (req.path === '/api/doctors' || req.path === '/api/users/doctors') {
+      // 確保使用正確的醫生列表端點
+      req.url = '/api/users/doctors';
+    }
+  }
+  next();
+});
+
 app.use(routes); // API 路由應在靜態文件和 SPA 回退之前
 console.log('[APP] API 路由已成功掛載');
 
@@ -76,15 +156,22 @@ if (!require('fs').existsSync(clientBuildPath)) {
   const altPaths = [
     path.join(__dirname, '/dist'),
     path.join(__dirname, '../../dist'),
-    path.join(process.cwd(), '/dist')
+    path.join(process.cwd(), '/dist'),
+    path.join(process.cwd(), '../dist'),
+    path.join(__dirname, '../..'),  // 嘗試項目根目錄
   ];
   
   for (const altPath of altPaths) {
     console.log(`[APP] 嘗試替代靜態檔案路徑: ${altPath}`);
     if (require('fs').existsSync(altPath)) {
-      clientBuildPath = altPath;
-      console.log(`[APP] 找到有效的靜態檔案目錄: ${clientBuildPath}`);
-      break;
+      const indexPath = path.join(altPath, 'index.html');
+      if (require('fs').existsSync(indexPath)) {
+        clientBuildPath = altPath;
+        console.log(`[APP] 找到有效的靜態檔案目錄: ${clientBuildPath} (含index.html)`);
+        break;
+      } else {
+        console.log(`[APP] 路徑存在但沒有 index.html: ${altPath}`);
+      }
     }
   }
 }
@@ -94,7 +181,13 @@ console.log(`[APP] 靜態檔案目錄已設定: ${clientBuildPath}`);
 
 // --- 前端 SPA 回退路由 (應在 API 和靜態文件之後) ---
 console.log('[APP] 準備設定前端 SPA 路由處理...');
-app.get('*', (req, res) => {
+app.get('*', (req, res, next) => {
+  // 修改：不處理 API 請求
+  if (req.path.startsWith('/api/')) {
+    console.log(`[APP] API 請求不應走到 SPA 回退: ${req.path}`);
+    return next(); // 讓後續的 404 處理中間件來處理
+  }
+  
   const indexPath = path.join(clientBuildPath, 'index.html');
   console.log(`[APP] SPA 回退：將請求 ${req.url} 導向到 index.html (${indexPath})`);
   
@@ -102,16 +195,30 @@ app.get('*', (req, res) => {
   if (require('fs').existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    // 如果找不到文件，返回一個友好的錯誤信息
     console.error(`[APP] 錯誤: 找不到 index.html 文件: ${indexPath}`);
+    
+    // 如果找不到文件，返回一個友好的錯誤信息
     res.status(500).send(`
       <html>
-        <head><title>前端檔案未找到</title></head>
+        <head>
+          <title>前端檔案未找到</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+            .title { color: #e74c3c; }
+            pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+          </style>
+        </head>
         <body>
-          <h1>系統錯誤: 找不到前端文件</h1>
-          <p>伺服器無法找到前端 SPA 的主文件 (index.html)。</p>
-          <p>請確認前端已正確構建，並且 dist 目錄在正確的位置。</p>
-          <p>伺服器嘗試的路徑: ${indexPath}</p>
+          <div class="container">
+            <h1 class="title">系統錯誤: 找不到前端文件</h1>
+            <p>伺服器無法找到前端 SPA 的主文件 (index.html)。</p>
+            <p>請確認前端已正確構建，並且 dist 目錄在正確的位置。</p>
+            <h3>嘗試的路徑:</h3>
+            <pre>${indexPath}</pre>
+            <h3>當前請求:</h3>
+            <pre>URL: ${req.url}\nMethod: ${req.method}</pre>
+          </div>
         </body>
       </html>
     `);
