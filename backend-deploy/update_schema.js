@@ -4,8 +4,8 @@ const path = require('path');
 
 console.log('開始執行資料庫更新腳本 - 添加 isRestDay 欄位到 schedule 表');
 
-// 資料庫路徑
-const dbPath = path.join(__dirname, 'database.sqlite');
+// 資料庫路徑 - 支援 Zeabur 持久化卷
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'database.sqlite');
 console.log('資料庫路徑:', dbPath);
 
 // 連接資料庫

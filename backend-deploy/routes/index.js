@@ -1,0 +1,33 @@
+/**
+ * 路由索引，匯集並導出所有路由
+ */
+
+const express = require('express');
+
+module.exports = (db) => {
+  const router = express.Router();
+
+  // 引入各個路由模組
+  const authRoutes = require('./authRoutes')(db);
+  const userRoutes = require('./userRoutes')(db);
+  const appointmentRoutes = require('./appointmentRoutes')(db);
+  const scheduleRoutes = require('./scheduleRoutes')(db);
+
+  // 掛載路由
+  router.use('/api/auth', authRoutes);
+  router.use('/api/users', userRoutes);
+  router.use('/api/appointments', appointmentRoutes);
+  router.use('/api/schedules', scheduleRoutes);
+
+  // 健康檢查端點
+  router.get('/api/health', (req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      message: '伺服器運行正常',
+      version: '1.0.0',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  return router;
+}; 
