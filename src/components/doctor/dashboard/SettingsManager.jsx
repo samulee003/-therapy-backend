@@ -35,7 +35,7 @@ const SettingsManager = ({ user }) => {
   const [settingsUpdateSuccess, setSettingsUpdateSuccess] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
 
-  // 醫生資料狀態
+  // 治療師資料狀態
   const [doctorName, setDoctorName] = useState('');
   const [clinicName, setClinicName] = useState('');
   const [notificationEmail, setNotificationEmail] = useState('');
@@ -49,7 +49,7 @@ const SettingsManager = ({ user }) => {
       if (response.data && response.data.success && response.data.settings) {
         // 設置預設時段
         setDefaultTimeSlots(response.data.settings.defaultTimeSlots || []);
-        // 設置醫生資料
+        // 設置治療師資料
         setDoctorName(response.data.settings.doctorName || '');
         setClinicName(response.data.settings.clinicName || '');
         setNotificationEmail(response.data.settings.notificationEmail || '');
@@ -205,7 +205,7 @@ const SettingsManager = ({ user }) => {
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="醫生姓名"
+                    label="治療師姓名"
                     fullWidth
                     margin="normal"
                     value={doctorName}
