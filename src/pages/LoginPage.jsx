@@ -107,27 +107,27 @@ const LoginPage = () => {
       const response = await loginUser({ email, password });
       console.log('Login successful:', response.data);
 
-      // Use the login function from AuthContext
-      // Check if the user object exists in the response
+      // 檢查回應中是否包含用戶資料
+      // 後端直接返回 { message: '登入成功', user: {...} }
       if (response.data && response.data.user) {
-        // Changed condition to only check for user
-        login(response.data.user, null); // Pass user data, token is null for now
+        // 使用 AuthContext 的 login 函數儲存用戶資料
+        login(response.data.user);
 
-        // Redirect based on user role
+        // 根據用戶角色重定向
         if (response.data.user.role === 'doctor' || response.data.user.role === 'admin') {
           navigate('/therapist-dashboard');
         } else {
           navigate('/patient-dashboard');
         }
       } else {
-        // This case should ideally not happen if backend sends { success: true, user: ... }
-        throw new Error('登入成功，但未收到用戶資料。'); // More accurate error message
+        console.error('登入回應格式不正確:', response.data);
+        throw new Error('伺服器回應格式不正確，請聯繫管理員。');
       }
     } catch (err) {
       console.error('Login failed:', err);
-      // Check for specific error response from backend
+      // 檢查具體的錯誤回應
       const errorMessage =
-        err.response?.data?.message || err.message || '登入失敗，請檢查您的帳號或密碼。';
+        err.response?.data?.error || err.message || '登入失敗，請檢查您的帳號或密碼。';
       setError(errorMessage);
     } finally {
       setLoading(false);
