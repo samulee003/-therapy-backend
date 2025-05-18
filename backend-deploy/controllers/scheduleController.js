@@ -446,9 +446,87 @@ function handleAffectedAppointments(db, doctorId, date, isRestDay, startTime, en
   });
 }
 
+// 新增：獲取特定醫生在特定月份的排班
+const getScheduleForMonthAndDoctor = (db) => (req, res) => {
+  try {
+    const { year, month } = req.params;
+    const { doctorId } = req.query; // 從查詢參數獲取 doctorId
+
+    // 驗證參數
+    if (!year || !month || !/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) {
+      return res.status(400).json({ error: '年份和月份格式不正確 (YYYY, MM)' });
+    }
+
+    if (!doctorId) {
+      return res.status(400).json({ error: '缺少醫生ID (doctorId)' });
+    }
+
+    const loggedInUser = req.user;
+
+    // 權限檢查：如果登入用戶是醫生，只能查詢自己的排班
+    if (loggedInUser.role === 'doctor' && loggedInUser.id !== parseInt(doctorId)) {
+      return res.status(403).json({ error: '醫生只能查詢自己的排班資訊' });
+    }
+
+    // TODO: 如果未來有管理員角色，可以在此處添加邏輯允許管理員查詢任意醫生的排班
+
+    // 查詢醫生是否存在 (可選，但建議)
+    db.get('SELECT id, name FROM users WHERE id = ?', [doctorId], (err, doctor) => {
+      if (err) {
+        console.error(`查詢醫生 (ID: ${doctorId}) 時發生錯誤:`, err.message);
+        return res.status(500).json({ error: '查詢醫生資料時發生內部錯誤' });
+      }
+      if (!doctor) {
+        return res.status(404).json({ error: `ID 為 ${doctorId} 的醫生不存在` });
+      }
+
+      // 查詢該醫生在該月份的排班
+      // 使用 strftime('%Y', date) 和 strftime('%m', date) 來篩選年份和月份
+      const query = `
+        SELECT 
+          id,
+          doctor_id,
+          date,
+          start_time,
+          end_time,
+          slot_duration,
+          is_rest_day,
+          created_at,
+          updated_at
+        FROM schedule 
+        WHERE doctor_id = ? 
+          AND strftime('%Y', date) = ? 
+          AND strftime('%m', date) = ?
+        ORDER BY date ASC
+      `;
+      const params = [doctorId, year, month];
+
+      db.all(query, params, (err, schedules) => {
+        if (err) {
+          console.error(`查詢排班 (醫生ID: ${doctorId}, 年份: ${year}, 月份: ${month}) 時發生錯誤:`, err.message);
+          return res.status(500).json({ error: '獲取排班資訊時發生內部錯誤' });
+        }
+
+        res.json({
+          message: `成功獲取醫生 (ID: ${doctor.id}, ${doctor.name}) 在 ${year}-${month} 的排班`,
+          doctorId: doctor.id,
+          doctorName: doctor.name,
+          year,
+          month,
+          schedules: schedules.map(s => ({ ...s, is_rest_day: Boolean(s.is_rest_day) })) // 確保 is_rest_day 是布林值
+        });
+      });
+    });
+  } catch (error) {
+    console.error('處理 getScheduleForMonthAndDoctor 請求時發生未預期錯誤:', error.message, error.stack);
+    res.status(500).json({ error: '處理請求時發生未預期錯誤' });
+  }
+};
+
 module.exports = (db) => ({
   createOrUpdateSchedule: createOrUpdateSchedule(db),
   getDoctorSchedule: getDoctorSchedule(db),
   getAvailableTimeSlots: getAvailableTimeSlots(db),
-  deleteSchedule: deleteSchedule(db)
+  deleteSchedule: deleteSchedule(db),
+  getScheduleForMonthAndDoctor: getScheduleForMonthAndDoctor(db) // 導出新方法
 }); 
