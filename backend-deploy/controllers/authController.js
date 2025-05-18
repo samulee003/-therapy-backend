@@ -9,15 +9,18 @@ const { JWT_SECRET } = require('../middlewares/auth');
 // 註冊新用戶
 const register = (db) => async (req, res) => {
   try {
-    const { name, email, password, role = 'patient' } = req.body;
+    const { name, email, password, role = 'patient', username, phone } = req.body;
+    
+    // 使用 email 或 username 作為用戶 email
+    const userEmail = email || username;
 
     // 驗證必填欄位
-    if (!name || !email || !password) {
+    if (!name || !userEmail || !password) {
       return res.status(400).json({ error: '姓名、電子郵件和密碼都是必填的' });
     }
 
     // 檢查郵箱是否已經註冊
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
+    db.get('SELECT * FROM users WHERE email = ?', [userEmail], async (err, user) => {
       if (err) {
         console.error('查詢用戶時發生錯誤:', err.message);
         return res.status(500).json({ error: '伺服器錯誤' });
@@ -32,13 +35,27 @@ const register = (db) => async (req, res) => {
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // 插入新用戶
+        // 準備插入數據，包括可選的電話號碼
+        const fields = ['name', 'email', 'password', 'role'];
+        const values = [name, userEmail, hashedPassword, role];
+        let placeholders = '?, ?, ?, ?';
+        
+        // 如果提供了電話號碼，加入到查詢中
+        if (phone) {
+          fields.push('phone');
+          values.push(phone);
+          placeholders += ', ?';
+        }
+        
+        // 構建動態查詢
+        const fieldsStr = fields.join(', ');
         const query = `
-          INSERT INTO users (name, email, password, role, created_at)
-          VALUES (?, ?, ?, ?, datetime('now'))
+          INSERT INTO users (${fieldsStr}, created_at)
+          VALUES (${placeholders}, datetime('now'))
         `;
         
-        db.run(query, [name, email, hashedPassword, role], function(err) {
+        // 插入新用戶
+        db.run(query, values, function(err) {
           if (err) {
             console.error('創建用戶時發生錯誤:', err.message);
             return res.status(500).json({ error: '無法創建用戶' });
@@ -46,7 +63,7 @@ const register = (db) => async (req, res) => {
 
           // 生成JWT令牌
           const token = jwt.sign(
-            { id: this.lastID, name, email, role },
+            { id: this.lastID, name, email: userEmail, role },
             JWT_SECRET,
             { expiresIn: '24h' }
           );
@@ -64,8 +81,9 @@ const register = (db) => async (req, res) => {
             user: {
               id: this.lastID,
               name,
-              email,
-              role
+              email: userEmail,
+              role,
+              phone: phone || null
             }
           });
         });
