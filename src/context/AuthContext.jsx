@@ -15,18 +15,21 @@ export const AuthProvider = ({ children }) => {
     try {
       // 調用獲取當前用戶的 API
       const response = await getCurrentUser();
-      if (response.data.success) {
+      // 直接檢查是否返回了用戶資料
+      if (response.data && response.data.user) {
         setUser(response.data.user);
       } else {
+        console.log('用戶未登入或回應中沒有用戶資料');
         setUser(null);
       }
     } catch (err) {
       // 如果返回 401，表示用戶未登入，這是正常的
       if (err.response && err.response.status === 401) {
+        console.log('用戶未驗證 (401)');
         setUser(null);
       } else {
         console.error('檢查用戶登入狀態失敗:', err);
-        setError(err.response?.data?.message || err.message || '檢查登入狀態失敗');
+        setError(err.response?.data?.error || err.message || '檢查登入狀態失敗');
       }
     } finally {
       setLoading(false);
@@ -40,6 +43,7 @@ export const AuthProvider = ({ children }) => {
 
   // 登入函數
   const login = userData => {
+    console.log('AuthContext: 設置使用者資料', userData);
     setUser(userData);
     setLoading(false);
   };
