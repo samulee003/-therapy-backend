@@ -28,6 +28,22 @@ import {
 import { getScheduleForMonth, saveScheduleForDate } from '../../../services/api';
 import { formatDate, defaultSlotOptions } from './utils';
 
+// Helper function to add minutes to a HH:MM time string
+const addMinutesToTime = (timeStr, minutesToAdd) => {
+  if (!timeStr || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(timeStr)) {
+    console.error('Invalid time string format for addMinutesToTime:', timeStr);
+    return null; // Or throw an error
+  }
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours);
+  date.setMinutes(minutes + minutesToAdd);
+  
+  const newHours = String(date.getHours()).padStart(2, '0');
+  const newMinutes = String(date.getMinutes()).padStart(2, '0');
+  return `${newHours}:${newMinutes}`;
+};
+
 // 排班管理主組件
 const ScheduleManager = ({ user }) => {
   // 狀態管理
@@ -202,32 +218,78 @@ const ScheduleManager = ({ user }) => {
 
   // 處理保存日期排班
   const handleSaveScheduleForDate = async () => {
-    if (!editingDate) return;
+    if (!editingDate || !user || !user.id) {
+      setErrorSchedule('無法保存排班：缺少日期或使用者資訊。');
+      console.error('handleSaveScheduleForDate: missing editingDate or user.id', { editingDate, user });
+      return;
+    }
 
-    if (!Array.isArray(availableSlotsForEdit)) {
-      console.error('handleSaveScheduleForDate: availableSlotsForEdit is not an array', availableSlotsForEdit);
+    const doctorId = user.id;
+
+    if (!isRestDay && !Array.isArray(availableSlotsForEdit)) {
+      console.error('handleSaveScheduleForDate: availableSlotsForEdit is not an array when not a rest day', availableSlotsForEdit);
       setErrorSchedule('儲存排班時發生內部錯誤 (資料格式錯誤)');
       return;
     }
 
-    let validSlots = [];
-    if (!isRestDay) {
-      validSlots = availableSlotsForEdit.filter(
-        slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot)
-      );
-      validSlots.sort();
-    }
-
-    console.log(`正在保存 ${editingDate} 的排班資料:`, {
-      isRestDay,
-      validSlots: validSlots.length > 0 ? validSlots : '空陣列',
-      schedule: schedule[editingDate] ? '已存在' : '尚未存在',
-    });
-
     setLoadingSchedule(true);
     setErrorSchedule('');
+
     try {
-      await saveScheduleForDate(editingDate, validSlots, isRestDay);
+      if (isRestDay) {
+        console.log(`正在保存 ${editingDate} 的排班資料 (休息日):`, { doctorId, date: editingDate, isRestDay });
+        await saveScheduleForDate(doctorId, editingDate, null, null, true);
+      } else {
+        const validSlots = availableSlotsForEdit
+          .filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot))
+          .sort();
+
+        if (validSlots.length === 0) {
+          // 如果沒有有效的時段，但不是休息日，這可能是一個清空排班的操作
+          // 後端 API 可能需要一個特定的方式來處理「清空當日排班」而不是標記為休息日
+          // 目前，如果 isRestDay=false 但沒有時段，後端會報錯（因為 startTime/endTime 必填）
+          // 一個可能的處理是將這種情況也視為休息日，或者提示用戶
+          console.warn(`日期 ${editingDate} 非休息日但沒有有效時段。將其標記為休息日或提供時段。`);
+          // 暫時先讓它失敗，以便觀察後端行為或由使用者決定如何處理空時段
+          // setErrorSchedule('非休息日必須至少有一個有效時段，或者將其標記為休息日。');
+          // setLoadingSchedule(false);
+          // return;
+          // 按照原邏輯，若 slots 為空，後端會因 startTime/endTime 未定義而拒絕 (除非 isRestDay=true)
+          // 此處我們需要明確 startTime 和 endTime
+          // 若要允許"清空當日所有時段但不設為休息日"，後端需支持 startTime/endTime 為 null/空
+          // 或者，前端可以在此處阻止此類操作，或將其視為"設為休息日"
+          // 為符合目前後端期望 (isRestDay=false 時 startTime/endTime 必填)，此處若 validSlots 為空，會出錯。
+          // 這裡我們假設，如果不是休息日，就一定會有時段。如果UI允許沒有時段，那需要另外處理這種情況。
+          // 為了讓API呼叫不直接出錯，若 validSlots為空但 isRestDay 為 false，這是一個矛盾狀態
+          // 先報錯給用戶
+          setErrorSchedule('若非休息日，請至少設定一個有效時段。');
+          setLoadingSchedule(false);
+          return;
+        }
+
+        const startTime = validSlots[0];
+        const lastSlotStartTime = validSlots[validSlots.length - 1];
+        // 假設 slotDuration 為 30 分鐘
+        const slotDurationMinutes = 30; 
+        const endTime = addMinutesToTime(lastSlotStartTime, slotDurationMinutes);
+
+        if (!endTime) { // addMinutesToTime 可能因格式錯誤返回 null
+            setErrorSchedule('計算結束時間時發生錯誤，請檢查時段格式。');
+            setLoadingSchedule(false);
+            return;
+        }
+
+        console.log(`正在保存 ${editingDate} 的排班資料:`, {
+          doctorId,
+          date: editingDate,
+          startTime,
+          endTime,
+          isRestDay: false,
+          slotDuration: slotDurationMinutes
+        });
+        await saveScheduleForDate(doctorId, editingDate, startTime, endTime, false, slotDurationMinutes);
+      }
+
       setErrorSchedule('');
       setEditingDate(null);
       setAvailableSlotsForEdit([]);
@@ -235,12 +297,13 @@ const ScheduleManager = ({ user }) => {
       
       const year = currentScheduleDate.getFullYear();
       const month = currentScheduleDate.getMonth() + 1;
-      fetchSchedule(year, month);
+      fetchSchedule(year, month); // 重新獲取排班數據以更新日曆顯示
+
     } catch (err) {
       console.error(`保存 ${editingDate} 排班失敗:`, err);
-      setErrorSchedule(
-        err.response?.data?.message || err.message || `保存 ${editingDate} 的排班失敗。`
-      );
+      const apiErrorMessage = err.response?.data?.message || err.message || `保存 ${editingDate} 的排班失敗。`;
+      const detailedError = err.formatted?.message || apiErrorMessage;
+      setErrorSchedule(detailedError);
     } finally {
       setLoadingSchedule(false);
     }
