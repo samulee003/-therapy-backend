@@ -450,71 +450,56 @@ function handleAffectedAppointments(db, doctorId, date, isRestDay, startTime, en
 const getScheduleForMonthAndDoctor = (db) => (req, res) => {
   try {
     const { year, month } = req.params;
-    const { doctorId } = req.query; // 從查詢參數獲取 doctorId
+    let { doctorId } = req.query; // 修改：允許 doctorId 未定義
 
-    // 驗證參數
-    if (!year || !month || !/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) {
-      return res.status(400).json({ error: '年份和月份格式不正確 (YYYY, MM)' });
+    // 基本驗證
+    if (!year || !month) {
+      return res.status(400).json({ error: '年份和月份是必填的' });
+    }
+    if (isNaN(parseInt(year)) || isNaN(parseInt(month))) {
+      return res.status(400).json({ error: '年份和月份必須是數字' });
     }
 
-    if (!doctorId) {
-      return res.status(400).json({ error: '缺少醫生ID (doctorId)' });
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+
+    let query = `
+      SELECT 
+        s.id, 
+        s.date, 
+        s.start_time, 
+        s.end_time, 
+        s.slot_duration, 
+        s.is_rest_day,
+        u.id as doctor_id,
+        u.name as doctor_name
+      FROM schedule s
+      JOIN users u ON s.doctor_id = u.id
+      WHERE s.date >= ? AND s.date <= ?
+    `;
+    const params = [startDate, endDate];
+
+    if (doctorId) {
+      query += ` AND s.doctor_id = ?`;
+      params.push(parseInt(doctorId, 10)); // 確保是數字
+    } else if (req.user && req.user.role === 'doctor') {
+      query += ` AND s.doctor_id = ?`;
+      params.push(req.user.id);
     }
 
-    const loggedInUser = req.user;
+    query += ` ORDER BY s.date ASC, s.start_time ASC`;
 
-    // 權限檢查：如果登入用戶是醫生，只能查詢自己的排班
-    if (loggedInUser.role === 'doctor' && loggedInUser.id !== parseInt(doctorId)) {
-      return res.status(403).json({ error: '醫生只能查詢自己的排班資訊' });
-    }
-
-    // TODO: 如果未來有管理員角色，可以在此處添加邏輯允許管理員查詢任意醫生的排班
-
-    // 查詢醫生是否存在 (可選，但建議)
-    db.get('SELECT id, name FROM users WHERE id = ?', [doctorId], (err, doctor) => {
+    db.all(query, params, (err, schedules) => {
       if (err) {
-        console.error(`查詢醫生 (ID: ${doctorId}) 時發生錯誤:`, err.message);
-        return res.status(500).json({ error: '查詢醫生資料時發生內部錯誤' });
-      }
-      if (!doctor) {
-        return res.status(404).json({ error: `ID 為 ${doctorId} 的醫生不存在` });
+        console.error(`查詢排班 (年份: ${year}, 月份: ${month}) 時發生錯誤:`, err.message);
+        return res.status(500).json({ error: '獲取排班資訊時發生內部錯誤' });
       }
 
-      // 查詢該醫生在該月份的排班
-      // 使用 strftime('%Y', date) 和 strftime('%m', date) 來篩選年份和月份
-      const query = `
-        SELECT 
-          id,
-          doctor_id,
-          date,
-          start_time,
-          end_time,
-          slot_duration,
-          is_rest_day,
-          created_at,
-          updated_at
-        FROM schedule 
-        WHERE doctor_id = ? 
-          AND strftime('%Y', date) = ? 
-          AND strftime('%m', date) = ?
-        ORDER BY date ASC
-      `;
-      const params = [doctorId, year, month];
-
-      db.all(query, params, (err, schedules) => {
-        if (err) {
-          console.error(`查詢排班 (醫生ID: ${doctorId}, 年份: ${year}, 月份: ${month}) 時發生錯誤:`, err.message);
-          return res.status(500).json({ error: '獲取排班資訊時發生內部錯誤' });
-        }
-
-        res.json({
-          message: `成功獲取醫生 (ID: ${doctor.id}, ${doctor.name}) 在 ${year}-${month} 的排班`,
-          doctorId: doctor.id,
-          doctorName: doctor.name,
-          year,
-          month,
-          schedules: schedules.map(s => ({ ...s, is_rest_day: Boolean(s.is_rest_day) })) // 確保 is_rest_day 是布林值
-        });
+      res.json({
+        message: `成功獲取排班資訊`,
+        year,
+        month,
+        schedules: schedules.map(s => ({ ...s, is_rest_day: Boolean(s.is_rest_day) })) // 確保 is_rest_day 是布林值
       });
     });
   } catch (error) {

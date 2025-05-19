@@ -11,6 +11,8 @@ const router = express.Router();
 module.exports = (db) => {
   // 引入控制器
   const appointmentController = require('../controllers/appointmentController')(db);
+  console.log('[DEBUG] appointmentController object:', appointmentController);
+  console.log('[DEBUG] typeof appointmentController.getAppointmentById:', typeof appointmentController.getAppointmentById);
 
   // 創建預約 (所有已認證用戶可訪問)
   router.post('/', authenticateUser, appointmentController.createAppointment);
