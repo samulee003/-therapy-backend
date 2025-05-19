@@ -14,6 +14,7 @@ console.info('API 配置信息:', {
     VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '(未設置)',
   },
 });
+console.log(`[api.js] Effective API_BASE_URL: ${API_BASE_URL}`);
 
 /**
  * 格式化 API 錯誤
@@ -152,16 +153,19 @@ apiClient.interceptors.response.use(
 // The calling component might need adjustment if username is not needed by backend.
 export const loginUser = credentials => {
   // Sending the full credentials object as backend requires both username and password
+  console.log('[api.js] loginUser: credentials:', credentials);
   return apiClient.post('/api/auth/login', credentials); // 修改為標準路徑
 };
 
 // ADDED: User Logout (Matches POST /api/logout)
 export const logoutUser = () => {
+  console.log('[api.js] logoutUser: making request');
   return apiClient.post('/api/auth/logout');
 };
 
 // ADDED: Get Current User Profile (Matches GET /api/me)
 export const getCurrentUser = () => {
+  console.log('[api.js] getCurrentUser: making request');
   return apiClient.get('/api/auth/me');
 };
 
