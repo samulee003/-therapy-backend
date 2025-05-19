@@ -219,16 +219,33 @@ export const getScheduleForMonth = (year, month, doctorId = null) => {
 };
 
 // Save schedule for a specific date (Matches POST /api/schedule)
-// Backend expects { date, availableSlots: string[], isRestDay: boolean }
-export const saveScheduleForDate = (date, availableSlots, isRestDay = false) => {
+// Backend expects { doctorId, date, startTime, endTime, slotDuration (optional), isRestDay (optional) }
+export const saveScheduleForDate = (doctorId, date, startTime, endTime, isRestDay = false, slotDuration = 30) => {
   // 驗證輸入
-  if (!date || !Array.isArray(availableSlots)) {
-    console.error('saveScheduleForDate: 無效輸入', { date, availableSlots, isRestDay });
-    return Promise.reject(new Error('排班保存需要有效的日期和時段數組'));
+  if (!doctorId || !date) {
+    console.error('saveScheduleForDate: 無效輸入 - doctorId 或 date 缺失', { doctorId, date, startTime, endTime, isRestDay, slotDuration });
+    return Promise.reject(new Error('排班保存需要有效的醫生ID和日期'));
   }
 
-  console.log(`保存排班: ${date}, 時段數: ${availableSlots.length}, 是否休息日: ${isRestDay}`);
-  return apiClient.post('/api/schedules', { date, availableSlots, isRestDay }).catch(error => {
+  if (!isRestDay && (!startTime || !endTime)) {
+    console.error('saveScheduleForDate: 無效輸入 - 非休息日時 startTime 或 endTime 缺失', { doctorId, date, startTime, endTime, isRestDay, slotDuration });
+    return Promise.reject(new Error('非休息日的排班保存需要開始和結束時間'));
+  }
+
+  const payload = {
+    doctorId,
+    date,
+    isRestDay,
+  };
+
+  if (!isRestDay) {
+    payload.startTime = startTime;
+    payload.endTime = endTime;
+    payload.slotDuration = slotDuration; // 後端有預設值，但明確傳遞可能更好
+  }
+
+  console.log('保存排班 payload:', payload);
+  return apiClient.post('/api/schedules', payload).catch(error => {
     console.error(`保存排班失敗 (${date}):`, error);
     throw error;
   });
