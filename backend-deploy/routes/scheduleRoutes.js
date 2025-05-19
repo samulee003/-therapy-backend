@@ -20,6 +20,10 @@ module.exports = (db) => {
     res.status(403).json({ error: '只有醫生或管理員可以設置排班' });
   }, authenticateUser, scheduleController.createOrUpdateSchedule);
 
+  // 新增：獲取指定月份的排班 (所有已認證用戶可訪問)
+  // 此路由應匹配 /api/schedules/:year/:month
+  router.get('/:year/:month', authenticateUser, scheduleController.getScheduleForMonthAndDoctor);
+
   // 獲取醫生排班 (所有已認證用戶可訪問)
   router.get('/doctor/:doctorId', authenticateUser, scheduleController.getDoctorSchedule);
 

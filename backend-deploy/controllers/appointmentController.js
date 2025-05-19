@@ -21,7 +21,7 @@ const createAppointment = (db) => (req, res) => {
     // 檢查該醫生在該時間段是否已經有預約
     const checkQuery = `
       SELECT * FROM appointments
-      WHERE doctor_id = ? AND appointment_date = ? AND time_slot = ? AND status != 'cancelled'
+      WHERE doctor_id = ? AND date = ? AND time = ? AND status != 'cancelled'
     `;
 
     db.get(checkQuery, [doctorId, appointmentDate, timeSlot], (err, existingAppointment) => {
@@ -64,7 +64,7 @@ const createAppointment = (db) => (req, res) => {
           // 創建預約
           const createQuery = `
             INSERT INTO appointments (
-              doctor_id, patient_id, appointment_date, time_slot, note, status, created_at
+              doctor_id, patient_id, date, time, notes, status, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
           `;
 
@@ -145,12 +145,12 @@ const getAppointments = (db) => (req, res) => {
     }
 
     if (date) {
-      query += ` AND a.appointment_date = ?`;
+      query += ` AND a.date = ?`;
       params.push(date);
     }
 
     // 排序
-    query += ` ORDER BY a.appointment_date DESC, a.time_slot ASC`;
+    query += ` ORDER BY a.date DESC, a.time ASC`;
 
     db.all(query, params, (err, appointments) => {
       if (err) {
@@ -317,10 +317,57 @@ const deleteAppointment = (db) => (req, res) => {
   }
 };
 
+// 新增：獲取「我的」預約
+const getMyAppointments = (db) => (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // 根據資料庫結構調整查詢
+    let query = `
+      SELECT a.*, 
+          d.name as doctor_name, 
+          p.name as patient_name
+      FROM appointments a
+      JOIN users d ON a.doctor_id = d.id
+      JOIN users p ON a.patient_id = p.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (userRole === 'doctor') {
+      query += ` AND a.doctor_id = ?`;
+      params.push(userId);
+    } else if (userRole === 'patient') {
+      query += ` AND a.patient_id = ?`;
+      params.push(userId);
+    } else {
+      // 其他角色或未登入用戶不應能訪問此路由，但已被 authenticateUser 中間件攔截
+      return res.status(403).json({ error: '無權訪問此資源' });
+    }
+
+    // 修正欄位名稱：使用 date 和 time
+    query += ` ORDER BY a.date DESC, a.time ASC`;
+
+    db.all(query, params, (err, appointments) => {
+      if (err) {
+        console.error('獲取我的預約列表錯誤:', err.message);
+        return res.status(500).json({ error: '無法獲取預約列表' });
+      }
+      // 返回 success: true 以匹配前端期望的格式
+      res.json({ success: true, appointments });
+    });
+  } catch (error) {
+    console.error('獲取我的預約過程中發生錯誤:', error.message);
+    res.status(500).json({ error: '獲取預約列表失敗，請稍後再試' });
+  }
+};
+
 module.exports = (db) => ({
   createAppointment: createAppointment(db),
   getAppointments: getAppointments(db),
   getAppointmentById: getAppointmentById(db),
   updateAppointmentStatus: updateAppointmentStatus(db),
-  deleteAppointment: deleteAppointment(db)
+  deleteAppointment: deleteAppointment(db),
+  getMyAppointments: getMyAppointments(db)
 }); 

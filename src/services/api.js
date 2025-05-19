@@ -29,7 +29,7 @@ export const formatApiError = (error, defaultMessage = '發生錯誤，請稍後
     const { data, status } = error.response;
 
     return {
-      message: data?.message || getStatusMessage(status) || defaultMessage,
+      message: data?.message || data?.error || getStatusMessage(status) || defaultMessage,
       code: status,
       details: data || {},
     };
@@ -89,10 +89,11 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   config => {
     console.log(`API 請求: ${config.method?.toUpperCase()} ${config.url}`);
-    const token = localStorage.getItem('token'); // Currently unused by backend
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
+    // Token logic removed as backend uses httpOnly cookies for session management
+    // const token = localStorage.getItem('token'); 
+    // if (token) {
+    //   config.headers['Authorization'] = `Bearer ${token}`;
+    // }
     return config;
   },
   error => {
@@ -134,7 +135,7 @@ apiClient.interceptors.response.use(
     // 針對特定錯誤碼的處理
     if (formattedError.code === 401) {
       // 401 錯誤可能需要重定向到登入頁面
-      console.warn('認證錯誤:', formattedError.message);
+      console.warn('認證錯誤 (401): 現有登入無效或需重新登入。', formattedError.message);
       // 如果需要，可以觸發登出或重定向到登入頁面
       // window.location.href = '/login';
     }
@@ -156,12 +157,12 @@ export const loginUser = credentials => {
 
 // ADDED: User Logout (Matches POST /api/logout)
 export const logoutUser = () => {
-  return apiClient.post('/api/logout');
+  return apiClient.post('/api/auth/logout');
 };
 
 // ADDED: Get Current User Profile (Matches GET /api/me)
 export const getCurrentUser = () => {
-  return apiClient.get('/api/me');
+  return apiClient.get('/api/auth/me');
 };
 
 // ADDED: User Registration (Matches POST /api/register)
@@ -195,8 +196,8 @@ export const getScheduleForMonth = (year, month, doctorId = null) => {
   // Ensure month is zero-padded if necessary
   const paddedMonth = String(month).padStart(2, '0');
 
-  // 構建基本 URL
-  let url = `/api/schedule/${year}/${paddedMonth}`;
+  // 構建基本 URL - 注意這裡是 /api/schedules (複數)
+  let url = `/api/schedules/${year}/${paddedMonth}`;
 
   // 如果提供了 doctorId，將其作為查詢參數添加
   if (doctorId) {
@@ -223,7 +224,7 @@ export const saveScheduleForDate = (date, availableSlots, isRestDay = false) => 
   }
 
   console.log(`保存排班: ${date}, 時段數: ${availableSlots.length}, 是否休息日: ${isRestDay}`);
-  return apiClient.post('/api/schedule', { date, availableSlots, isRestDay }).catch(error => {
+  return apiClient.post('/api/schedules', { date, availableSlots, isRestDay }).catch(error => {
     console.error(`保存排班失敗 (${date}):`, error);
     throw error;
   });
@@ -232,7 +233,7 @@ export const saveScheduleForDate = (date, availableSlots, isRestDay = false) => 
 // Book an Appointment (Matches POST /api/book)
 // Backend expects { date, time, patientName, patientPhone, patientEmail, ... }
 export const bookAppointment = appointmentDetails => {
-  return apiClient.post('/api/book', appointmentDetails);
+  return apiClient.post('/api/appointments', appointmentDetails);
 };
 
 // --- Appointments --- //
@@ -263,7 +264,7 @@ export const cancelAdminAppointment = cancelAppointment; // Assuming admin uses 
 
 // 獲取所有醫生列表 (用於預約頁面)
 export const getDoctors = () => {
-  return apiClient.get('/api/doctors');
+  return apiClient.get('/api/users/doctors');
 };
 
 // --- Removed Functions (Backend doesn't support these) --- //
