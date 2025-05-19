@@ -117,24 +117,29 @@ const ScheduleManager = ({ user }) => {
           if (scheduleItem.is_rest_day) {
             scheduleData[dateStr] = {
               isRestDay: true,
-              availableSlots: []
+              availableSlots: [],
+              definedSlots: [] // 也為休息日初始化 definedSlots
             };
           } else {
-            // 生成可用時間段
-            const availableSlots = [];
-            if (scheduleItem.start_time && scheduleItem.end_time && scheduleItem.slot_duration) {
-              // 如果有開始和結束時間，根據持續時間生成時間段
+            let finalAvailableSlots = [];
+            // 優先使用後端提供的 defined_slots (假設後端欄位名為 defined_slots)
+            if (scheduleItem.defined_slots && Array.isArray(scheduleItem.defined_slots) && scheduleItem.defined_slots.length > 0) {
+              finalAvailableSlots = [...scheduleItem.defined_slots].sort(); // 使用副本並排序
+               console.log(`日期 ${dateStr}: 使用後端提供的 defined_slots:`, finalAvailableSlots);
+            } else if (scheduleItem.start_time && scheduleItem.end_time && scheduleItem.slot_duration) {
+              // 如果沒有 defined_slots，則根據 start_time, end_time, slot_duration 生成
               const startMinutes = timeToMinutes(scheduleItem.start_time);
               const endMinutes = timeToMinutes(scheduleItem.end_time);
-              
               for (let i = startMinutes; i < endMinutes; i += scheduleItem.slot_duration) {
-                availableSlots.push(minutesToTime(i));
+                finalAvailableSlots.push(minutesToTime(i));
               }
+              console.log(`日期 ${dateStr}: 根據 start/end time 生成 availableSlots:`, finalAvailableSlots);
             }
             
             scheduleData[dateStr] = {
               isRestDay: false,
-              availableSlots
+              availableSlots: finalAvailableSlots, // 用於日曆概要顯示
+              definedSlots: scheduleItem.defined_slots && Array.isArray(scheduleItem.defined_slots) ? [...scheduleItem.defined_slots].sort() : null // 儲存原始的 defined_slots 或 null
             };
           }
         });
@@ -191,10 +196,24 @@ const ScheduleManager = ({ user }) => {
   // 處理點擊日期進行編輯
   const handleEditDate = dateStr => {
     setEditingDate(dateStr);
-    const currentSlots = schedule[dateStr]?.availableSlots || [];
-    console.log('編輯日期', dateStr, '當前時段', currentSlots);
-    setAvailableSlotsForEdit([...currentSlots]);
-    setIsRestDay(schedule[dateStr]?.isRestDay === true);
+    const dayData = schedule[dateStr] || {};
+    
+    // 優先使用存儲的 definedSlots (如果存在且有效)，否則使用 availableSlots
+    // availableSlots 此時可能是根據 start/end time 生成的，或直接就是 defined_slots
+    let slotsForEditing = [];
+    if (dayData.definedSlots && Array.isArray(dayData.definedSlots) && dayData.definedSlots.length > 0) {
+      slotsForEditing = [...dayData.definedSlots];
+      console.log('編輯日期', dateStr, '使用 definedSlots:', slotsForEditing);
+    } else if (dayData.availableSlots && Array.isArray(dayData.availableSlots)) {
+      // 如果沒有 definedSlots，但有 availableSlots (可能是從 start/end time 生成的)
+      slotsForEditing = [...dayData.availableSlots];
+      console.log('編輯日期', dateStr, '使用 availableSlots (無 definedSlots):', slotsForEditing);
+    }
+    // 如果 dayData.definedSlots 是空陣列 (例如設為休息日後清除，或後端明確返回空 defined_slots)
+    // 則 slotsForEditing 仍為空陣列，這是正確的
+
+    setAvailableSlotsForEdit(slotsForEditing);
+    setIsRestDay(dayData.isRestDay === true);
   };
 
   // 處理添加預設時段
@@ -299,15 +318,18 @@ const ScheduleManager = ({ user }) => {
             return;
         }
 
-        console.log(`正在保存 ${editingDate} 的排班資料:`, {
+        const payload = {
           doctorId,
           date: editingDate,
           startTime,
           endTime,
           isRestDay: false,
-          slotDuration: slotDurationMinutes
-        });
-        await saveScheduleForDate(doctorId, editingDate, startTime, endTime, false, slotDurationMinutes);
+          slotDuration: slotDurationMinutes,
+          definedSlots: validSlots
+        };
+
+        console.log(`正在保存 ${editingDate} 的排班資料:`, payload);
+        await saveScheduleForDate(doctorId, editingDate, startTime, endTime, false, slotDurationMinutes, validSlots);
       }
 
       setErrorSchedule('');
