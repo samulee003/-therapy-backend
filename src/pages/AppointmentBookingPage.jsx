@@ -56,6 +56,26 @@ import { getScheduleForMonth, bookAppointment, formatApiError, getDoctors } from
 import { AuthContext } from '../context/AuthContext';
 import { LoadingIndicator, ErrorAlert, ApiStateHandler } from '../components/common';
 
+// Helper functions for time conversion (copied from ScheduleManager.jsx)
+const timeToMinutes = timeStr => {
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
+    console.warn(`Invalid time string for timeToMinutes: ${timeStr}`);
+    return 0; // 或者拋出錯誤，或者返回一個標記無效的值
+  }
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+const minutesToTime = totalMinutes => {
+  if (typeof totalMinutes !== 'number' || isNaN(totalMinutes) || totalMinutes < 0) {
+    console.warn(`Invalid totalMinutes for minutesToTime: ${totalMinutes}`);
+    return '00:00'; // 或者拋出錯誤
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 const AppointmentBookingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -99,21 +119,75 @@ const AppointmentBookingPage = () => {
     setScheduleError('');
     setScheduleSuccess('');
     try {
-      console.log(`開始獲取排班數據: 年=${currentYear}, 月=${currentMonth + 1}`);
+      console.log(`開始獲取排班數據: 年=${currentYear}, 月=${currentMonth + 1}, 治療師ID=${bookingDetails.doctorId || '所有治療師'}`);
 
-      const response = await getScheduleForMonth(currentYear, currentMonth + 1); // API expects 1-indexed month
-      console.log('排班數據回應:', response.data);
+      // API 期望1-indexed month。如果選擇了醫生，則傳遞 doctorId。
+      const doctorIdToFetch = bookingDetails.doctorId || null;
+      const response = await getScheduleForMonth(currentYear, currentMonth + 1, doctorIdToFetch);
+      console.log('排班數據 API 回應:', response);
 
-      if (response.data && response.data.success) {
-        const scheduleData = response.data.schedule || {};
-        console.log('獲取到的排班數據:', scheduleData);
-        setSchedule(scheduleData);
+      // 修改：直接處理 response.data (假設它就是後端 scheduleController 回傳的 JSON)
+      // 後端 scheduleController.getSchedules 回傳的結構是 { schedules: [...] } 或 { schedule: {date: {...}} } (取決於是否有doctorId)
+      // 我們需要將 schedules 陣列 (如果存在) 轉換為前端期望的按日期聚合的 scheduleData 物件結構
+      let processedScheduleData = {};
+      if (response && response.data) {
+        if (response.data.schedules && Array.isArray(response.data.schedules)) {
+          // 這是從後端獲取的多個（或單個）醫生的扁平化排班記錄列表
+          console.log('收到的 schedules 陣列:', response.data.schedules);
+          response.data.schedules.forEach(item => {
+            const dateStr = item.date; // 假設 item.date 是 'YYYY-MM-DD'
+            if (!processedScheduleData[dateStr]) {
+              processedScheduleData[dateStr] = { doctors: [], isOverallRestDay: true }; // 初始化日期條目
+            }
+
+            let doctorSlots = [];
+            if (item.defined_slots && Array.isArray(item.defined_slots) && item.defined_slots.length > 0) {
+              doctorSlots = [...item.defined_slots].sort();
+            } else if (!item.is_rest_day && item.start_time && item.end_time && item.slot_duration) {
+              const startMinutes = timeToMinutes(item.start_time);
+              const endMinutes = timeToMinutes(item.end_time);
+              for (let i = startMinutes; i < endMinutes; i += item.slot_duration) {
+                doctorSlots.push(minutesToTime(i));
+              }
+            }
+            
+            processedScheduleData[dateStr].doctors.push({
+              doctorId: item.doctor_id,
+              doctorName: item.doctor_name, // 假設後端會join user表得到醫生名字
+              availableSlots: doctorSlots,
+              definedSlots: item.defined_slots && Array.isArray(item.defined_slots) ? [...item.defined_slots].sort() : null,
+              isRestDay: item.is_rest_day,
+              // 可以加入原始的 start_time, end_time, slot_duration 如果需要
+              startTime: item.start_time,
+              endTime: item.end_time,
+              slotDuration: item.slot_duration
+            });
+            // 如果此日期下有任何一個醫生不是休息日，則該日期總體不視為休息日 (用於日曆顯示可選中狀態)
+            if (!item.is_rest_day && doctorSlots.length > 0) {
+              processedScheduleData[dateStr].isOverallRestDay = false;
+            }
+          });
+          console.log('轉換後的 processedScheduleData (from schedules array):', processedScheduleData);
+        } else if (response.data.schedule && typeof response.data.schedule === 'object') {
+          // 這可能是後端已經聚合好的數據 (類似舊格式，或特定醫生的排班)
+          // 但我們上面的轉換邏輯是更通用的，能處理多醫生數據
+          // 為保持一致，如果直接收到 schedule object，也嘗試按新結構適配或直接使用
+          // 但優先採用上面的轉換邏輯，如果後端返回 schedules 陣列
+          console.log('收到已聚合的 schedule 物件:', response.data.schedule);
+          processedScheduleData = response.data.schedule; // 假設其結構已符合前端期望
+                                                      // 或者需要進一步轉換 response.data.schedule 的內部結構
+        } else {
+           console.warn('API 回應數據格式不符合預期 (無 schedules 陣列或 schedule 物件):', response.data);
+           // 即使這樣，也設置為空對象，避免 undefined 錯誤
+        }
+        setSchedule(processedScheduleData);
         setScheduleSuccess(
           `已成功載入 ${format(currentDate, 'yyyy年 MMMM', { locale: zhTW })} 的排班資料`
         );
+
       } else {
-        console.warn('API 回應格式不符合預期:', response.data);
-        throw new Error('無法獲取排班數據');
+        console.warn('API 回應無效或無數據:', response);
+        throw new Error('無法獲取排班數據，回應無效。');
       }
     } catch (err) {
       console.error('Failed to fetch schedule:', err);
@@ -153,10 +227,16 @@ const AppointmentBookingPage = () => {
     setDoctorsError('');
     try {
       const response = await getDoctors();
-      if (response.data && response.data.success) {
-        setDoctors(response.data.doctors || []);
+      if (response && response.data) {
+        const doctorsData = Array.isArray(response.data) ? response.data : response.data.doctors;
+        if (Array.isArray(doctorsData)) {
+          setDoctors(doctorsData);
+        } else {
+          console.warn('獲取治療師列表成功，但數據格式非預期陣列:', response.data);
+          setDoctors([]);
+        }
       } else {
-        throw new Error('無法獲取治療師列表');
+        throw new Error('無法獲取治療師列表，回應無效。');
       }
     } catch (err) {
       console.error('獲取治療師列表失敗:', err);
