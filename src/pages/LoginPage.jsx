@@ -94,9 +94,11 @@ const LoginPage = () => {
 
   const handleSubmit = async event => {
     event.preventDefault();
+    console.log('[LoginPage.jsx] handleSubmit: starting with email:', email, 'password:', password.substring(0, 3) + '...'); // 僅顯示部分密碼以策安全
 
     // 進行表單驗證
     if (!validateForm()) {
+      console.log('[LoginPage.jsx] handleSubmit: form validation failed');
       return;
     }
 
@@ -104,12 +106,15 @@ const LoginPage = () => {
     setError('');
     try {
       // 修改：使用 email 而不是 username
+      console.log('[LoginPage.jsx] handleSubmit: calling loginUser with:', { email, password: password.substring(0, 3) + '...' });
       const response = await loginUser({ email, password });
-      console.log('Login successful:', response.data);
+      console.log('[LoginPage.jsx] handleSubmit: loginUser response:', response);
+      // console.log('Login successful:', response.data); // 此行已存在，但上面一行更詳細
 
       // 檢查回應中是否包含用戶資料
       // 後端直接返回 { message: '登入成功', user: {...} }
-      if (response.data && response.data.user) {
+      if (response && response.data && response.data.user) {
+        console.log('[LoginPage.jsx] handleSubmit: user data found in response:', response.data.user);
         // 使用 AuthContext 的 login 函數儲存用戶資料
         login(response.data.user);
 
@@ -120,17 +125,29 @@ const LoginPage = () => {
           navigate('/patient-dashboard');
         }
       } else {
-        console.error('登入回應格式不正確:', response.data);
+        console.error('[LoginPage.jsx] handleSubmit: Login response format incorrect or user data missing. Response data:', response ? response.data : 'No response data');
+        // console.error('登入回應格式不正確:', response.data); // 此行已存在
         throw new Error('伺服器回應格式不正確，請聯繫管理員。');
       }
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('[LoginPage.jsx] handleSubmit: Login failed. Full error object:', err);
+      if (err.response) {
+        console.error('[LoginPage.jsx] handleSubmit: Error response data:', err.response.data);
+        console.error('[LoginPage.jsx] handleSubmit: Error response status:', err.response.status);
+        console.error('[LoginPage.jsx] handleSubmit: Error response headers:', err.response.headers);
+      } else if (err.request) {
+        console.error('[LoginPage.jsx] handleSubmit: Error request data:', err.request);
+      } else {
+        console.error('[LoginPage.jsx] handleSubmit: Error message:', err.message);
+      }
+      // console.error('Login failed:', err); // 此行已存在
       // 檢查具體的錯誤回應
       const errorMessage =
-        err.response?.data?.error || err.message || '登入失敗，請檢查您的帳號或密碼。';
+        err.response?.data?.error || err.response?.data?.message || err.message || '登入失敗，請檢查您的帳號或密碼。';
       setError(errorMessage);
     } finally {
       setLoading(false);
+      console.log('[LoginPage.jsx] handleSubmit: finished');
     }
   };
 
