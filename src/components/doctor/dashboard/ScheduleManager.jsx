@@ -28,6 +28,27 @@ import {
 import { getScheduleForMonth, saveScheduleForDate } from '../../../services/api';
 import { formatDate, defaultSlotOptions } from './utils';
 
+// Helper function to convert HH:MM string to total minutes from midnight
+const timeToMinutes = (timeStr) => {
+  if (!timeStr || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(timeStr)) {
+    console.error('Invalid time string format for timeToMinutes:', timeStr);
+    return 0; // Return 0 or handle error appropriately
+  }
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+// Helper function to convert total minutes from midnight to HH:MM string
+const minutesToTime = (totalMinutes) => {
+  if (typeof totalMinutes !== 'number' || totalMinutes < 0) {
+    console.error('Invalid totalMinutes for minutesToTime:', totalMinutes);
+    return '00:00'; // Return a default or handle error
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 // Helper function to add minutes to a HH:MM time string
 const addMinutesToTime = (timeStr, minutesToAdd) => {
   if (!timeStr || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(timeStr)) {
@@ -249,7 +270,6 @@ const ScheduleManager = ({ user }) => {
           // 後端 API 可能需要一個特定的方式來處理「清空當日排班」而不是標記為休息日
           // 目前，如果 isRestDay=false 但沒有時段，後端會報錯（因為 startTime/endTime 必填）
           // 一個可能的處理是將這種情況也視為休息日，或者提示用戶
-          console.warn(`日期 ${editingDate} 非休息日但沒有有效時段。將其標記為休息日或提供時段。`);
           // 暫時先讓它失敗，以便觀察後端行為或由使用者決定如何處理空時段
           // setErrorSchedule('非休息日必須至少有一個有效時段，或者將其標記為休息日。');
           // setLoadingSchedule(false);
