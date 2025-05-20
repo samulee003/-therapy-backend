@@ -74,7 +74,6 @@ const ScheduleManager = ({ user }) => {
   const [currentScheduleDate, setCurrentScheduleDate] = useState(new Date());
   const [editingDate, setEditingDate] = useState(null);
   const [availableSlotsForEdit, setAvailableSlotsForEdit] = useState([]);
-  const [isRestDay, setIsRestDay] = useState(false);
 
   // 批量排班相關狀態
   const [showBulkScheduler, setShowBulkScheduler] = useState(false);
@@ -113,35 +112,25 @@ const ScheduleManager = ({ user }) => {
         response.data.schedules.forEach(scheduleItem => {
           const dateStr = scheduleItem.date;
           
-          // 如果是休息日
-          if (scheduleItem.is_rest_day) {
-            scheduleData[dateStr] = {
-              isRestDay: true,
-              availableSlots: [],
-              definedSlots: [] // 也為休息日初始化 definedSlots
-            };
-          } else {
-            let finalAvailableSlots = [];
-            // 優先使用後端提供的 defined_slots (假設後端欄位名為 defined_slots)
-            if (scheduleItem.defined_slots && Array.isArray(scheduleItem.defined_slots) && scheduleItem.defined_slots.length > 0) {
-              finalAvailableSlots = [...scheduleItem.defined_slots].sort(); // 使用副本並排序
-               console.log(`日期 ${dateStr}: 使用後端提供的 defined_slots:`, finalAvailableSlots);
-            } else if (scheduleItem.start_time && scheduleItem.end_time && scheduleItem.slot_duration) {
-              // 如果沒有 defined_slots，則根據 start_time, end_time, slot_duration 生成
-              const startMinutes = timeToMinutes(scheduleItem.start_time);
-              const endMinutes = timeToMinutes(scheduleItem.end_time);
-              for (let i = startMinutes; i < endMinutes; i += scheduleItem.slot_duration) {
-                finalAvailableSlots.push(minutesToTime(i));
-              }
-              console.log(`日期 ${dateStr}: 根據 start/end time 生成 availableSlots:`, finalAvailableSlots);
+          let finalAvailableSlots = [];
+          // 優先使用後端提供的 defined_slots (假設後端欄位名為 defined_slots)
+          if (scheduleItem.defined_slots && Array.isArray(scheduleItem.defined_slots) && scheduleItem.defined_slots.length > 0) {
+            finalAvailableSlots = [...scheduleItem.defined_slots].sort(); // 使用副本並排序
+             console.log(`日期 ${dateStr}: 使用後端提供的 defined_slots:`, finalAvailableSlots);
+          } else if (scheduleItem.start_time && scheduleItem.end_time && scheduleItem.slot_duration) {
+            // 如果沒有 defined_slots，則根據 start_time, end_time, slot_duration 生成
+            const startMinutes = timeToMinutes(scheduleItem.start_time);
+            const endMinutes = timeToMinutes(scheduleItem.end_time);
+            for (let i = startMinutes; i < endMinutes; i += scheduleItem.slot_duration) {
+              finalAvailableSlots.push(minutesToTime(i));
             }
-            
-            scheduleData[dateStr] = {
-              isRestDay: false,
-              availableSlots: finalAvailableSlots, // 用於日曆概要顯示
-              definedSlots: scheduleItem.defined_slots && Array.isArray(scheduleItem.defined_slots) ? [...scheduleItem.defined_slots].sort() : null // 儲存原始的 defined_slots 或 null
-            };
+            console.log(`日期 ${dateStr}: 根據 start/end time 生成 availableSlots:`, finalAvailableSlots);
           }
+          
+          scheduleData[dateStr] = {
+            availableSlots: finalAvailableSlots, // 用於日曆概要顯示
+            definedSlots: scheduleItem.defined_slots && Array.isArray(scheduleItem.defined_slots) ? [...scheduleItem.defined_slots].sort() : null // 儲存原始的 defined_slots 或 null
+          };
         });
         
         console.log('轉換後的排班數據:', scheduleData);
@@ -149,14 +138,6 @@ const ScheduleManager = ({ user }) => {
       } else if (response.data && response.data.success && response.data.schedule) {
         // 保留舊的處理邏輯，以防後端API返回舊格式
         const scheduleData = response.data.schedule;
-
-        // 檢查並日誌休假日信息
-        for (const date in scheduleData) {
-          const dayData = scheduleData[date];
-          if (dayData.isRestDay) {
-            console.log(`發現休假日: ${date}, isRestDay=${dayData.isRestDay}`);
-          }
-        }
 
         setSchedule(scheduleData);
       } else {
@@ -213,7 +194,6 @@ const ScheduleManager = ({ user }) => {
     // 則 slotsForEditing 仍為空陣列，這是正確的
 
     setAvailableSlotsForEdit(slotsForEditing);
-    setIsRestDay(dayData.isRestDay === true);
   };
 
   // 處理添加預設時段
@@ -266,8 +246,8 @@ const ScheduleManager = ({ user }) => {
 
     const doctorId = user.id;
 
-    if (!isRestDay && !Array.isArray(availableSlotsForEdit)) {
-      console.error('handleSaveScheduleForDate: availableSlotsForEdit is not an array when not a rest day', availableSlotsForEdit);
+    if (!Array.isArray(availableSlotsForEdit)) {
+      console.error('handleSaveScheduleForDate: availableSlotsForEdit is not an array', availableSlotsForEdit);
       setErrorSchedule('儲存排班時發生內部錯誤 (資料格式錯誤)');
       return;
     }
@@ -276,66 +256,36 @@ const ScheduleManager = ({ user }) => {
     setErrorSchedule('');
 
     try {
-      if (isRestDay) {
-        console.log(`正在保存 ${editingDate} 的排班資料 (休息日):`, { doctorId, date: editingDate, isRestDay });
-        await saveScheduleForDate(doctorId, editingDate, null, null, true);
-      } else {
-        const validSlots = availableSlotsForEdit
-          .filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot))
-          .sort();
+      const validSlots = availableSlotsForEdit
+        .filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot))
+        .sort();
 
-        if (validSlots.length === 0) {
-          // 如果沒有有效的時段，但不是休息日，這可能是一個清空排班的操作
-          // 後端 API 可能需要一個特定的方式來處理「清空當日排班」而不是標記為休息日
-          // 目前，如果 isRestDay=false 但沒有時段，後端會報錯（因為 startTime/endTime 必填）
-          // 一個可能的處理是將這種情況也視為休息日，或者提示用戶
-          // 暫時先讓它失敗，以便觀察後端行為或由使用者決定如何處理空時段
-          // setErrorSchedule('非休息日必須至少有一個有效時段，或者將其標記為休息日。');
-          // setLoadingSchedule(false);
-          // return;
-          // 按照原邏輯，若 slots 為空，後端會因 startTime/endTime 未定義而拒絕 (除非 isRestDay=true)
-          // 此處我們需要明確 startTime 和 endTime
-          // 若要允許"清空當日所有時段但不設為休息日"，後端需支持 startTime/endTime 為 null/空
-          // 或者，前端可以在此處阻止此類操作，或將其視為"設為休息日"
-          // 為符合目前後端期望 (isRestDay=false 時 startTime/endTime 必填)，此處若 validSlots 為空，會出錯。
-          // 這裡我們假設，如果不是休息日，就一定會有時段。如果UI允許沒有時段，那需要另外處理這種情況。
-          // 為了讓API呼叫不直接出錯，若 validSlots為空但 isRestDay 為 false，這是一個矛盾狀態
-          // 先報錯給用戶
-          setErrorSchedule('若非休息日，請至少設定一個有效時段。');
-          setLoadingSchedule(false);
-          return;
-        }
-
-        const startTime = validSlots[0];
-        const lastSlotStartTime = validSlots[validSlots.length - 1];
-        // 假設 slotDuration 為 30 分鐘
-        const slotDurationMinutes = 30; 
-        const endTime = addMinutesToTime(lastSlotStartTime, slotDurationMinutes);
-
-        if (!endTime) { // addMinutesToTime 可能因格式錯誤返回 null
-            setErrorSchedule('計算結束時間時發生錯誤，請檢查時段格式。');
-            setLoadingSchedule(false);
-            return;
-        }
-
-        const payload = {
-          doctorId,
-          date: editingDate,
-          startTime,
-          endTime,
-          isRestDay: false,
-          slotDuration: slotDurationMinutes,
-          definedSlots: validSlots
-        };
-
-        console.log(`正在保存 ${editingDate} 的排班資料:`, payload);
-        await saveScheduleForDate(doctorId, editingDate, startTime, endTime, false, slotDurationMinutes, validSlots);
+      if (validSlots.length === 0) {
+        // 允許非休息日但無時段，直接送出空 definedSlots
+        // 不再報錯，也不 return
       }
+
+      const startTime = validSlots[0] || null;
+      const lastSlotStartTime = validSlots[validSlots.length - 1] || null;
+      // 假設 slotDuration 為 30 分鐘
+      const slotDurationMinutes = 30; 
+      const endTime = lastSlotStartTime ? addMinutesToTime(lastSlotStartTime, slotDurationMinutes) : null;
+
+      const payload = {
+        doctorId,
+        date: editingDate,
+        startTime,
+        endTime,
+        slotDuration: slotDurationMinutes,
+        definedSlots: validSlots
+      };
+
+      console.log(`正在保存 ${editingDate} 的排班資料:`, payload);
+      await saveScheduleForDate(doctorId, editingDate, startTime, endTime, false, slotDurationMinutes, validSlots);
 
       setErrorSchedule('');
       setEditingDate(null);
       setAvailableSlotsForEdit([]);
-      setIsRestDay(false);
       
       const year = currentScheduleDate.getFullYear();
       const month = currentScheduleDate.getMonth() + 1;
@@ -378,7 +328,7 @@ const ScheduleManager = ({ user }) => {
 
       // 保存每個目標日期的排班
       for (const dateStr of targetDates) {
-        await saveScheduleForDate(dateStr, validSlots, isRestDay);
+        await saveScheduleForDate(dateStr, validSlots, false);
         console.log(`已保存 ${dateStr} 的排班`);
       }
 
@@ -526,7 +476,6 @@ const ScheduleManager = ({ user }) => {
             const dateStr = formatDate(dateObj);
             const dateData = schedule[dateStr] || {};
             const isEditing = editingDate === dateStr;
-            const isRestDay = dateData.isRestDay === true;
             const hasAvailableSlots = Array.isArray(dateData.availableSlots) && dateData.availableSlots.length > 0;
             const hasBookedSlots = !!(dateData.bookedSlots && Object.keys(dateData.bookedSlots).length > 0);
 
@@ -544,7 +493,7 @@ const ScheduleManager = ({ user }) => {
                     borderColor: isEditing ? 'primary.main' : 'transparent',
                     borderWidth: isEditing ? 2 : 0,
                     borderStyle: 'solid',
-                    bgcolor: isRestDay ? 'grey.100' : hasAvailableSlots ? 'success.50' : 'background.paper',
+                    bgcolor: hasAvailableSlots ? 'success.50' : 'background.paper',
                     '&:hover': {
                       bgcolor: 'action.hover',
                     },
@@ -561,20 +510,14 @@ const ScheduleManager = ({ user }) => {
                   >
                     {day}
                   </Typography>
-                  {isRestDay ? (
-                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                      休假日
-                    </Typography>
-                  ) : (
+                  {hasAvailableSlots && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: 'center' }}>
-                      {hasAvailableSlots && (
-                        <Chip
-                          size="small"
-                          label={`${dateData.availableSlots.length}個時段`}
-                          color="success"
-                          sx={{ height: 20, fontSize: '0.625rem' }}
-                        />
-                      )}
+                      <Chip
+                        size="small"
+                        label={`${dateData.availableSlots.length}個時段`}
+                        color="success"
+                        sx={{ height: 20, fontSize: '0.625rem' }}
+                      />
                       {hasBookedSlots && (
                         <Chip
                           size="small"
@@ -590,160 +533,6 @@ const ScheduleManager = ({ user }) => {
             );
           })}
         </Grid>
-      </Box>
-    );
-  };
-
-  // 渲染日期編輯區域
-  const renderDateEditor = () => {
-    if (!editingDate) return null;
-
-    const dateObj = new Date(editingDate);
-    const formattedDate = dateObj.toLocaleDateString('zh-TW', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-    });
-
-    return (
-      <Box sx={{ mt: 3, pb: 2 }}>
-        <Typography variant="h6" component="h3" gutterBottom>
-          編輯 {formattedDate} 的排班
-        </Typography>
-
-        <Box sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={isRestDay}
-                onChange={e => setIsRestDay(e.target.checked)}
-              />
-            }
-            label="標記為休假日"
-          />
-        </Box>
-
-        {!isRestDay && (
-          <>
-            <Typography variant="subtitle1" gutterBottom>
-              可用時段
-            </Typography>
-
-            {/* 快速選擇預設時段 */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                快速添加預設時段
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                <Box>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    週一至週五
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {defaultSlotOptions.weekdaySlots.map(slot => (
-                      <Chip
-                        key={`weekday-${slot}`}
-                        label={slot}
-                        size="small"
-                        onClick={() => handleAddDefaultTimeSlot(slot)}
-                        icon={<TimeIcon fontSize="small" />}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    週六
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {defaultSlotOptions.saturdaySlots.map(slot => (
-                      <Chip
-                        key={`saturday-${slot}`}
-                        label={slot}
-                        size="small"
-                        onClick={() => handleAddDefaultTimeSlot(slot)}
-                        icon={<TimeIcon fontSize="small" />}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    下午
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {defaultSlotOptions.afternoonSlots.map(slot => (
-                      <Chip
-                        key={`afternoon-${slot}`}
-                        label={slot}
-                        size="small"
-                        onClick={() => handleAddDefaultTimeSlot(slot)}
-                        icon={<TimeIcon fontSize="small" />}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                自訂時段
-              </Typography>
-              {availableSlotsForEdit.map((slot, index) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <TextField
-                    label={`時段 ${index + 1}`}
-                    variant="outlined"
-                    size="small"
-                    value={slot}
-                    onChange={e => handleSlotInputChange(index, e.target.value)}
-                    placeholder="HH:MM"
-                    sx={{ mr: 1 }}
-                  />
-                  <IconButton
-                    color="error"
-                    size="small"
-                    onClick={() => handleRemoveSlotFromEdit(index)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Box>
-              ))}
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddSlotToEdit}
-                size="small"
-                sx={{ mt: 1 }}
-              >
-                添加時段
-              </Button>
-            </Box>
-          </>
-        )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setEditingDate(null);
-              setAvailableSlotsForEdit([]);
-              setIsRestDay(false);
-            }}
-            sx={{ mr: 1 }}
-          >
-            取消
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveScheduleForDate}
-            disabled={loadingSchedule}
-          >
-            {loadingSchedule ? '保存中...' : '保存'}
-          </Button>
-        </Box>
       </Box>
     );
   };
@@ -805,65 +594,54 @@ const ScheduleManager = ({ user }) => {
               <Typography variant="subtitle2" gutterBottom>
                 排班設置
               </Typography>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={isRestDay}
-                    onChange={e => setIsRestDay(e.target.checked)}
-                  />
-                }
-                label="全部標記為休假日"
-              />
             </Grid>
 
-            {!isRestDay && (
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" gutterBottom>
-                  可用時段設置
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {Object.entries(defaultSlotOptions).map(([key, slots]) => (
-                    <Box key={key}>
-                      <Typography variant="caption" display="block" gutterBottom>
-                        {key === 'weekdaySlots' ? '週一至週五' : 
-                         key === 'saturdaySlots' ? '週六' : 
-                         key === 'afternoonSlots' ? '下午' : '其他'}
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {slots.map(slot => (
-                          <Chip
-                            key={`${key}-${slot}`}
-                            label={slot}
-                            size="small"
-                            onClick={() => handleAddDefaultTimeSlot(slot)}
-                            icon={<TimeIcon fontSize="small" />}
-                          />
-                        ))}
-                      </Box>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                可用時段設置
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {Object.entries(defaultSlotOptions).map(([key, slots]) => (
+                  <Box key={key}>
+                    <Typography variant="caption" display="block" gutterBottom>
+                      {key === 'weekdaySlots' ? '週一至週五' : 
+                       key === 'saturdaySlots' ? '週六' : 
+                       key === 'afternoonSlots' ? '下午' : '其他'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {slots.map(slot => (
+                        <Chip
+                          key={`${key}-${slot}`}
+                          label={slot}
+                          size="small"
+                          onClick={() => handleAddDefaultTimeSlot(slot)}
+                          icon={<TimeIcon fontSize="small" />}
+                        />
+                      ))}
                     </Box>
+                  </Box>
+                ))}
+              </Box>
+
+              <Typography variant="subtitle2" gutterBottom>
+                當前選擇的時段
+              </Typography>
+              {availableSlotsForEdit.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  尚未選擇任何時段
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {availableSlotsForEdit.map((slot, index) => (
+                    <Chip
+                      key={index}
+                      label={slot}
+                      onDelete={() => handleRemoveSlotFromEdit(index)}
+                    />
                   ))}
                 </Box>
-
-                <Typography variant="subtitle2" gutterBottom>
-                  當前選擇的時段
-                </Typography>
-                {availableSlotsForEdit.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    尚未選擇任何時段
-                  </Typography>
-                ) : (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {availableSlotsForEdit.map((slot, index) => (
-                      <Chip
-                        key={index}
-                        label={slot}
-                        onDelete={() => handleRemoveSlotFromEdit(index)}
-                      />
-                    ))}
-                  </Box>
-                )}
-              </Grid>
-            )}
+              )}
+            </Grid>
 
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
@@ -871,7 +649,6 @@ const ScheduleManager = ({ user }) => {
                   variant="outlined"
                   onClick={() => {
                     setShowBulkScheduler(false);
-                    setIsRestDay(false);
                     setAvailableSlotsForEdit([]);
                   }}
                   sx={{ mr: 1 }}
@@ -915,7 +692,6 @@ const ScheduleManager = ({ user }) => {
       ) : (
         <>
           {renderCalendar()}
-          {renderDateEditor()}
           {!editingDate && renderBulkScheduler()}
         </>
       )}
