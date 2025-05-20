@@ -202,16 +202,8 @@
 - 已統一檔案內容，明確標記前端 API URL 並添加註釋說明純前端用途。
 
 **(2024-08-01) 任務 7.2 執行者反饋**：
-- 已完成 AppointmentBookingPage 日曆與時段選擇部分的行動裝置 UI/UX 優化
-- 具體改進包括：
-  1. 日曆容器添加自定義滾動條，改善滾動體驗
-  2. 日期按鈕尺寸增大並增加壓縮動畫反饋
-  3. 時段選擇按鈕改為每行 2 個（而非原本的 3 個），提高可觸控區域
-  4. 表單欄位在行動裝置上進行了優化，改善輸入體驗
-  5. 預約成功畫面完全重新設計，使用更引人注目的圓形圖示和按鈕
-  6. 添加了直觀的預約日期時間摘要在預約表單頂部
-  
-這些優化大幅提升了預約頁面在行動裝置上的易用性，並使整體設計更加現代且統一。
+- 已完成 AppointmentBookingPage 的手機 UI/UX 優化，並成功推送至遠端 main 分支。
+- 請規劃者確認成果是否符合預期，或有無需進一步優化之處。
 
 ## 總結 (Summary)
 
@@ -256,5 +248,17 @@
     *   影響: 使用者無法登入，預約相關功能無法使用。
 
 **結論**: 這些問題主要指向後端應用程式的資料庫結構或 API 邏輯，需要對後端程式碼進行檢查與修正。本前端專案已依計畫完成重構與優化。
+
+---
+
+## Project Status Board
+
+- [x] 修正預約時段未過濾已被預約時段的 bug（fetchSchedule 內已正確帶入 bookedSlots，前端能正確過濾）
+- [x] AppointmentBookingPage 手機 UI/UX 優化已完成並推送至 Git（commit: feat: 手機 UI/UX 優化 AppointmentBookingPage 預約流程與 Dialog 體驗）
+
+## Executor's Feedback or Assistance Requests
+
+- 已修正 fetchSchedule，將 item.booked_slots 正確帶入 processedScheduleData，getAvailableSlotsForDate 現可正確過濾已被預約的時段。
+- 請手動測試預約流程，確認已無法選到已被預約的時段。
 
 ---

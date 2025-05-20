@@ -157,6 +157,7 @@ const AppointmentBookingPage = () => {
               availableSlots: doctorSlots,
               definedSlots: item.defined_slots && Array.isArray(item.defined_slots) ? [...item.defined_slots].sort() : null,
               isRestDay: item.is_rest_day,
+              bookedSlots: item.booked_slots || {},
               // 可以加入原始的 start_time, end_time, slot_duration 如果需要
               startTime: item.start_time,
               endTime: item.end_time,
