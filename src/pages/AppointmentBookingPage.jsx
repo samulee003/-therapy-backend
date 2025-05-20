@@ -369,9 +369,16 @@ const AppointmentBookingPage = () => {
           doc => doc.doctorId === parseInt(bookingDetails.doctorId)
         );
         if (selectedDoctor) {
-          const bookedTimes = selectedDoctor.bookedSlots
-            ? Object.keys(selectedDoctor.bookedSlots)
-            : [];
+          let bookedTimes = [];
+          if (selectedDoctor.bookedSlots) {
+            if (Array.isArray(selectedDoctor.bookedSlots)) {
+              // Handles case where bookedSlots is an array of time strings, e.g., ["14:00", "15:30"]
+              bookedTimes = selectedDoctor.bookedSlots;
+            } else if (typeof selectedDoctor.bookedSlots === 'object' && selectedDoctor.bookedSlots !== null) {
+              // Handles case where bookedSlots is an object, e.g., {"14:00": true, "15:30": {}}
+              bookedTimes = Object.keys(selectedDoctor.bookedSlots);
+            }
+          }
           return selectedDoctor.availableSlots
             .filter(slot => !bookedTimes.includes(slot))
             .map(slot => ({
@@ -385,7 +392,16 @@ const AppointmentBookingPage = () => {
         // 顯示所有治療師的時段（打平列表）
         let allSlots = [];
         daySchedule.doctors.forEach(doctor => {
-          const bookedTimes = doctor.bookedSlots ? Object.keys(doctor.bookedSlots) : [];
+          let bookedTimes = [];
+          if (doctor.bookedSlots) {
+            if (Array.isArray(doctor.bookedSlots)) {
+              // Handles case where bookedSlots is an array of time strings
+              bookedTimes = doctor.bookedSlots;
+            } else if (typeof doctor.bookedSlots === 'object' && doctor.bookedSlots !== null) {
+              // Handles case where bookedSlots is an object
+              bookedTimes = Object.keys(doctor.bookedSlots);
+            }
+          }
           const availableSlots = doctor.availableSlots
             .filter(slot => !bookedTimes.includes(slot))
             .map(slot => ({
@@ -399,7 +415,14 @@ const AppointmentBookingPage = () => {
       }
     } else if (daySchedule && daySchedule.availableSlots) {
       // 舊的數據格式，向後兼容
-      const bookedTimes = daySchedule.bookedSlots ? Object.keys(daySchedule.bookedSlots) : [];
+      let bookedTimes = [];
+      if (daySchedule.bookedSlots) {
+        if (Array.isArray(daySchedule.bookedSlots)) {
+          bookedTimes = daySchedule.bookedSlots;
+        } else if (typeof daySchedule.bookedSlots === 'object' && daySchedule.bookedSlots !== null) {
+          bookedTimes = Object.keys(daySchedule.bookedSlots);
+        }
+      }
       return daySchedule.availableSlots
         .filter(slot => !bookedTimes.includes(slot))
         .map(slot => ({ time: slot }));
