@@ -1010,10 +1010,10 @@ const AppointmentBookingPage = () => {
                   }}
                 >
                   <Typography variant="body2" paragraph>
-                    日期：{format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })}
+                    日期：{selectedDate ? format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW }) : '未指定'}
                   </Typography>
                   <Typography variant="body2" paragraph>
-                    時間：{selectedTimeSlot}
+                    時間：{selectedTimeSlot || '未指定'}
                   </Typography>
                   <Typography variant="body2" paragraph>
                     預約者：{bookingDetails.patientName}
@@ -1022,43 +1022,12 @@ const AppointmentBookingPage = () => {
                     聯絡電話：{bookingDetails.patientPhone}
                   </Typography>
                 </Paper>
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={handleBookingDialogClose}
-                    sx={{ 
-                      mr: 1,
-                      minWidth: '100px',
-                      fontSize: isMobile ? '0.9rem' : undefined,
-                      py: isMobile ? 1 : undefined
-                    }}
-                  >
-                    關閉
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    startIcon={<ScreenshotIcon />}
-                    onClick={() => {
-                      alert('截圖功能將呼叫原生截圖，此為示範Alert');
-                      handleBookingDialogClose();
-                    }}
-                    sx={{ 
-                      minWidth: '100px',
-                      fontSize: isMobile ? '0.9rem' : undefined,
-                      py: isMobile ? 1 : undefined
-                    }}
-                  >
-                    截圖保存
-                  </Button>
-                </Box>
               </Box>
             )}
           </ApiStateHandler>
         </DialogContent>
-        <DialogActions sx={{ px: isMobile ? 2 : 3, py: isMobile ? 1.5 : 2 }}>
-          {!bookingSuccess && (
+        <DialogActions sx={{ px: isMobile ? 2 : 3, py: isMobile ? 1.5 : 2, justifyContent: isMobile && bookingSuccess ? 'center' : 'space-between' }}>
+          {!bookingSuccess ? (
             <>
               <Button 
                 onClick={handleBookingDialogClose} 
@@ -1091,6 +1060,36 @@ const AppointmentBookingPage = () => {
                 {bookingLoading ? '處理中...' : '確認預約'}
               </Button>
             </>
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: isMobile ? 'space-around' : 'center', width: '100%', gap: 1 }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleBookingDialogClose}
+                sx={{ 
+                  minWidth: '100px',
+                  fontSize: isMobile ? '0.9rem' : undefined,
+                  py: isMobile ? 1 : undefined
+                }}
+              >
+                關閉
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<ScreenshotIcon />}
+                onClick={() => {
+                  alert('系統提示：請手動截圖此畫面作為預約憑證。');
+                }}
+                sx={{ 
+                  minWidth: '100px',
+                  fontSize: isMobile ? '0.9rem' : undefined,
+                  py: isMobile ? 1 : undefined
+                }}
+              >
+                截圖提示
+              </Button>
+            </Box>
           )}
         </DialogActions>
       </Dialog>
