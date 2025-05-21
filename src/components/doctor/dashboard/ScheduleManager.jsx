@@ -693,7 +693,74 @@ const ScheduleManager = ({ user }) => {
       ) : (
         <>
           {renderCalendar()}
-          {/* {editingDate && renderDateEditor()} */}
+          {editingDate && (
+            <Paper elevation={3} sx={{ mt: 3, p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                編輯 {editingDate} 的排班
+              </Typography>
+              
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                可用時段 (格式 HH:MM):
+              </Typography>
+              {availableSlotsForEdit.map((slot, index) => (
+                <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <TextField
+                    size="small"
+                    variant="outlined"
+                    type="time"
+                    value={slot}
+                    onChange={(e) => handleSlotInputChange(index, e.target.value)}
+                    sx={{ width: '120px', mr: 1 }}
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ step: 1800 /* 30分 */ }}
+                  />
+                  <IconButton onClick={() => handleRemoveSlotFromEdit(index)} size="small">
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              ))}
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleAddSlotToEdit}
+                sx={{ mt: 1 }}
+              >
+                新增時段
+              </Button>
+
+              <Box sx={{ mt: 2, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {Object.entries(defaultSlotOptions).map(([key, slots]) => (
+                  <Box key={key} sx={{ mb:1}}>
+                    <Typography variant="caption" display="block" gutterBottom>
+                      {key === 'weekdaySlots' ? '常用(平日)' : 
+                      key === 'saturdaySlots' ? '常用(週六)' : 
+                      key === 'afternoonSlots' ? '常用(下午)' : '其他'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {slots.map(slotValue => (
+                        <Chip
+                          key={`${key}-${slotValue}`}
+                          label={slotValue}
+                          size="small"
+                          onClick={() => handleAddDefaultTimeSlot(slotValue)}
+                          icon={<TimeIcon fontSize="small" />}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+
+              <Box mt={3} display="flex" justifyContent="flex-end">
+                <Button onClick={() => setEditingDate(null)} sx={{ mr: 1 }}>
+                  取消
+                </Button>
+                <Button variant="contained" onClick={handleSaveScheduleForDate} disabled={loadingSchedule}>
+                  {loadingSchedule ? <CircularProgress size={24} /> : '保存更改'}
+                </Button>
+              </Box>
+            </Paper>
+          )}
           {!editingDate && renderBulkScheduler()}
         </>
       )}
