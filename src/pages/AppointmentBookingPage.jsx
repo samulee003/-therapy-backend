@@ -238,7 +238,9 @@ const AppointmentBookingPage = () => {
       if (response && response.data) {
         const doctorsData = Array.isArray(response.data) ? response.data : response.data.doctors;
         if (Array.isArray(doctorsData)) {
-          setDoctors(doctorsData);
+          // 在這裡添加過濾邏輯
+          const filteredDoctors = doctorsData.filter(doctor => doctor.name !== "Dr. Demo");
+          setDoctors(filteredDoctors);
       } else {
           console.warn('獲取治療師列表成功，但數據格式非預期陣列:', response.data);
           setDoctors([]);
