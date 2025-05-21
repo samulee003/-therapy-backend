@@ -21,10 +21,10 @@ if (-not $commit_message) {
 }
 
 # 提交更改
-git commit -m $commit_message
+git commit -q -m $commit_message
 
 # 推送到遠程倉庫
-git push
+git push -q
 
 Write-Host "已成功上傳至Git!" -ForegroundColor Green
 Read-Host -Prompt "按Enter鍵退出" 
