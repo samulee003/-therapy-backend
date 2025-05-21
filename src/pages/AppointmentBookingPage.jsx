@@ -188,6 +188,31 @@ const AppointmentBookingPage = () => {
            console.warn('API 回應數據格式不符合預期 (無 schedules 陣列或 schedule 物件):', response.data);
            // 即使這樣，也設置為空對象，避免 undefined 錯誤
         }
+
+        // 新增：過濾掉測試醫生的排班數據並重新計算 isOverallRestDay
+        const doctorsToFilter = ["測試醫生", "Dr. Demo"];
+        for (const dateStr in processedScheduleData) {
+          if (processedScheduleData.hasOwnProperty(dateStr) && processedScheduleData[dateStr] && processedScheduleData[dateStr].doctors) {
+            // 1. 過濾掉指定醫生的排班
+            processedScheduleData[dateStr].doctors = processedScheduleData[dateStr].doctors.filter(
+              doctor => !doctorsToFilter.includes(doctor.doctorName)
+            );
+
+            // 2. 重新計算 isOverallRestDay
+            const remainingDoctorsOnDate = processedScheduleData[dateStr].doctors;
+            if (remainingDoctorsOnDate.length === 0) {
+              // 如果過濾後沒有任何醫生，則該日為整體休息日
+              processedScheduleData[dateStr].isOverallRestDay = true;
+            } else {
+              // 否則，檢查剩餘醫生中是否有任何一位有空閒時段且非休息日
+              const hasAnyActiveSlot = remainingDoctorsOnDate.some(
+                doc => !doc.isRestDay && doc.availableSlots && doc.availableSlots.length > 0
+              );
+              processedScheduleData[dateStr].isOverallRestDay = !hasAnyActiveSlot;
+            }
+          }
+        }
+        
         setSchedule(processedScheduleData);
         setScheduleSuccess(
           `已成功載入 ${format(currentDate, 'yyyy年 MMMM', { locale: zhTW })} 的排班資料`
