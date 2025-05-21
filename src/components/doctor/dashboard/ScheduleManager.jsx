@@ -403,10 +403,43 @@ const ScheduleManager = ({ user }) => {
 
       console.log(`進行批量排班：${targetDates.length} 天，時段數：${validSlots.length}`);
 
+      const doctorId = user.id;
+      const slotDurationMinutes = 30; // 預設或從配置讀取
+      const isRestDayForBulk = validSlots.length === 0; // 如果沒有提供有效時段，則視為批量休假
+
       // 保存每個目標日期的排班
       for (const dateStr of targetDates) {
-        await saveScheduleForDate(dateStr, validSlots, false);
-        console.log(`已保存 ${dateStr} 的排班`);
+        let startTime = null;
+        let endTime = null;
+
+        if (!isRestDayForBulk && validSlots.length > 0) {
+          startTime = validSlots[0];
+          const lastSlotStartTime = validSlots[validSlots.length - 1];
+          endTime = addMinutesToTime(lastSlotStartTime, slotDurationMinutes);
+        }
+
+        // 準備 payload，與單日保存的 payload 結構一致
+        const payload = {
+          doctorId,
+          date: dateStr,
+          startTime,
+          endTime,
+          isRestDay: isRestDayForBulk, // 如果沒有有效時段，則設為休假日
+          slotDuration: slotDurationMinutes,
+          definedSlots: validSlots // 即使是休假日，也傳遞空陣列（後端會處理）
+        };
+
+        console.log(`批量保存 ${dateStr} 的排班資料:`, payload);
+        await saveScheduleForDate(
+          payload.doctorId,
+          payload.date,
+          payload.startTime,
+          payload.endTime,
+          payload.isRestDay,
+          payload.slotDuration,
+          payload.definedSlots
+        );
+        console.log(`已批量保存 ${dateStr} 的排班`);
       }
 
       setShowBulkScheduler(false);
