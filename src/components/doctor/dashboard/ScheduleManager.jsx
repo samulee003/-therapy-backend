@@ -176,6 +176,7 @@ const ScheduleManager = ({ user }) => {
 
   // 處理點擊日期進行編輯
   const handleEditDate = dateStr => {
+    console.log('[ScheduleManager] handleEditDate called with date:', dateStr);
     setEditingDate(dateStr);
     const dayData = schedule[dateStr] || {};
     
