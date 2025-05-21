@@ -29,7 +29,10 @@ import {
   MenuItem,
   FormHelperText,
   SwipeableDrawer,
-  Tooltip
+  Tooltip,
+  Stepper,
+  Step,
+  StepLabel
 } from '@mui/material';
 import {
   ArrowBackIosNew,
@@ -110,6 +113,10 @@ const AppointmentBookingPage = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(null); // Changed to null, will store object on success
+
+  // Stepper 相關狀態
+  const [activeStep, setActiveStep] = useState(0);
+  const steps = ['個人資料', '就診資訊', '確認預約'];
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-indexed
@@ -298,6 +305,7 @@ const AppointmentBookingPage = () => {
   const handleBookingDialogClose = () => {
     setBookingDialogOpen(false);
     setBookingError('');
+    setActiveStep(0); // Reset step when dialog closes
     // Do not clear bookingSuccess here, let the success dialog handle it.
   };
 
@@ -474,6 +482,32 @@ const AppointmentBookingPage = () => {
     });
     // 重置選中的時段，因為治療師變了，可用時段也會變
     setSelectedTimeSlot(null);
+  };
+
+  // Function to handle moving to the next step
+  const handleNextStep = () => {
+    // Add validation logic here before proceeding if needed for current step
+    // For now, just increments activeStep
+    if (activeStep === 0) { // Validating Step 1: Personal Info
+      if (!bookingDetails.patientName || !bookingDetails.patientPhone || !bookingDetails.patientEmail) {
+        setBookingError('請填寫所有必填的個人資料欄位。');
+        return;
+      }
+       // Basic email validation
+      const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+      if (!emailRegex.test(bookingDetails.patientEmail)) {
+        setBookingError('請輸入有效的電子郵件格式。');
+        return;
+      }
+    }
+    // Clear previous error when moving to next step if validation passes
+    setBookingError(''); 
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
+
+  // Function to handle moving to the previous step
+  const handleBackStep = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
   return (
@@ -882,284 +916,209 @@ const AppointmentBookingPage = () => {
           <ApiStateHandler
             loading={bookingLoading}
             error={bookingError}
-            success={bookingSuccess}
+            // success={bookingSuccess} // Success is handled by a separate dialog
             loadingMessage="處理預約中..."
             onErrorClose={() => setBookingError('')}
-            onSuccessClose={() => setBookingSuccess(null)}
-            loadingType="inline"
+            // onSuccessClose={() => setBookingSuccess(null)} // Handled by success dialog
+            loadingType="dialog" // Ensures loading covers dialog content
           >
-            {!bookingSuccess && selectedDate && selectedTimeSlot && (
-              <Box>
-                {/* 選擇日期時間摘要 */}
-                {isMobile && (
-                  <Box 
-                    sx={{ 
-                      mb: 2, 
-                      p: 1.5, 
-                      borderRadius: 1, 
-                      bgcolor: 'primary.lighter', 
-                      color: 'primary.darker',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1
-                    }}
-                  >
-                    <CalendarMonthIcon fontSize="small" />
-                    <Typography variant="body2" fontWeight="medium">
-                      {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })} {selectedTimeSlot}
-                  </Typography>
-                  </Box>
-                )}
-              
-                {/* 個人資料區塊 */}
-                <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="bold" sx={{ mb: isMobile ? 1 : 2, fontSize: isMobile ? '1rem' : undefined }}>
-                    個人資料
-                  </Typography>
-                  <Divider sx={{ mb: isMobile ? 1 : 2 }} />
-                <Grid container spacing={isMobile ? 1 : 2}>
-                <Grid item xs={12}>
-                  <TextField
-                    label="姓名"
-                    name="patientName"
-                    value={bookingDetails.patientName}
-                    onChange={handleBookingDetailsChange}
-                    fullWidth
-                    required
+            {/* Stepper UI */}
+            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: isMobile ? 2 : 3, px: isMobile ? 0 : 2 }}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+
+            {/* Form Content based on Active Step */}
+            <Box sx={{ mt: 2, mb:2, px: isMobile ? 0.5 : 1, minHeight: isMobile ? 'auto' : 250 } /* Added minHeight */}>
+              {activeStep === 0 && (
+                // Step 1: Personal Information
+                <Grid container spacing={isMobile ? 1.5 : 2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="姓名"
+                      name="patientName"
+                      value={bookingDetails.patientName}
+                      onChange={handleBookingDetailsChange}
+                      fullWidth
+                      required
                       size={isMobile ? "small" : "medium"}
-                    margin="dense"
-                    disabled={bookingLoading}
-                    InputLabelProps={{
-                      shrink: true,
-                        style: { fontSize: isMobile ? '0.95rem' : undefined }
-                    }}
-                    InputProps={{
-                      style: {
-                          fontSize: isMobile ? '0.95rem' : undefined
-                      },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="電話號碼"
-                    name="patientPhone"
-                    value={bookingDetails.patientPhone}
-                    onChange={handleBookingDetailsChange}
-                    fullWidth
-                    required
+                      margin="dense"
+                      disabled={bookingLoading}
+                      autoFocus
+                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                      InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="電話號碼"
+                      name="patientPhone"
+                      value={bookingDetails.patientPhone}
+                      onChange={handleBookingDetailsChange}
+                      fullWidth
+                      required
                       size={isMobile ? "small" : "medium"}
-                    margin="dense"
-                    disabled={bookingLoading}
+                      margin="dense"
+                      disabled={bookingLoading}
                       type="tel"
                       inputMode="tel"
-                    InputLabelProps={{
-                      shrink: true,
-                        style: { fontSize: isMobile ? '0.95rem' : undefined }
-                    }}
-                    InputProps={{
-                      style: {
-                          fontSize: isMobile ? '0.95rem' : undefined
-                      },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="電子郵件"
-                    name="patientEmail"
-                    type="email"
+                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                      InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="電子郵件"
+                      name="patientEmail"
+                      type="email"
                       inputMode="email"
-                    value={bookingDetails.patientEmail}
-                    onChange={handleBookingDetailsChange}
-                    fullWidth
-                    required
+                      value={bookingDetails.patientEmail}
+                      onChange={handleBookingDetailsChange}
+                      fullWidth
+                      required
                       size={isMobile ? "small" : "medium"}
-                    margin="dense"
-                    disabled={bookingLoading}
-                    InputLabelProps={{
-                      shrink: true,
-                        style: { fontSize: isMobile ? '0.95rem' : undefined }
-                    }}
-                    InputProps={{
-                      style: {
-                          fontSize: isMobile ? '0.95rem' : undefined
-                      },
-                    }}
-                  />
+                      margin="dense"
+                      disabled={bookingLoading}
+                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                      InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                    />
+                  </Grid>
                 </Grid>
+              )}
+              {activeStep === 1 && (
+                // Step 2: Appointment Information
+                <Grid container spacing={isMobile ? 1.5 : 2}>
+                   <Grid item xs={12} sm={6}>
+                    <FormControl component="fieldset" margin="dense" fullWidth disabled={bookingLoading}>
+                      <FormLabel component="legend" sx={{fontSize: isMobile ? '0.85rem' : '0.9rem', color: 'text.secondary', mb:0.5}}>是否為初診？</FormLabel>
+                      <RadioGroup
+                        row
+                        name="isNewPatient"
+                        value={bookingDetails.isNewPatient}
+                        onChange={handleBookingDetailsChange}
+                      >
+                        <FormControlLabel value="yes" control={<Radio size="small" />} label="是" sx={{ '& .MuiTypography-root': { fontSize: isMobile ? '0.9rem' : undefined}}} />
+                        <FormControlLabel value="no" control={<Radio size="small" />} label="否" sx={{ '& .MuiTypography-root': { fontSize: isMobile ? '0.9rem' : undefined}}}/>
+                      </RadioGroup>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                     <TextField
+                        label="出生年月日"
+                        name="birthDate"
+                        type="date"
+                        value={bookingDetails.birthDate}
+                        onChange={handleBookingDetailsChange}
+                        fullWidth
+                        margin="dense"
+                        size={isMobile ? "small" : "medium"}
+                        InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                        InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                        disabled={bookingLoading}
+                      />
+                  </Grid>
+                   <Grid item xs={12}>
+                     <FormControl fullWidth margin="dense" size={isMobile ? "small" : "medium"} disabled={bookingLoading}>
+                        <InputLabel id="gender-select-label" shrink style={{ fontSize: isMobile ? '0.95rem' : undefined }}>性別</InputLabel>
+                        <Select
+                          labelId="gender-select-label"
+                          name="gender"
+                          value={bookingDetails.gender}
+                          onChange={handleBookingDetailsChange}
+                          label="性別"
+                          sx={{ input: {fontSize: isMobile ? '0.95rem' : undefined } }}
+                        >
+                          <MenuItem value="male">男</MenuItem>
+                          <MenuItem value="female">女</MenuItem>
+                          <MenuItem value="other">其他</MenuItem>
+                          <MenuItem value="prefer_not_to_say">不願透露</MenuItem>
+                        </Select>
+                      </FormControl>
+                   </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="預約原因 (簡述，例如：壓力、焦慮、關係問題)"
+                      name="appointmentReason"
+                      value={bookingDetails.appointmentReason}
+                      onChange={handleBookingDetailsChange}
+                      fullWidth
+                      multiline
+                      rows={isMobile ? 2 : 3}
+                      margin="dense"
+                      size={isMobile ? "small" : "medium"}
+                      disabled={bookingLoading}
+                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                      InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="備註 (選填，例如：希望諮詢的特定方向)"
+                      name="notes"
+                      value={bookingDetails.notes}
+                      onChange={handleBookingDetailsChange}
+                      fullWidth
+                      multiline
+                      rows={isMobile ? 2 : 2}
+                      margin="dense"
+                      size={isMobile ? "small" : "medium"}
+                      disabled={bookingLoading}
+                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                      InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
+                    />
+                  </Grid>
                 </Grid>
-                {/* 就診資訊區塊 */}
-                <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="bold" sx={{ mt: isMobile ? 2 : 3, mb: isMobile ? 1 : 2, fontSize: isMobile ? '1rem' : undefined }}>
-                    就診資訊
+              )}
+              {activeStep === 2 && selectedDate && selectedTimeSlot && (
+                // Step 3: Confirmation
+                <Box>
+                  <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 2, fontSize: isMobile ? '1.1rem' : undefined }}>
+                    請確認您的預約資訊
                   </Typography>
-                  <Divider sx={{ mb: isMobile ? 1 : 2 }} />
-                <Grid container spacing={isMobile ? 1 : 2}>
-                <Grid item xs={12}>
-                  <TextField
-                    label="預約原因 (簡述)"
-                    name="appointmentReason"
-                    value={bookingDetails.appointmentReason}
-                    onChange={handleBookingDetailsChange}
-                    fullWidth
-                    multiline
-                    rows={isMobile ? 2 : 3}
-                    margin="dense"
-                      size={isMobile ? "small" : "medium"}
-                    disabled={bookingLoading}
-                    InputLabelProps={{
-                      shrink: true,
-                        style: { fontSize: isMobile ? '0.95rem' : undefined }
-                    }}
-                    InputProps={{
-                      style: {
-                          fontSize: isMobile ? '0.95rem' : undefined
-                      },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="備註 (選填)"
-                    name="notes"
-                    value={bookingDetails.notes}
-                    onChange={handleBookingDetailsChange}
-                    fullWidth
-                    multiline
-                    rows={isMobile ? 2 : 2}
-                    margin="dense"
-                      size={isMobile ? "small" : "medium"}
-                    disabled={bookingLoading}
-                    InputLabelProps={{
-                      shrink: true,
-                        style: { fontSize: isMobile ? '0.95rem' : undefined }
-                    }}
-                    InputProps={{
-                      style: {
-                          fontSize: isMobile ? '0.95rem' : undefined
-                      },
-                    }}
-                  />
-                </Grid>
-              </Grid>
-              </Box>
-            )}
-
-            {bookingSuccess && (
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <Box
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: '50%',
-                    bgcolor: 'success.light',
-                    color: 'success.contrastText',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto',
-                    mb: 2,
-                  }}
-                >
-                  <EventAvailableIcon sx={{ fontSize: 40 }} />
+                  <Paper elevation={0} sx={{ p: isMobile ? 1.5 : 2, borderRadius: 1, bgcolor: 'grey.100', mb:2 }}>
+                    <Typography variant="body1" gutterBottom><strong>治療師：</strong> {doctors.find(doc => doc.id === parseInt(bookingDetails.doctorId, 10))?.name || 'N/A'}</Typography>
+                    <Typography variant="body1" gutterBottom><strong>日期：</strong> {format(selectedDate, 'yyyy年 MMMM d日 (EEEE)', { locale: zhTW })}</Typography>
+                    <Typography variant="body1" gutterBottom><strong>時間：</strong> {selectedTimeSlot}</Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="body2" gutterBottom><strong>姓名：</strong> {bookingDetails.patientName}</Typography>
+                    <Typography variant="body2" gutterBottom><strong>電話：</strong> {bookingDetails.patientPhone}</Typography>
+                    <Typography variant="body2" gutterBottom><strong>Email：</strong> {bookingDetails.patientEmail}</Typography>
+                    <Typography variant="body2" gutterBottom><strong>初診：</strong> {bookingDetails.isNewPatient === 'yes' ? '是' : '否'}</Typography>
+                     {bookingDetails.birthDate && <Typography variant="body2" gutterBottom><strong>生日：</strong> {bookingDetails.birthDate}</Typography>}
+                    {bookingDetails.gender && <Typography variant="body2" gutterBottom><strong>性別：</strong> {bookingDetails.gender}</Typography>}
+                    <Typography variant="body2" gutterBottom><strong>預約原因：</strong> {bookingDetails.appointmentReason || '未填寫'}</Typography>
+                    {bookingDetails.notes && <Typography variant="body2"><strong>備註：</strong> {bookingDetails.notes}</Typography>}
+                  </Paper>
+                  <Alert severity="info" sx={{fontSize: isMobile ? '0.8rem' : undefined}}>
+                    點擊「確認預約」後，系統將為您保留此時段。
+                  </Alert>
                 </Box>
-                <Typography variant="h6" gutterBottom>
-                  預約成功！
-                </Typography>
-                <Paper
-                  elevation={0}
-                  sx={{ 
-                    bgcolor: 'grey.100',
-                    p: 2,
-                    mb: 2,
-                    borderRadius: 2,
-                    textAlign: 'left', 
-                    maxWidth: 400,
-                    margin: '0 auto',
-                  }}
-                >
-                  <Typography variant="body2" paragraph>
-                    日期：{selectedDate ? format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW }) : '未指定'}
-                    </Typography>
-                  <Typography variant="body2" paragraph>
-                    時間：{selectedTimeSlot || '未指定'}
-                    </Typography>
-                  <Typography variant="body2" paragraph>
-                    預約者：{bookingDetails.patientName}
-                  </Typography>
-                  <Typography variant="body2">
-                    聯絡電話：{bookingDetails.patientPhone}
-                      </Typography>
-                </Paper>
-              </Box>
-            )}
+              )}
+            </Box>
           </ApiStateHandler>
         </DialogContent>
-        <DialogActions sx={{ px: isMobile ? 2 : 3, py: isMobile ? 1.5 : 2, justifyContent: isMobile && bookingSuccess ? 'center' : 'space-between' }}>
-        {!bookingSuccess ? (
-            <>
-            <Button 
-              onClick={handleBookingDialogClose} 
-              disabled={bookingLoading}
-              sx={{ 
-                fontSize: isMobile ? '0.9rem' : undefined,
-                  mr: 1,
-                minHeight: isMobile ? '42px' : undefined
-              }}
-            >
-              取消
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-                onClick={handleBookingSubmit}
-                disabled={
-                  bookingLoading ||
-                  !bookingDetails.patientName ||
-                  !bookingDetails.patientPhone ||
-                  !bookingDetails.patientEmail
-                }
-              startIcon={bookingLoading ? <CircularProgress size={20} color="inherit" /> : null}
-              sx={{ 
-                  minWidth: '100px',
-                fontSize: isMobile ? '0.9rem' : undefined,
-                minHeight: isMobile ? '42px' : undefined
-              }}
-            >
-              {bookingLoading ? '處理中...' : '確認預約'}
-            </Button>
-            </>
-        ) : (
-            <Box sx={{ display: 'flex', justifyContent: isMobile ? 'space-around' : 'center', width: '100%', gap: 1 }}>
-            <Button 
-              variant="outlined"
-                color="primary"
-                onClick={handleBookingDialogClose}
-              sx={{ 
-                  minWidth: '100px',
-                fontSize: isMobile ? '0.9rem' : undefined,
-                  py: isMobile ? 1 : undefined
-              }}
-            >
-              關閉
-            </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<ScreenshotIcon />}
-                onClick={() => {
-                  alert('系統提示：請手動截圖此畫面作為預約憑證。');
-                }}
-                sx={{ 
-                  minWidth: '100px',
-                  fontSize: isMobile ? '0.9rem' : undefined,
-                  py: isMobile ? 1 : undefined
-                }}
-              >
-                截圖提示
-              </Button>
-            </Box>
-          )}
-          </DialogActions>
+        <DialogActions sx={{ px: isMobile ? 2 : 3, py: isMobile ? 1.5 : 2, justifyContent: 'space-between', borderTop: '1px solid', borderColor:'divider' }}>
+          <Button
+            onClick={activeStep === 0 ? handleBookingDialogClose : handleBackStep}
+            disabled={bookingLoading}
+            sx={{ fontSize: isMobile ? '0.9rem' : undefined, minHeight: isMobile ? '42px' : undefined }}
+          >
+            {activeStep === 0 ? '取消' : '上一步'}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={activeStep === steps.length - 1 ? handleBookingSubmit : handleNextStep}
+            disabled={bookingLoading}
+            startIcon={bookingLoading && activeStep === steps.length - 1 ? <CircularProgress size={20} color="inherit" /> : null}
+            sx={{ minWidth: '100px', fontSize: isMobile ? '0.9rem' : undefined, minHeight: isMobile ? '42px' : undefined }}
+          >
+            {bookingLoading && activeStep === steps.length - 1 ? '處理中...' : (activeStep === steps.length - 1 ? '確認預約' : '下一步')}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Container>
   );
