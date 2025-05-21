@@ -1,3 +1,2 @@
- M .cursor/scratchpad.md
  M changed_files.txt
  M src/components/doctor/dashboard/ScheduleManager.jsx
