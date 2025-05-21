@@ -1,6 +1,4 @@
- M auto_git_push.bat
- M auto_git_push.ps1
- M git_auto_push.cjs
- M git_auto_push.js
- M "git\344\270\212\345\202\263.bat"
-?? changed_files.txt
+ M .cursor/scratchpad.md
+ M changed_files.txt
+ M src/components/doctor/dashboard/ScheduleManager.jsx
+ M src/pages/AppointmentBookingPage.jsx
