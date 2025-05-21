@@ -324,6 +324,7 @@ const AppointmentBookingPage = () => {
     }));
     // Potentially refetch schedule if the booked slot should now appear as unavailable immediately
     // However, this might be better handled by the calendar view updating based on booking.
+    fetchSchedule(); // 新增：重新獲取排班數據
   };
 
   const handleBookingDetailsChange = e => {
