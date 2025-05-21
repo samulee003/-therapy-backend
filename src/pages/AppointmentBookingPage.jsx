@@ -346,14 +346,21 @@ const AppointmentBookingPage = () => {
 
     try {
       const appointmentData = {
-        userId: user.id, // Assuming userId is patient's ID
-        doctorId: bookingDetails.doctorId,
-        appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
-        appointmentTime: selectedTimeSlot,
+        patientId: user.id, // Assuming backend expects patientId from the authenticated user
+        
+        doctorId: bookingDetails.doctorId, // This seems to be correctly picked up by backend
+        
+        appointmentDate: format(selectedDate, 'yyyy-MM-dd'), // This seems to be correctly picked up by backend
+        
+        timeSlot: selectedTimeSlot, // Assuming backend expects timeSlot
+
         reason: bookingDetails.appointmentReason,
         notes: bookingDetails.notes,
-        isNewPatient: bookingDetails.isNewPatient === 'yes',
-        patientInfo: { // Include all relevant patient details from the form
+        
+        // isNewPatient is part of bookingDetails from the form, backend log implies it's looking for it
+        isNewPatient: bookingDetails.isNewPatient === 'yes', 
+
+        patientInfo: { // This sub-object seems to be recognized
           name: bookingDetails.patientName,
           phone: bookingDetails.patientPhone,
           email: bookingDetails.patientEmail,
@@ -362,7 +369,7 @@ const AppointmentBookingPage = () => {
         },
       };
 
-      console.log('提交預約資料:', appointmentData);
+      console.log('修改後提交預約資料:', appointmentData); // Log the modified data
       const response = await bookAppointment(appointmentData);
       console.log('預約 API 回應:', response);
 
