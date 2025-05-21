@@ -238,8 +238,8 @@ const AppointmentBookingPage = () => {
       if (response && response.data) {
         const doctorsData = Array.isArray(response.data) ? response.data : response.data.doctors;
         if (Array.isArray(doctorsData)) {
-          // 在這裡添加過濾邏輯
-          const filteredDoctors = doctorsData.filter(doctor => doctor.name !== "Dr. Demo");
+          // 修改過濾邏輯以包含 "測試醫生"
+          const filteredDoctors = doctorsData.filter(doctor => doctor.name !== "測試醫生" && doctor.name !== "Dr. Demo");
           setDoctors(filteredDoctors);
       } else {
           console.warn('獲取治療師列表成功，但數據格式非預期陣列:', response.data);
@@ -559,7 +559,8 @@ const AppointmentBookingPage = () => {
         >
           <Grid container spacing={isMobile ? 1 : 2}>
             {doctors
-              .filter(doctor => doctor.name !== "Dr. Demo") // 過濾掉 Dr. Demo
+              // 修改過濾邏輯以包含 "測試醫生"
+              .filter(doctor => doctor.name !== "測試醫生" && doctor.name !== "Dr. Demo") 
               .map(doctor => (
               <Grid item key={doctor.id} xs={6} sm={6} md={isTablet ? 4 : 3} lg={2}>
                 <Button
