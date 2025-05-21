@@ -192,29 +192,45 @@ const ScheduleManager = ({ user }) => {
     }
 
     const cleanedSlots = rawSlots.map(slot => {
-      if (typeof slot === 'string' && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot)) {
-        return slot; // Correct HH:MM format
-      }
       if (typeof slot === 'string') {
-        // 嘗試轉換常見的非標準格式，例如 "下午 02:00" 或 "2 PM"
-        // 這部分可以根據實際遇到的錯誤格式進行擴展
+        const hhmmRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+        if (hhmmRegex.test(slot)) {
+          return slot; // Correct HH:MM format
+        }
+
+        // 嘗試轉換常見的非標準格式
         const lowerSlot = slot.toLowerCase();
-        const timeMatch = lowerSlot.match(/(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
-          let hours = parseInt(timeMatch[1], 10);
-          const minutes = parseInt(timeMatch[2], 10);
+        // Regex to capture hours and optional minutes, allowing for formats like "下午 02:" or "2pm" or "14:30"
+        const timePattern = /(\d{1,2})(:(\d{2}))?/; 
+        const match = lowerSlot.match(timePattern);
+
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          // Minutes are optional in the regex (group 3). If undefined, default to 0.
+          const minutes = match[3] ? parseInt(match[3], 10) : 0; 
+
+          if (isNaN(hours) || isNaN(minutes)) {
+            console.warn(`無法從 "${slot}" 解析出有效的數字時和分。`);
+            return null;
+          }
+
+          // Adjust hours for AM/PM if present
           if (lowerSlot.includes('pm') || lowerSlot.includes('下午')) {
             if (hours < 12) hours += 12;
           } else if (lowerSlot.includes('am') || lowerSlot.includes('上午')) {
             if (hours === 12) hours = 0; // 12 AM is 00 hours
           }
-          // 再次驗證轉換後的格式
+
+          // Final validation and formatting
           if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
             const formattedHours = String(hours).padStart(2, '0');
             const formattedMinutes = String(minutes).padStart(2, '0');
             const convertedSlot = `${formattedHours}:${formattedMinutes}`;
             console.log(`時段 "${slot}" 已轉換為 "${convertedSlot}"`);
             return convertedSlot;
+          } else {
+            console.warn(`轉換後的時段 "${hours}:${minutes}" (來自 "${slot}") 無效。`);
+            return null;
           }
         }
       }
@@ -295,30 +311,36 @@ const ScheduleManager = ({ user }) => {
         .filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot))
         .sort();
 
-      if (validSlots.length === 0) {
-        // 允許非休息日但無時段，直接送出空 definedSlots
-        // 不再報錯，也不 return
-      }
+      // 如果清空了所有時段，我們將其視為休息日來保存，以避免後端關於 startTime/endTime 的錯誤
+      const isEffectivelyRestDay = validSlots.length === 0;
 
-      const startTime = validSlots[0] || null;
-      const lastSlotStartTime = validSlots[validSlots.length - 1] || null;
-      // 假設 slotDuration 為 30 分鐘
-      const slotDurationMinutes = 30; 
-      const endTime = lastSlotStartTime ? addMinutesToTime(lastSlotStartTime, slotDurationMinutes) : null;
+      // 只有在不是休息日且有有效時段的情況下，才計算 startTime 和 endTime
+      // 否則，它們將是 null，這對於休息日或沒有時段的排班是可接受的
+      let startTime = null;
+      let endTime = null;
+      const slotDurationMinutes = 30; // 假設的持續時間，後端可能也有自己的預設
+
+      if (!isEffectivelyRestDay && validSlots.length > 0) {
+        startTime = validSlots[0];
+        const lastSlotStartTime = validSlots[validSlots.length - 1];
+        endTime = addMinutesToTime(lastSlotStartTime, slotDurationMinutes);
+      }
 
       const payload = {
         doctorId,
         date: editingDate,
-        startTime,
-        endTime,
-        slotDuration: slotDurationMinutes,
+        startTime, // 如果 isEffectivelyRestDay 為 true 或 validSlots 為空, 這會是 null
+        endTime,   // 同上
+        isRestDay: isEffectivelyRestDay,
+        slotDuration: slotDurationMinutes, // 或者後端處理此值
         definedSlots: validSlots
       };
 
       console.log(`正在保存 ${editingDate} 的排班資料:`, payload);
-      await saveScheduleForDate(doctorId, editingDate, startTime, endTime, false, slotDurationMinutes, validSlots);
+      // 確認 saveScheduleForDate API 服務函式能正確傳遞 isRestDay
+      await saveScheduleForDate(doctorId, editingDate, startTime, endTime, isEffectivelyRestDay, slotDurationMinutes, validSlots);
 
-      setErrorSchedule('');
+      setErrorSchedule(''); // 清除之前的錯誤或提示
       setEditingDate(null);
       setAvailableSlotsForEdit([]);
       
