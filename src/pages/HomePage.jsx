@@ -23,7 +23,6 @@ import heroImage from '../assets/hero-image.jpg'; // Corrected relative path
 const HomePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isMedium = useMediaQuery(theme.breakpoints.down('md'));
 
   const features = [
     {

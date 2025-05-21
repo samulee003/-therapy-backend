@@ -364,6 +364,7 @@ const RegisterPage = () => {
                 label="密碼 (Password)"
                 type={showPassword ? 'text' : 'password'}
                 id="password"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={handleChange}
                 error={!!errors.password}
@@ -396,6 +397,7 @@ const RegisterPage = () => {
                 label="確認密碼 (Confirm Password)"
                 type={showConfirmPassword ? 'text' : 'password'}
                 id="confirmPassword"
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 error={!!errors.confirmPassword}
