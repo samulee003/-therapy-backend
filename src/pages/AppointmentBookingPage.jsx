@@ -487,7 +487,7 @@ const AppointmentBookingPage = () => {
             {doctors
               .filter(doctor => doctor.name !== "Dr. Demo") // 過濾掉 Dr. Demo
               .map(doctor => (
-              <Grid item key={doctor.id} xs={6} sm={6} md={4}>
+              <Grid item key={doctor.id} xs={6} sm={6} md={isTablet ? 4 : 3} lg={2}>
                 <Button
                   fullWidth
                   variant={
@@ -496,26 +496,28 @@ const AppointmentBookingPage = () => {
                   onClick={() => handleDoctorChange(doctor.id.toString())}
                   sx={{
                     py: isMobile ? 1.5 : 2,
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    bgcolor:
-                      bookingDetails.doctorId === doctor.id.toString()
-                        ? 'primary.main'
-                        : 'background.paper',
-                    color:
-                      bookingDetails.doctorId === doctor.id.toString()
-                        ? 'common.white'
-                        : 'text.primary',
-                    fontSize: isMobile ? '0.85rem' : undefined,
-                    minHeight: isMobile ? '50px' : undefined,
-                    borderRadius: '8px',
+                    height: '100%', // 確保按鈕等高
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    fontSize: isMobile ? '0.8rem' : '0.9rem',
+                    minHeight: isMobile ? '60px' : '80px',
+                    whiteSpace: 'normal', // 允許文字換行
+                    lineHeight: 1.2,
+                    '& .MuiButton-startIcon': { // 如果有圖標
+                      marginRight: 0,
+                      marginBottom: 0.5,
+                    },
                   }}
                 >
-                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant={isMobile ? "body1" : "subtitle1"} fontWeight="bold">
-                      {doctor.name}
+                  {doctor.name}
+                  {doctor.specialties && (
+                    <Typography variant="caption" display="block" sx={{ fontSize: '0.7rem', mt: 0.5, color: 'text.secondary' }}>
+                      ({doctor.specialties.join(', ')})
                     </Typography>
-                  </Box>
+                  )}
                 </Button>
               </Grid>
             ))}
@@ -523,259 +525,208 @@ const AppointmentBookingPage = () => {
         </ApiStateHandler>
       </Paper>
 
-      <Paper elevation={3} sx={{ p: isMobile ? 1.5 : 4, borderRadius: 2 }}>
+      {/* Calendar Display - START */}
+      <Box sx={{ mt: isMobile ? 2 : 4, mb: isMobile ? 2 : 3 }}>
         {/* Month Navigation */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={isMobile ? 1 : 2}>
-          <IconButton 
-            onClick={handlePreviousMonth} 
-            aria-label="上個月" 
-            disabled={loadingSchedule} 
-            size={isMobile ? "medium" : "large"}
-            sx={{ 
-              width: isMobile ? 40 : 48, 
-              height: isMobile ? 40 : 48,
-              backgroundColor: 'rgba(0, 0, 0, 0.03)',
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.08)',
-              }
-            }}
-          >
-            <ArrowBackIosNew fontSize={isMobile ? "small" : "medium"} />
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+            px: isMobile ? 0 : 1,
+          }}
+        >
+          <IconButton onClick={handlePreviousMonth} disabled={loadingSchedule} aria-label="上個月">
+            <ArrowBackIosNew />
           </IconButton>
-          <Typography 
-            variant={isMobile ? "h6" : "h5"} 
-            component="div" 
-            fontWeight="medium"
-            sx={{ fontSize: isMobile ? '1.1rem' : undefined }}
-          >
+          <Typography variant={isMobile ? "h6" : "h5"} component="h2" fontWeight="medium">
             {format(currentDate, 'yyyy年 MMMM', { locale: zhTW })}
           </Typography>
-          <IconButton 
-            onClick={handleNextMonth} 
-            aria-label="下個月" 
-            disabled={loadingSchedule} 
-            size={isMobile ? "medium" : "large"}
-            sx={{ 
-              width: isMobile ? 40 : 48, 
-              height: isMobile ? 40 : 48,
-              backgroundColor: 'rgba(0, 0, 0, 0.03)',
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.08)',
-              }
-            }}
-          >
-            <ArrowForwardIos fontSize={isMobile ? "small" : "medium"} />
+          <IconButton onClick={handleNextMonth} disabled={loadingSchedule} aria-label="下個月">
+            <ArrowForwardIos />
           </IconButton>
         </Box>
 
-        {/* 使用 ApiStateHandler 處理載入狀態 */}
-        <ApiStateHandler
-          loading={authLoading || loadingSchedule}
-          error={scheduleError}
-          success={scheduleSuccess}
-          loadingMessage={authLoading ? '載入用戶資訊...' : '載入排班中...'}
-          onErrorClose={() => setScheduleError('')}
-          onSuccessClose={() => setScheduleSuccess('')}
-          loadingType="linear"
-        >
-          {/* Calendar Grid */}
-          <Box sx={{ 
-            width: '100%', 
-            overflowX: isMobile ? 'auto' : 'visible', 
-            minWidth: isMobile ? 340 : 'unset',
-            '&::-webkit-scrollbar': {
-              height: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'rgba(0,0,0,0.05)',
-              borderRadius: '10px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(0,0,0,0.15)',
-              borderRadius: '10px',
-              '&:hover': {
-                backgroundColor: 'rgba(0,0,0,0.25)',
-              },
-            },
-          }}>
-            <Grid container spacing={isMobile ? 0.5 : 1} wrap="wrap">
-              {['日', '一', '二', '三', '四', '五', '六'].map(dayName => (
+        {/* Weekday Headers */}
+        <Grid container spacing={isMobile ? 0.5 : 1} sx={{ mb: 1, px: isMobile ? 0.5 : 0 }}>
+          {['日', '一', '二', '三', '四', '五', '六'].map(day => (
+            <Grid item xs={12 / 7} key={day} sx={{ textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary" fontWeight="medium" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+                {day}
+              </Typography>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Calendar Grid */}
+        {loadingSchedule ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Grid container spacing={isMobile ? 0.5 : 1} sx={{ px: isMobile ? 0.5 : 0 }}>
+            {/* Empty cells at the start of the month */}
+            {Array.from({ length: startingDayOfWeek }).map((_, index) => (
+              <Grid item xs={12 / 7} key={`empty-start-${index}`}>
+                <Box sx={{ height: isMobile ? 40 : 60, borderRadius: 1 }} />
+              </Grid>
+            ))}
+
+            {/* Day cells */}
+            {daysInMonth.map(day => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const dayScheduleInfo = schedule[dateStr];
+              const slotsAvailable = getAvailableSlotsForDate(dateStr).length;
+              const isSelected = selectedDate && isSameDay(day, selectedDate);
+              const isToday = isSameDay(day, new Date());
+              const isCurrentDisplayMonth = isSameMonth(day, currentDate);
+              const canSelect = isCurrentDisplayMonth && !dayScheduleInfo?.isOverallRestDay && slotsAvailable > 0;
+
+              return (
+                <Grid item xs={12 / 7} key={dateStr}>
+                  <Paper
+                    elevation={isSelected ? 6 : 1}
+                    onClick={() => (isCurrentDisplayMonth && (slotsAvailable > 0 || dayScheduleInfo?.isOverallRestDay === false)) ? handleDateClick(day) : null}
+                    sx={{
+                      p: isMobile ? 0.5 : 1,
+                      textAlign: 'center',
+                      cursor: (isCurrentDisplayMonth && (slotsAvailable > 0 || dayScheduleInfo?.isOverallRestDay === false)) ? 'pointer' : 'default',
+                      backgroundColor: isSelected
+                        ? theme.palette.primary.main
+                        : isToday
+                        ? theme.palette.action.hover
+                        : 'background.paper',
+                      color: isSelected ? theme.palette.primary.contrastText : 'inherit',
+                      opacity: isCurrentDisplayMonth ? 1 : 0.5,
+                      border: isSelected ? `2px solid ${theme.palette.primary.dark}` : `1px solid ${theme.palette.divider}`,
+                      borderRadius: 1,
+                      minHeight: isMobile ? 50 : 70,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      aspectRatio: '1 / 1', // Maintain square-ish cells
+                      '&:hover': {
+                        backgroundColor: (isCurrentDisplayMonth && (slotsAvailable > 0 || dayScheduleInfo?.isOverallRestDay === false)) ? (isSelected ? theme.palette.primary.dark : theme.palette.action.selected) : undefined,
+                      },
+                      fontSize: isMobile ? '0.8rem' : '1rem',
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      component="div"
+                      fontWeight={isSelected || isToday ? 'bold' : 'normal'}
+                      color={isSelected ? 'inherit' : (isCurrentDisplayMonth ? 'text.primary' : 'text.disabled')}
+                      sx={{ fontSize: 'inherit' }}
+                    >
+                      {format(day, 'd')}
+                    </Typography>
+                    {isCurrentDisplayMonth && slotsAvailable > 0 && (
+                      <Chip
+                        label={`${slotsAvailable} 時段`}
+                        size="small"
+                        color={isSelected ? "default" : "secondary"}
+                        variant={isSelected ? "filled" : "outlined"}
+                        sx={{ 
+                          mt: 0.5, 
+                          height: isMobile ? 16 : 20, 
+                          fontSize: isMobile ? '0.6rem' : '0.65rem',
+                          bgcolor: isSelected ? 'common.white' : undefined,
+                          color: isSelected ? 'secondary.main' : undefined,
+                         }}
+                      />
+                    )}
+                    {isCurrentDisplayMonth && dayScheduleInfo?.isOverallRestDay && slotsAvailable === 0 && (
+                       <Typography variant="caption" display="block" sx={{ fontSize: '0.6rem', color: isSelected ? 'common.white' : 'text.secondary', mt:0.5 }}>
+                         休息
+                       </Typography>
+                     )}
+                  </Paper>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+      </Box>
+      {/* Calendar Display - END */}
+
+      {/* Available Time Slots */}
+      {selectedDate && !loadingSchedule && (
+        <Box mt={isMobile ? 2 : 4}>
+          <Typography 
+            variant={isMobile ? "subtitle1" : "h6"} 
+            gutterBottom 
+            fontWeight="medium"
+            sx={{ fontSize: isMobile ? '0.95rem' : undefined }}
+          >
+            {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })} 可用時段:
+          </Typography>
+          {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).length === 0 ? (
+            <Typography color="text.secondary" sx={{ fontSize: isMobile ? '0.85rem' : undefined }}>
+              此日期已無可用時段。
+            </Typography>
+          ) : (
+            <Grid container spacing={isMobile ? 1 : 1.5}>
+              {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).map(slot => (
                 <Grid
                   item
-                  xs={1}
-                  key={dayName}
-                  sx={{ 
-                    textAlign: 'center', 
-                    fontWeight: 'bold', 
-                    color: 'text.secondary', 
-                    py: isMobile ? 0.5 : 1,
-                    fontSize: isMobile ? '0.85rem' : 'inherit'
-                  }}
+                  key={`${slot.time}-${slot.doctorId || 'unknown'}`}
+                  xs={6}
+                  sm={4}
+                  md={3}
+                  lg={2}
                 >
-                  {dayName}
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => handleTimeSlotClick(slot)}
+                    startIcon={isMobile ? null : <AccessTimeIcon />}
+                    sx={{
+                      py: isMobile ? 1.5 : 1.5,
+                      px: isMobile ? 0.5 : 2,
+                      bgcolor:
+                        selectedTimeSlot === slot.time ? 'secondary.dark' : 'secondary.main',
+                      '&:hover': { bgcolor: 'secondary.dark' },
+                      fontSize: isMobile ? '0.9rem' : 'inherit',
+                      borderRadius: '8px',
+                      minHeight: isMobile ? '48px' : undefined,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      '&:active': {
+                        transform: 'scale(0.95)',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                      }
+                    }}
+                  >
+                    {slot.time}
+                    {/* 只有在未指定治療師ID時才顯示治療師姓名 */}
+                    {!bookingDetails.doctorId && slot.doctorName && (
+                      <Typography
+                        variant="caption"
+                        sx={{ 
+                          display: 'block', 
+                          width: '100%', 
+                          textAlign: 'center', 
+                          mt: 0.3,
+                          fontSize: isMobile ? '0.65rem' : 'inherit',
+                          fontWeight: 'medium',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {slot.doctorName}
+                      </Typography>
+                    )}
+                  </Button>
                 </Grid>
               ))}
-              {Array.from({ length: startingDayOfWeek }).map((_, index) => (
-                <Grid item xs={1} key={`empty-${index}`} />
-              ))}
-              {daysInMonth.map(day => {
-                const dayStr = format(day, 'yyyy-MM-dd');
-                const availableSlots = getAvailableSlotsForDate(dayStr);
-                const isSelectable = availableSlots.length > 0 && isSameMonth(day, currentDate);
-                const isSelected = selectedDate && isSameDay(day, selectedDate);
-
-                return (
-                  <Grid item xs={1} key={dayStr} sx={{ p: isMobile ? 0.3 : 0.5 }}>
-                    <Button
-                      fullWidth
-                      variant={isSelected ? 'contained' : 'outlined'}
-                      onClick={() => isSelectable && handleDateClick(day)}
-                      disabled={!isSelectable}
-                      sx={{
-                        height: isMobile ? 56 : 80,
-                        minWidth: 'auto',
-                        p: isMobile ? 0.5 : 1.5,
-                        flexDirection: 'column',
-                        borderColor: isSelected
-                          ? 'primary.main'
-                          : isSameDay(day, new Date())
-                            ? 'primary.light'
-                            : 'divider',
-                        bgcolor: isSelected
-                          ? 'primary.main'
-                          : isSelectable
-                            ? 'background.paper'
-                            : 'action.disabledBackground',
-                        color: isSelected
-                          ? 'common.white'
-                          : isSelectable
-                            ? 'text.primary'
-                            : 'text.disabled',
-                        '&:hover': {
-                          bgcolor: isSelectable
-                            ? isSelected
-                              ? 'primary.dark'
-                              : 'primary.lighter'
-                            : undefined,
-                        },
-                        fontSize: isMobile ? '1rem' : 'inherit',
-                        borderRadius: '10px',
-                        boxShadow: isSelected ? 2 : 0,
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        '&:active': {
-                          transform: 'scale(0.95)',
-                        }
-                      }}
-                    >
-                      <Typography 
-                        variant={isMobile ? "body1" : "body1"} 
-                        fontWeight={isSelected ? 'bold' : 'normal'}
-                        sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}
-                      >
-                        {format(day, 'd')}
-                      </Typography>
-                      {isSelectable && (
-                        <Chip
-                          label={`${availableSlots.length} 時段`}
-                          size="small"
-                          sx={{
-                            mt: 0.5,
-                            height: isMobile ? 20 : 24,
-                            fontSize: isMobile ? '0.7rem' : '0.75rem',
-                            fontWeight: 'medium',
-                            bgcolor: isSelected ? 'primary.dark' : 'secondary.lighter',
-                            color: isSelected ? 'common.white' : 'secondary.darker',
-                            '.MuiChip-label': {
-                              px: isMobile ? 0.5 : 0.75,
-                            }
-                          }}
-                        />
-                      )}
-                    </Button>
-                  </Grid>
-                );
-              })}
             </Grid>
-          </Box>
-        </ApiStateHandler>
-
-        {/* Available Time Slots */}
-        {selectedDate && !loadingSchedule && (
-          <Box mt={isMobile ? 2 : 4}>
-            <Typography 
-              variant={isMobile ? "subtitle1" : "h6"} 
-              gutterBottom 
-              fontWeight="medium"
-              sx={{ fontSize: isMobile ? '0.95rem' : undefined }}
-            >
-              {format(selectedDate, 'yyyy年 M月 d日 (eeee)', { locale: zhTW })} 可用時段:
-            </Typography>
-            {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).length === 0 ? (
-              <Typography color="text.secondary" sx={{ fontSize: isMobile ? '0.85rem' : undefined }}>
-                此日期已無可用時段。
-              </Typography>
-            ) : (
-              <Grid container spacing={isMobile ? 1 : 1.5}>
-                {getAvailableSlotsForDate(format(selectedDate, 'yyyy-MM-dd')).map(slot => (
-                  <Grid
-                    item
-                    key={`${slot.time}-${slot.doctorId || 'unknown'}`}
-                    xs={6}
-                    sm={4}
-                    md={3}
-                    lg={2}
-                  >
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      color="secondary"
-                      onClick={() => handleTimeSlotClick(slot)}
-                      startIcon={isMobile ? null : <AccessTimeIcon />}
-                      sx={{
-                        py: isMobile ? 1.5 : 1.5,
-                        px: isMobile ? 0.5 : 2,
-                        bgcolor:
-                          selectedTimeSlot === slot.time ? 'secondary.dark' : 'secondary.main',
-                        '&:hover': { bgcolor: 'secondary.dark' },
-                        fontSize: isMobile ? '0.9rem' : 'inherit',
-                        borderRadius: '8px',
-                        minHeight: isMobile ? '48px' : undefined,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        '&:active': {
-                          transform: 'scale(0.95)',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                        }
-                      }}
-                    >
-                      {slot.time}
-                      {/* 只有在未指定治療師ID時才顯示治療師姓名 */}
-                      {!bookingDetails.doctorId && slot.doctorName && (
-                        <Typography
-                          variant="caption"
-                          sx={{ 
-                            display: 'block', 
-                            width: '100%', 
-                            textAlign: 'center', 
-                            mt: 0.3,
-                            fontSize: isMobile ? '0.65rem' : 'inherit',
-                            fontWeight: 'medium',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
-                          {slot.doctorName}
-                        </Typography>
-                      )}
-                    </Button>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Box>
-        )}
-      </Paper>
+          )}
+        </Box>
+      )}
 
       {/* Booking Dialog */}
       <Dialog 
