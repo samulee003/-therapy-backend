@@ -57,21 +57,27 @@ const AppointmentManager = ({ user }) => {
     setErrorAppointments('');
     try {
       const response = await getDoctorAppointments();
+      let rawAppointments = [];
       // 處理新格式的回應（包含 success 欄位和 appointments 陣列）
       if (response.data && response.data.success) {
-        // 新的 API 回應格式
-        setAppointments(response.data.appointments || []);
-        setFilteredAppointments(response.data.appointments || []);
+        rawAppointments = response.data.appointments || [];
       } else if (Array.isArray(response.data)) {
         // 保持向後兼容的處理方式
-        setAppointments(response.data);
-        setFilteredAppointments(response.data);
+        rawAppointments = response.data;
       } else {
         // 其他情況，設為空陣列
         console.warn('意外的回應格式:', response.data);
-        setAppointments([]);
-        setFilteredAppointments([]);
       }
+
+      // 新增：過濾掉測試醫生的預約數據
+      const doctorsToFilter = ["測試醫生", "Dr. Demo"];
+      const processedAppointments = rawAppointments.filter(
+        appointment => !doctorsToFilter.includes(appointment.doctorName) // 假設預約物件有 doctorName 屬性
+      );
+
+      setAppointments(processedAppointments);
+      setFilteredAppointments(processedAppointments); // 初始化 filteredAppointments
+
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
       setErrorAppointments(err.response?.data?.message || err.message || '無法加載預約記錄。');

@@ -106,11 +106,19 @@ const ScheduleManager = ({ user }) => {
       // 修正：適應後端API不同的回應格式
       // 檢查是否成功及數據格式
       if (response.data && response.data.schedules) {
+        // 新增：先過濾掉測試醫生的原始排班記錄
+        const doctorsToFilterByName = ["測試醫生", "Dr. Demo"]; // 假設我們用名字過濾
+        // 假設 response.data.schedules 中的每個 item 都有 doctorName 屬性
+        // 如果是用 ID 過濾，這裡需要 doctorsToFilterById 和 item.doctorId
+        const filteredRawSchedules = response.data.schedules.filter(
+          item => !doctorsToFilterByName.includes(item.doctorName) 
+        );
+
         // 將後端返回的排班數據轉換為前端需要的格式
         const scheduleData = {};
         
-        // 遍歷返回的排班數據，按日期組織
-        response.data.schedules.forEach(scheduleItem => {
+        // 遍歷過濾後的排班數據，按日期組織
+        filteredRawSchedules.forEach(scheduleItem => {
           const dateStr = scheduleItem.date;
           
           let finalAvailableSlots = [];
