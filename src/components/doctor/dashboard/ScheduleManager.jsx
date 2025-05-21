@@ -179,22 +179,56 @@ const ScheduleManager = ({ user }) => {
     console.log('[ScheduleManager] handleEditDate called with date:', dateStr);
     setEditingDate(dateStr);
     const dayData = schedule[dateStr] || {};
-    
-    // 優先使用存儲的 definedSlots (如果存在且有效)，否則使用 availableSlots
-    // availableSlots 此時可能是根據 start/end time 生成的，或直接就是 defined_slots
-    let slotsForEditing = [];
-    if (dayData.definedSlots && Array.isArray(dayData.definedSlots) && dayData.definedSlots.length > 0) {
-      slotsForEditing = [...dayData.definedSlots];
-      console.log('編輯日期', dateStr, '使用 definedSlots:', slotsForEditing);
-    } else if (dayData.availableSlots && Array.isArray(dayData.availableSlots)) {
-      // 如果沒有 definedSlots，但有 availableSlots (可能是從 start/end time 生成的)
-      slotsForEditing = [...dayData.availableSlots];
-      console.log('編輯日期', dateStr, '使用 availableSlots (無 definedSlots):', slotsForEditing);
-    }
-    // 如果 dayData.definedSlots 是空陣列 (例如設為休息日後清除，或後端明確返回空 defined_slots)
-    // 則 slotsForEditing 仍為空陣列，這是正確的
+    let rawSlots = [];
 
-    setAvailableSlotsForEdit(slotsForEditing);
+    // 優先使用 definedSlots，如果不存在或為空，再考慮 availableSlots (可能是舊資料的備援)
+    if (dayData.definedSlots && Array.isArray(dayData.definedSlots)) {
+      rawSlots = [...dayData.definedSlots];
+      console.log('編輯日期', dateStr, '使用 definedSlots (原始):', rawSlots);
+    } else if (dayData.availableSlots && Array.isArray(dayData.availableSlots)) {
+      // 這是備援，理想情況下前端應只依賴 definedSlots 進行編輯
+      rawSlots = [...dayData.availableSlots]; 
+      console.warn('編輯日期', dateStr, 'definedSlots 為空/不存在，回退使用 availableSlots (原始):', rawSlots);
+    }
+
+    const cleanedSlots = rawSlots.map(slot => {
+      if (typeof slot === 'string' && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot)) {
+        return slot; // Correct HH:MM format
+      }
+      if (typeof slot === 'string') {
+        // 嘗試轉換常見的非標準格式，例如 "下午 02:00" 或 "2 PM"
+        // 這部分可以根據實際遇到的錯誤格式進行擴展
+        const lowerSlot = slot.toLowerCase();
+        const timeMatch = lowerSlot.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          let hours = parseInt(timeMatch[1], 10);
+          const minutes = parseInt(timeMatch[2], 10);
+          if (lowerSlot.includes('pm') || lowerSlot.includes('下午')) {
+            if (hours < 12) hours += 12;
+          } else if (lowerSlot.includes('am') || lowerSlot.includes('上午')) {
+            if (hours === 12) hours = 0; // 12 AM is 00 hours
+          }
+          // 再次驗證轉換後的格式
+          if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            const formattedHours = String(hours).padStart(2, '0');
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const convertedSlot = `${formattedHours}:${formattedMinutes}`;
+            console.log(`時段 "${slot}" 已轉換為 "${convertedSlot}"`);
+            return convertedSlot;
+          }
+        }
+      }
+      console.warn(`時段 "${slot}" (類型: ${typeof slot}) 格式不正確或無法轉換，將被忽略。`);
+      return null;
+    }).filter(Boolean); // 移除所有 null 值
+
+    setAvailableSlotsForEdit(cleanedSlots);
+
+    if (rawSlots.length > 0 && cleanedSlots.length < rawSlots.length) {
+      setErrorSchedule('注意：部分已儲存的時段格式不正確，已自動過濾或嘗試轉換。請檢查並重新儲存以確保格式統一。');
+    } else {
+      setErrorSchedule(''); // 如果沒有格式問題，清除之前的錯誤訊息
+    }
   };
 
   // 處理添加預設時段
