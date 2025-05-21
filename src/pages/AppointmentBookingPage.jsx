@@ -109,7 +109,7 @@ const AppointmentBookingPage = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
-  const [bookingSuccess, setBookingSuccess] = useState('');
+  const [bookingSuccess, setBookingSuccess] = useState(null); // Changed to null, will store object on success
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-indexed
@@ -298,7 +298,24 @@ const AppointmentBookingPage = () => {
   const handleBookingDialogClose = () => {
     setBookingDialogOpen(false);
     setBookingError('');
-    setBookingSuccess('');
+    // Do not clear bookingSuccess here, let the success dialog handle it.
+  };
+
+  const handleBookingSuccessDialogClose = () => {
+    setBookingSuccess(null); // Clear success message
+    setSelectedDate(null);
+    setSelectedTimeSlot(null);
+    // Optionally reset parts of bookingDetails if needed for a new booking
+    // For example, clear appointmentReason and notes, but keep patient info if logged in
+    setBookingDetails(prev => ({
+      ...prev,
+      appointmentReason: '',
+      notes: '',
+      // doctorId might need to be reset if the user should re-select a doctor for a new booking
+      // doctorId: '', 
+    }));
+    // Potentially refetch schedule if the booked slot should now appear as unavailable immediately
+    // However, this might be better handled by the calendar view updating based on booking.
   };
 
   const handleBookingDetailsChange = e => {
@@ -310,39 +327,58 @@ const AppointmentBookingPage = () => {
   };
 
   const handleBookingSubmit = async () => {
-    if (!selectedDate || !selectedTimeSlot) {
-      setBookingError('請選擇日期和時段。');
-      return;
-    }
-    if (!user) {
-      setBookingError('請先登入才能預約。');
+    if (!user || !selectedDate || !selectedTimeSlot || !bookingDetails.doctorId) {
+      setBookingError('請確保已登入，並選擇日期、時段以及治療師。');
       return;
     }
 
     setBookingLoading(true);
     setBookingError('');
-    setBookingSuccess('');
-
-    const appointmentData = {
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      time: selectedTimeSlot,
-      patientId: user.id,
-      patientName: bookingDetails.patientName,
-      patientPhone: bookingDetails.patientPhone,
-      patientEmail: bookingDetails.patientEmail,
-      appointmentReason: bookingDetails.appointmentReason,
-      notes: bookingDetails.notes,
-      doctorId: bookingDetails.doctorId || null, // 添加治療師ID到預約數據
-    };
+    setBookingSuccess(null);
 
     try {
+      const appointmentData = {
+        userId: user.id, // Assuming userId is patient's ID
+        doctorId: bookingDetails.doctorId,
+        appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
+        appointmentTime: selectedTimeSlot,
+        reason: bookingDetails.appointmentReason,
+        notes: bookingDetails.notes,
+        isNewPatient: bookingDetails.isNewPatient === 'yes',
+        patientInfo: { // Include all relevant patient details from the form
+          name: bookingDetails.patientName,
+          phone: bookingDetails.patientPhone,
+          email: bookingDetails.patientEmail,
+          gender: bookingDetails.gender,
+          birthDate: bookingDetails.birthDate,
+        },
+      };
+
+      console.log('提交預約資料:', appointmentData);
       const response = await bookAppointment(appointmentData);
-      if (response.data && response.data.success) {
-        setBookingSuccess('預約成功！請截圖保存此預約資訊作為憑證。');
-        // Refresh schedule to reflect the booked slot
-        fetchSchedule();
+      console.log('預約 API 回應:', response);
+
+      if (response && (response.status === 201 || response.status === 200 || response.data?.success)) {
+        const bookedDoctor = doctors.find(doc => doc.id === parseInt(bookingDetails.doctorId, 10));
+        
+        setBookingSuccess({
+          message: '您的預約已成功創建！',
+          details: {
+            doctorName: bookedDoctor ? bookedDoctor.name : 'N/A',
+            date: format(selectedDate, 'yyyy年 MMMM d日 (EEEE)', { locale: zhTW }),
+            time: selectedTimeSlot,
+            patientName: bookingDetails.patientName,
+            patientPhone: bookingDetails.patientPhone,
+            reason: bookingDetails.appointmentReason,
+          }
+        });
+        setBookingDialogOpen(false); // Close the booking form dialog
+        // No need to call fetchSchedule here if the calendar updates via other means or upon closing success dialog
       } else {
-        throw new Error(response.data?.message || '預約失敗。');
+        // Handle non-successful but non-error responses if any
+        const errorMsg = response?.data?.message || response?.message || '預約失敗，請稍後再試。';
+        console.error('預約失敗 (非拋出錯誤):', errorMsg, response);
+        setBookingError(formatApiError(response) || errorMsg);
       }
     } catch (err) {
       console.error('Failed to book appointment:', err);
@@ -728,6 +764,63 @@ const AppointmentBookingPage = () => {
           </Box>
         )}
 
+      {/* Booking Success Dialog */}
+      {bookingSuccess && bookingSuccess.details && (
+        <Dialog
+          open={Boolean(bookingSuccess)}
+          onClose={handleBookingSuccessDialogClose}
+          aria-labelledby="booking-success-dialog-title"
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle id="booking-success-dialog-title" sx={{ textAlign: 'center', pb: 1 }}>
+            <EventAvailableIcon color="success" sx={{ fontSize: 40, mb: 1 }} />
+            <Typography variant="h5" component="div" fontWeight="medium">
+              {bookingSuccess.message}
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+              預約詳情：
+            </Typography>
+            <Box sx={{ '& > div': { mb: 1.5 } }}>
+              <div>
+                <Typography variant="body1"><strong>治療師：</strong> {bookingSuccess.details.doctorName}</Typography>
+              </div>
+              <div>
+                <Typography variant="body1"><strong>日期：</strong> {bookingSuccess.details.date}</Typography>
+              </div>
+              <div>
+                <Typography variant="body1"><strong>時間：</strong> {bookingSuccess.details.time}</Typography>
+              </div>
+              <div>
+                <Typography variant="body1"><strong>預約人：</strong> {bookingSuccess.details.patientName}</Typography>
+              </div>
+              {bookingSuccess.details.patientPhone && (
+                <div>
+                  <Typography variant="body1"><strong>聯絡電話：</strong> {bookingSuccess.details.patientPhone}</Typography>
+                </div>
+              )}
+              {bookingSuccess.details.reason && (
+                <div>
+                  <Typography variant="body1"><strong>預約主題：</strong> {bookingSuccess.details.reason}</Typography>
+                </div>
+              )}
+            </Box>
+            <Alert severity="info" icon={<ScreenshotIcon />} sx={{ mt: 3, mb:1 }}>
+              <Typography variant="body2" fontWeight="medium">
+                重要提示：請截圖保存您的預約詳情以便查閱。
+              </Typography>
+            </Alert>
+          </DialogContent>
+          <DialogActions sx={{ p:2 }}>
+            <Button onClick={handleBookingSuccessDialogClose} variant="contained" fullWidth>
+              關閉
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
       {/* Booking Dialog */}
       <Dialog 
         open={bookingDialogOpen} 
@@ -792,7 +885,7 @@ const AppointmentBookingPage = () => {
             success={bookingSuccess}
             loadingMessage="處理預約中..."
             onErrorClose={() => setBookingError('')}
-            onSuccessClose={() => setBookingSuccess('')}
+            onSuccessClose={() => setBookingSuccess(null)}
             loadingType="inline"
           >
             {!bookingSuccess && selectedDate && selectedTimeSlot && (
