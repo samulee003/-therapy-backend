@@ -29,11 +29,11 @@ try {
       
       try {
         // 提交更改
-        execSync(`git commit -m "${message}"`);
+        execSync(`git commit -q -m "${message}"`);
         console.log('已提交更改');
         
         // 推送到遠程倉庫
-        execSync('git push');
+        execSync('git push -q');
         console.log('已成功上傳至Git!');
       } catch (error) {
         console.error('上傳失敗:', error.message);
