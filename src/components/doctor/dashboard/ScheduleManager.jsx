@@ -430,6 +430,16 @@ const ScheduleManager = ({ user }) => {
         };
 
         console.log(`批量保存 ${dateStr} 的排班資料:`, payload);
+
+        console.log('[DEBUG] Bulk Save - Before calling API service for date:', dateStr, {
+          isRestDayForAPI: payload.isRestDay,
+          startTimeForAPI: payload.startTime,
+          endTimeForAPI: payload.endTime,
+          definedSlotsForAPI: payload.definedSlots,
+          originalValidSlotsLength: validSlots.length,
+          isRestDayForBulkInternalLogic: isRestDayForBulk
+        });
+
         await saveScheduleForDate(
           payload.doctorId,
           payload.date,
