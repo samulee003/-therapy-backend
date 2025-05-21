@@ -692,6 +692,7 @@ const ScheduleManager = ({ user }) => {
       ) : (
         <>
           {renderCalendar()}
+          {editingDate && renderDateEditor()}
           {!editingDate && renderBulkScheduler()}
         </>
       )}
