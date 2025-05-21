@@ -346,27 +346,21 @@ const AppointmentBookingPage = () => {
 
     try {
       const appointmentData = {
-        patientId: user.id, // Assuming backend expects patientId from the authenticated user
-        
-        doctorId: bookingDetails.doctorId, // This seems to be correctly picked up by backend
-        
-        appointmentDate: format(selectedDate, 'yyyy-MM-dd'), // This seems to be correctly picked up by backend
-        
-        timeSlot: selectedTimeSlot, // Assuming backend expects timeSlot
-
+        patientId: user.id, // 改為 patientId
+        doctorId: bookingDetails.doctorId,
+        appointmentDate: format(selectedDate, 'yyyy-MM-dd'), // 保持
+        timeSlot: selectedTimeSlot, // 改為 timeSlot
         reason: bookingDetails.appointmentReason,
         notes: bookingDetails.notes,
-        
-        // isNewPatient is part of bookingDetails from the form, backend log implies it's looking for it
-        isNewPatient: bookingDetails.isNewPatient === 'yes', 
-
-        patientInfo: { // This sub-object seems to be recognized
+        isNewPatient: bookingDetails.isNewPatient === 'yes', // 移至頂層並確認
+        patientInfo: { // patientInfo 結構保持
           name: bookingDetails.patientName,
           phone: bookingDetails.patientPhone,
           email: bookingDetails.patientEmail,
           gender: bookingDetails.gender,
           birthDate: bookingDetails.birthDate,
         },
+        // 確保所有後端期望的必填欄位都被包含
       };
 
       console.log('修改後提交預約資料:', appointmentData); // Log the modified data
