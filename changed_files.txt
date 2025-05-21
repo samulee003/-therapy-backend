@@ -1,2 +1,2 @@
  M changed_files.txt
- M src/pages/AppointmentBookingPage.jsx
+ M src/components/doctor/dashboard/ScheduleManager.jsx
