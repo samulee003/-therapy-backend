@@ -275,6 +275,7 @@ const PatientDashboard = () => {
             key={appointment.id}
             sx={{
               p: isMobile ? 1.5 : 2,
+              pb: isMobile ? 4 : 2, // 增加下方內邊距，為按鈕提供更多空間
               mb: 2,
               borderRadius: 2,
               backgroundColor: 'background.paper',
@@ -282,14 +283,18 @@ const PatientDashboard = () => {
               display: 'flex',
               flexDirection: isMobile ? 'column' : 'row',
               alignItems: isMobile ? 'flex-start' : 'center',
+              position: 'relative', // 確保可以在內部進行絕對定位
             }}
             secondaryAction={
               <Box sx={{ 
                 display: 'flex', 
                 gap: 1, 
                 mt: isMobile ? 1 : 0,
-                position: isMobile ? 'static' : 'absolute',
-                right: isMobile ? 'auto' : 16
+                position: isMobile ? 'absolute' : 'absolute', // 改為絕對定位
+                bottom: isMobile ? 8 : 'auto', // 在手機版時放在底部
+                right: isMobile ? 8 : 16,
+                top: isMobile ? 'auto' : '50%', // 在電腦版時垂直居中
+                transform: isMobile ? 'none' : 'translateY(-50%)', // 在電腦版時垂直居中調整
               }}>
                 <Button
                   size="small"
@@ -344,7 +349,8 @@ const PatientDashboard = () => {
                     flexWrap: 'wrap', 
                     gap: 1, 
                     mt: 0.5,
-                    pr: isMobile ? 0 : 15 // 在非手機版中為右側按鈕預留空間
+                    pr: isMobile ? 0 : 15, // 在非手機版中為右側按鈕預留空間
+                    mb: isMobile ? 2.5 : 0, // 在手機版中為底部按鈕預留空間
                   }}
                 >
                   <Chip
