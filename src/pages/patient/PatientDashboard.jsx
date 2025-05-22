@@ -27,6 +27,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -44,6 +45,8 @@ import {
   getPatientAppointments,
   cancelPatientAppointment,
   formatApiError,
+  updateUserProfile,
+  changeUserPassword,
 } from '../../services/api'; // Corrected path assuming api is in src/services
 import { ErrorAlert, LoadingIndicator, ApiStateHandler } from '../../components/common';
 
@@ -52,7 +55,7 @@ import { ErrorAlert, LoadingIndicator, ApiStateHandler } from '../../components/
 const PatientDashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { user, isLoading: authLoading } = useContext(AuthContext); // Added
+  const { user, isLoading: authLoading, refreshUser } = useContext(AuthContext); // 添加 refreshUser
   const [tabValue, setTabValue] = useState(0);
   const [appointments, setAppointments] = useState([]); // State for appointments
   const [loading, setLoading] = useState(false); // State for loading appointments
@@ -72,6 +75,26 @@ const PatientDashboard = () => {
 
   // 新增：取消預約需聯繫診所的提示對話框狀態
   const [showCancelInfoDialog, setShowCancelInfoDialog] = useState(false);
+  
+  // 新增：編輯個人資料對話框狀態
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: '',
+    email: '',
+  });
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  
+  // 新增：更改密碼對話框狀態
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   const fetchAppointments = async () => {
     if (!user) return; // Don't fetch if user is not loaded
@@ -674,20 +697,50 @@ const PatientDashboard = () => {
                       <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
                         個人資料
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" paragraph>
-                        姓名: {user?.name || '未提供'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" paragraph>
-                        用戶名/郵箱: {user?.username || '未提供'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" paragraph>
-                        角色: {user?.role === 'patient' ? '患者' : user?.role}
-                      </Typography>
-                      {/* Add button to edit profile if needed */}
-                      {/* <Button variant="outlined" sx={{mt: 1}}>編輯資料</Button> */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          <Box component="span" fontWeight="medium" display="inline-block" width="100px">姓名:</Box> 
+                          {user?.name || '未提供'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <Box component="span" fontWeight="medium" display="inline-block" width="100px">用戶名/郵箱:</Box> 
+                          {user?.username || user?.email || '未提供'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <Box component="span" fontWeight="medium" display="inline-block" width="100px">角色:</Box> 
+                          {user?.role === 'patient' ? '患者' : user?.role}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                        <Button 
+                          variant="outlined" 
+                          color="primary"
+                          startIcon={<SettingsIcon />}
+                          onClick={() => handleOpenEditProfile()}
+                        >
+                          編輯資料
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          color="secondary"
+                          onClick={() => handleOpenChangePassword()}
+                        >
+                          更改密碼
+                        </Button>
+                      </Box>
                     </CardContent>
                   </Card>
-                  {/* Add other settings sections like notifications, password change etc. */}
+
+                  <Card sx={{ borderRadius: 2, mt: 3 }}>
+                    <CardContent>
+                      <Typography variant="h6" component="h3" fontWeight="medium" gutterBottom>
+                        通知設置
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" paragraph>
+                        目前系統會自動向您註冊的郵箱發送預約通知和提醒。若要變更通知郵箱，請編輯您的個人資料。
+                      </Typography>
+                    </CardContent>
+                  </Card>
                 </Box>
               );
             default:
@@ -696,6 +749,121 @@ const PatientDashboard = () => {
         })()}
       </ApiStateHandler>
     );
+  };
+
+  // 初始化個人資料表單
+  const initProfileForm = () => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || user.username || '',
+      });
+    }
+    setProfileError('');
+  };
+
+  // 處理個人資料更新
+  const handleProfileUpdate = async () => {
+    if (!profileData.name.trim() || !profileData.email.trim()) {
+      setProfileError('姓名和電子郵箱不能為空');
+      return;
+    }
+
+    // 基本的電子郵箱格式驗證
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileData.email)) {
+      setProfileError('請輸入有效的電子郵箱格式');
+      return;
+    }
+
+    setUpdatingProfile(true);
+    setProfileError('');
+
+    try {
+      await updateUserProfile(profileData);
+      setSuccess('個人資料更新成功');
+      setEditProfileOpen(false);
+      
+      // 刷新用戶資料
+      refreshUser();
+      
+    } catch (err) {
+      console.error('更新個人資料失敗:', err);
+      const formattedError = err.formatted || formatApiError(err, '更新個人資料失敗');
+      setProfileError(formattedError.message);
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
+  // 初始化密碼表單
+  const initPasswordForm = () => {
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  // 處理密碼更改
+  const handlePasswordChange = async () => {
+    // 檢查是否有空字段
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError('所有密碼字段都必須填寫');
+      return;
+    }
+
+    // 檢查新密碼是否符合安全要求
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('新密碼長度必須至少為8個字符');
+      return;
+    }
+
+    // 檢查確認密碼是否匹配
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('確認密碼與新密碼不匹配');
+      return;
+    }
+
+    setChangingPassword(true);
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    try {
+      await changeUserPassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      
+      setPasswordSuccess('密碼已成功更改');
+      
+      // 3秒後關閉對話框
+      setTimeout(() => {
+        setChangePasswordOpen(false);
+        setPasswordSuccess('');
+      }, 3000);
+      
+    } catch (err) {
+      console.error('更改密碼失敗:', err);
+      const formattedError = err.formatted || formatApiError(err, '更改密碼失敗');
+      setPasswordError(formattedError.message);
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  // 處理打開編輯個人資料對話框
+  const handleOpenEditProfile = () => {
+    initProfileForm();
+    setEditProfileOpen(true);
+  };
+
+  // 處理打開更改密碼對話框
+  const handleOpenChangePassword = () => {
+    initPasswordForm();
+    setChangePasswordOpen(true);
   };
 
   return (
@@ -856,6 +1024,140 @@ const PatientDashboard = () => {
               </Button>
             </>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* 編輯個人資料對話框 */}
+      <Dialog open={editProfileOpen} onClose={() => setEditProfileOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>編輯個人資料</DialogTitle>
+        <DialogContent dividers>
+          {profileError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {profileError}
+            </Alert>
+          )}
+          <Grid container spacing={2} sx={{ mt: 0 }}>
+            <Grid item xs={12}>
+              <TextField
+                label="姓名"
+                fullWidth
+                margin="normal"
+                value={profileData.name || user?.name || ''}
+                onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                disabled={updatingProfile}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="電子郵箱"
+                type="email"
+                fullWidth
+                margin="normal"
+                value={profileData.email || user?.email || user?.username || ''}
+                onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                disabled={updatingProfile}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary">
+                注意：更新電子郵箱後，系統通知將發送至新郵箱地址。
+              </Typography>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditProfileOpen(false)} disabled={updatingProfile}>
+            取消
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={handleProfileUpdate}
+            disabled={updatingProfile}
+          >
+            {updatingProfile ? <CircularProgress size={24} /> : '保存'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 更改密碼對話框 */}
+      <Dialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>更改密碼</DialogTitle>
+        <DialogContent dividers>
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+          {passwordSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {passwordSuccess}
+            </Alert>
+          )}
+          <Grid container spacing={2} sx={{ mt: 0 }}>
+            <Grid item xs={12}>
+              <TextField
+                label="當前密碼"
+                type="password"
+                fullWidth
+                margin="normal"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                disabled={changingPassword}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="新密碼"
+                type="password"
+                fullWidth
+                margin="normal"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                disabled={changingPassword}
+                required
+                helperText="密碼長度至少為8個字符"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="確認新密碼"
+                type="password"
+                fullWidth
+                margin="normal"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                disabled={changingPassword}
+                required
+                error={passwordData.newPassword !== passwordData.confirmPassword && passwordData.confirmPassword !== ''}
+                helperText={
+                  passwordData.newPassword !== passwordData.confirmPassword && passwordData.confirmPassword !== ''
+                    ? '兩次輸入的密碼不一致'
+                    : ''
+                }
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChangePasswordOpen(false)} disabled={changingPassword}>
+            取消
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={handlePasswordChange}
+            disabled={
+              changingPassword || 
+              !passwordData.currentPassword || 
+              !passwordData.newPassword || 
+              !passwordData.confirmPassword ||
+              passwordData.newPassword !== passwordData.confirmPassword
+            }
+          >
+            {changingPassword ? <CircularProgress size={24} /> : '更改密碼'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>
