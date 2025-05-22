@@ -115,6 +115,12 @@ const LoginPage = () => {
       // 後端直接返回 { message: '登入成功', user: {...} }
       if (response && response.data && response.data.user) {
         console.log('[LoginPage.jsx] handleSubmit: user data found in response:', response.data.user);
+        
+        // 保存 token 到 localStorage（如果後端提供）
+        if (response.data.token) {
+          localStorage.setItem('auth_token', response.data.token);
+        }
+        
         // 使用 AuthContext 的 login 函數儲存用戶資料
         login(response.data.user);
 

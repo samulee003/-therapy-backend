@@ -71,6 +71,8 @@ export const AuthProvider = ({ children }) => {
       console.error('[AuthContext.jsx] logout: Error during logout API call. Full error object:', err);
       // console.error('登出時出現錯誤:', err); // 此行已存在
     } finally {
+      // 確保清除 localStorage 中的 token
+      localStorage.removeItem('auth_token');
       setUser(null);
       setLoading(false);
       console.log('[AuthContext.jsx] logout: finished, user set to null');
