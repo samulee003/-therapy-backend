@@ -90,11 +90,11 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   config => {
     console.log(`API 請求: ${config.method?.toUpperCase()} ${config.url}`);
-    // Token logic removed as backend uses httpOnly cookies for session management
-    // const token = localStorage.getItem('token'); 
-    // if (token) {
-    //   config.headers['Authorization'] = `Bearer ${token}`;
-    // }
+    // 恢復 token 邏輯，支援從 localStorage 讀取 token
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
     return config;
   },
   error => {
