@@ -291,6 +291,18 @@ export const getDoctors = () => {
   return apiClient.get('/api/users/doctors');
 };
 
+// --- User Profile --- //
+
+// Update user profile (Matches PUT /api/users/profile)
+export const updateUserProfile = (profileData) => {
+  return apiClient.put('/api/users/profile', profileData);
+};
+
+// Change user password (Matches PUT /api/users/password)
+export const changeUserPassword = (passwordData) => {
+  return apiClient.put('/api/users/password', passwordData);
+};
+
 // --- Removed Functions (Backend doesn't support these) --- //
 // registerUser
 // getUserProfile
