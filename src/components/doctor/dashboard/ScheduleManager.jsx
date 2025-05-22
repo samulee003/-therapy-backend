@@ -286,8 +286,40 @@ const ScheduleManager = ({ user }) => {
 
   // 處理時段輸入變更
   const handleSlotInputChange = (index, value) => {
+    // 檢查輸入值是否為非標準格式 (如 "上午 10:")
+    let formattedValue = value;
+    
+    // 處理中文上午/下午格式
+    if (value.includes('上午') || value.includes('下午')) {
+      const timePattern = /(\d{1,2})(?::(\d{0,2}))?/;
+      const match = value.match(timePattern);
+      
+      if (match) {
+        let hours = parseInt(match[1], 10);
+        // 如果分鐘部分未指定或不完整，默認為 00
+        let minutes = match[2] ? parseInt(match[2], 10) : 0;
+        
+        // 調整小時 (AM/PM)
+        if (value.includes('下午') && hours < 12) {
+          hours += 12;
+        } else if (value.includes('上午') && hours === 12) {
+          hours = 0;
+        }
+        
+        // 格式化為標準 HH:MM
+        formattedValue = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        console.log(`時間格式已標準化: "${value}" -> "${formattedValue}"`);
+      }
+    } 
+    // 處理僅有小時沒有分鐘的情況 (如 "10:")
+    else if (/^\d{1,2}:$/.test(value)) {
+      const hours = parseInt(value.replace(':', ''), 10);
+      formattedValue = `${String(hours).padStart(2, '0')}:00`;
+      console.log(`時間格式已補充分鐘: "${value}" -> "${formattedValue}"`);
+    }
+    
     const updatedSlots = [...availableSlotsForEdit];
-    updatedSlots[index] = value;
+    updatedSlots[index] = formattedValue;
     setAvailableSlotsForEdit(updatedSlots);
   };
 
@@ -324,6 +356,17 @@ const ScheduleManager = ({ user }) => {
       const validSlots = availableSlotsForEdit
         .filter(slot => slot && /^([01]\d|2[0-3]):([0-5]\d)$/.test(slot))
         .sort();
+      
+      // 檢查是否有格式不符合的時間
+      const invalidSlots = availableSlotsForEdit.filter(
+        slot => slot && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(slot)
+      );
+      
+      if (invalidSlots.length > 0) {
+        setErrorSchedule(`存在 ${invalidSlots.length} 個時間格式不正確 (必須為 HH:MM 格式)，請修正後再儲存`);
+        console.error('時間格式不正確:', invalidSlots);
+        return;
+      }
 
       // isRestDay 直接來自 isRestDayForEdit 狀態
       const finalIsRestDay = isRestDayForEdit;
@@ -860,10 +903,15 @@ const ScheduleManager = ({ user }) => {
                         type="time"
                         value={slot}
                         onChange={(e) => handleSlotInputChange(index, e.target.value)}
-                        sx={{ width: '120px', mr: 1 }}
+                        sx={{ width: '140px', mr: 1 }}
                         InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 1800 /* 30分 */ }}
-                        // disabled 屬性不再需要，因為整個區塊會被條件渲染
+                        inputProps={{ 
+                          step: 1800, /* 30分鐘步進 */
+                          pattern: "[0-9]{2}:[0-9]{2}" /* 強制 HH:MM 格式 */
+                        }}
+                        placeholder="HH:MM"
+                        helperText={!/^([01]\d|2[0-3]):([0-5]\d)$/.test(slot) ? "請使用 HH:MM 格式" : ""}
+                        error={slot && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(slot)}
                       />
                       <IconButton onClick={() => handleRemoveSlotFromEdit(index)} size="small">
                         <DeleteIcon />
