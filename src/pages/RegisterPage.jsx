@@ -25,6 +25,9 @@ import {
   Alert,
   CircularProgress,
   FormHelperText,
+  Select,
+  MenuItem,
+  InputLabel,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -46,6 +49,7 @@ const RegisterPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    areaCode: '+86',
     phone: '',
     password: '',
     confirmPassword: '',
@@ -68,7 +72,7 @@ const RegisterPage = () => {
   // 表單驗證正則表達式
   const PATTERNS = {
     EMAIL: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-    PHONE: /^[0-9+()-\s]{8,}$/, // 更加靈活的電話格式，允許國際格式
+    PHONE: /^[0-9]{7,11}$/, // 只驗證數字，7-11位數字（不包含區號）
     PASSWORD_STRONG: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/,
     PASSWORD_MEDIUM: /^(?=.*[a-zA-Z])(?=.*\d)[A-Za-z\d]{6,}$/,
     NAME: /^[\u4e00-\u9fa5a-zA-Z\s]{2,30}$/, // 中文或英文名，2-30個字符
@@ -106,7 +110,7 @@ const RegisterPage = () => {
         if (!value.trim()) {
           errorMessage = '請輸入您的電話號碼';
         } else if (!PATTERNS.PHONE.test(value)) {
-          errorMessage = '請輸入有效的電話號碼（至少 8 位數字，可包含 +()-）';
+          errorMessage = '請輸入有效的電話號碼（至少 7 位數字，最多 11 位數字）';
         }
         break;
 
@@ -238,7 +242,7 @@ const RegisterPage = () => {
       username: formData.email,
       password: formData.password,
       name: formData.name,
-      phone: formData.phone,
+      phone: formData.areaCode + formData.phone,
       role: formData.role,
     };
 
@@ -312,25 +316,45 @@ const RegisterPage = () => {
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                required
-                fullWidth
-                id="phone"
-                label="電話號碼 (Phone Number)"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                error={!!errors.phone}
-                helperText={errors.phone}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PhoneIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+              <Grid container spacing={1}>
+                <Grid item xs={4}>
+                  <FormControl fullWidth required>
+                    <InputLabel id="area-code-label">區號</InputLabel>
+                    <Select
+                      labelId="area-code-label"
+                      id="areaCode"
+                      name="areaCode"
+                      value={formData.areaCode}
+                      onChange={handleChange}
+                      label="區號"
+                      startAdornment={
+                        <InputAdornment position="start">
+                          <PhoneIcon color="action" />
+                        </InputAdornment>
+                      }
+                    >
+                      <MenuItem value="+86">中國 +86</MenuItem>
+                      <MenuItem value="+852">中國香港 +852</MenuItem>
+                      <MenuItem value="+853">中國澳門 +853</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={8}>
+                  <TextField
+                    required
+                    fullWidth
+                    id="phone"
+                    label="電話號碼 (Phone Number)"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    error={!!errors.phone}
+                    helperText={errors.phone}
+                    placeholder="請輸入電話號碼"
+                  />
+                </Grid>
+              </Grid>
             </Grid>
             <Grid item xs={12}>
               <FormControl component="fieldset" required>
@@ -456,7 +480,7 @@ const RegisterPage = () => {
                 <Typography>電話號碼:</Typography>
               </Grid>
               <Grid item xs={6} sx={{ textAlign: 'left' }}>
-                <Typography>{formData.phone}</Typography>
+                <Typography>{formData.areaCode + formData.phone}</Typography>
               </Grid>
               <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
                 <Typography>身份:</Typography>
