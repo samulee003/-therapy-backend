@@ -292,14 +292,20 @@ const AppointmentBookingPage = () => {
   useEffect(() => {
     if (user) {
       console.log('[AppointmentBookingPage] User data received:', user);
+      console.log('[AppointmentBookingPage] All user properties:', Object.keys(user));
       console.log('[AppointmentBookingPage] User phone:', user.phone);
       console.log('[AppointmentBookingPage] User username:', user.username);
       console.log('[AppointmentBookingPage] User email:', user.email);
       
+      // 檢查可能的電話號碼欄位名稱
+      console.log('[AppointmentBookingPage] User mobile:', user.mobile);
+      console.log('[AppointmentBookingPage] User phoneNumber:', user.phoneNumber);
+      console.log('[AppointmentBookingPage] User phone_number:', user.phone_number);
+      
       setBookingDetails(prev => ({
         ...prev,
         // 只更新預約人的聯絡資訊，不更新就診者姓名
-        patientPhone: user.phone || user.mobile || '',
+        patientPhone: user.phone || user.mobile || user.phoneNumber || user.phone_number || '',
         patientEmail: user.email || user.username || '',
       }));
     }
