@@ -101,8 +101,8 @@ const AppointmentBookingPage = () => {
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingDetails, setBookingDetails] = useState({
     patientName: '', // 就診者姓名，需要用戶填寫
-    patientPhone: user?.phone || '', // 預約人電話，自動填入
-    patientEmail: user?.username || '', // 預約人郵件，自動填入
+    patientPhone: '', // 將在useEffect中設置
+    patientEmail: '', // 將在useEffect中設置
     appointmentReason: '',
     notes: '',
     isNewPatient: 'yes',
@@ -291,11 +291,16 @@ const AppointmentBookingPage = () => {
   // Update form with user data when user context changes
   useEffect(() => {
     if (user) {
+      console.log('[AppointmentBookingPage] User data received:', user);
+      console.log('[AppointmentBookingPage] User phone:', user.phone);
+      console.log('[AppointmentBookingPage] User username:', user.username);
+      console.log('[AppointmentBookingPage] User email:', user.email);
+      
       setBookingDetails(prev => ({
         ...prev,
         // 只更新預約人的聯絡資訊，不更新就診者姓名
-        patientPhone: user.phone || '',
-        patientEmail: user.username || '',
+        patientPhone: user.phone || user.mobile || '',
+        patientEmail: user.email || user.username || '',
       }));
     }
   }, [user]);
