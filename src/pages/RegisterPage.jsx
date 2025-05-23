@@ -68,6 +68,7 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const navigate = useNavigate();
 
   // 表單驗證正則表達式
@@ -205,38 +206,26 @@ const RegisterPage = () => {
 
   const handleNext = () => {
     if (validateCurrentStep()) {
-      setActiveStep(prevActiveStep => prevActiveStep + 1);
+      if (activeStep === steps.length - 1) {
+        // 在最後一步，顯示確認畫面
+        setShowConfirmation(true);
+      } else {
+        setActiveStep(prevActiveStep => prevActiveStep + 1);
+      }
     }
   };
 
   const handleBack = () => {
-    setActiveStep(prevActiveStep => prevActiveStep - 1);
+    if (showConfirmation) {
+      // 如果在確認狀態，返回到確認資料頁面
+      setShowConfirmation(false);
+    } else {
+      setActiveStep(prevActiveStep => prevActiveStep - 1);
+    }
   };
 
-  const handleSubmit = async event => {
-    event.preventDefault();
+  const handleConfirmRegistration = async () => {
     setError('');
-
-    // 最後確認所有表單都驗證通過
-    const nameError = validateField('name', formData.name);
-    const emailError = validateField('email', formData.email);
-    const phoneError = validateField('phone', formData.phone);
-    const passwordError = validateField('password', formData.password);
-    const confirmPasswordError = validateField('confirmPassword', formData.confirmPassword);
-
-    setErrors({
-      name: nameError,
-      email: emailError,
-      phone: phoneError,
-      password: passwordError,
-      confirmPassword: confirmPasswordError,
-    });
-
-    // 如果有任何錯誤，阻止表單提交
-    if (nameError || emailError || phoneError || passwordError || confirmPasswordError) {
-      return;
-    }
-
     setLoading(true);
 
     const registrationData = {
@@ -267,9 +256,16 @@ const RegisterPage = () => {
           email: '此電子郵件已被註冊',
         }));
       }
+      // 註冊失敗時，回到確認資料頁面
+      setShowConfirmation(false);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    // 防止表單提交導致頁面刷新
   };
 
   const steps = ['基本信息', '帳號設置', '完成註冊'];
@@ -471,6 +467,7 @@ const RegisterPage = () => {
         );
       case 2:
         if (registrationSuccess) {
+          // 註冊成功狀態
           return (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography variant="h5" gutterBottom color="success.main" sx={{ fontWeight: 'bold' }}>
@@ -493,7 +490,51 @@ const RegisterPage = () => {
               </Typography>
             </Box>
           );
+        } else if (showConfirmation) {
+          // 等待用戶確認註冊狀態
+          return (
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h6" gutterBottom color="warning.main" sx={{ fontWeight: 'bold' }}>
+                ⚠️ 請確認您的註冊資訊
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                請仔細檢查以下資訊，一旦確認註冊後將無法修改基本資料。
+              </Typography>
+              <Paper elevation={1} sx={{ p: 2, bgcolor: 'grey.50', borderLeft: '4px solid', borderColor: 'primary.main' }}>
+                <Grid container spacing={1}>
+                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                    <Typography variant="body2">姓名:</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
+                    <Typography variant="body2">{formData.name}</Typography>
+                  </Grid>
+                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                    <Typography variant="body2">電子郵件:</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
+                    <Typography variant="body2">{formData.email}</Typography>
+                  </Grid>
+                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                    <Typography variant="body2">電話號碼:</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
+                    <Typography variant="body2">{formData.areaCode + formData.phone}</Typography>
+                  </Grid>
+                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
+                    <Typography variant="body2">身份:</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
+                    <Typography variant="body2">{formData.role === 'patient' ? '患者' : '心理治療師'}</Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                確認資訊無誤後，請點擊「確認註冊」按鈕完成註冊程序。
+              </Typography>
+            </Box>
+          );
         }
+        // 預設的確認資料狀態
         return (
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h6" gutterBottom>
@@ -526,7 +567,7 @@ const RegisterPage = () => {
               </Grid>
             </Grid>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-              請確認以上資訊無誤。點擊「完成註冊」按鈕後，您的帳號將被創建。
+              請確認以上資訊無誤。點擊「下一步」按鈕進行最終確認。
             </Typography>
           </Box>
         );
@@ -581,16 +622,26 @@ const RegisterPage = () => {
                 上一步
               </Button>
               <Box>
-                {activeStep === steps.length - 1 ? (
+                {showConfirmation ? (
                   <Button
-                    type="submit"
+                    onClick={handleConfirmRegistration}
                     variant="contained"
                     color="primary"
                     size="large"
                     sx={{ py: 1, px: 4 }}
                     disabled={loading}
                   >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : '完成註冊'}
+                    {loading ? <CircularProgress size={24} color="inherit" /> : '確認註冊'}
+                  </Button>
+                ) : activeStep === steps.length - 1 ? (
+                  <Button
+                    onClick={handleNext}
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    sx={{ py: 1, px: 4 }}
+                  >
+                    下一步
                   </Button>
                 ) : (
                   <Button
