@@ -67,6 +67,7 @@ const RegisterPage = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const navigate = useNavigate();
 
   // 表單驗證正則表達式
@@ -248,7 +249,11 @@ const RegisterPage = () => {
 
     try {
       const response = await registerUser(registrationData);
-      navigate('/login', { state: { message: '註冊成功！請使用您的帳號登入。' } });
+      setRegistrationSuccess(true);
+      // 顯示成功訊息3秒後跳轉
+      setTimeout(() => {
+        navigate('/login', { state: { message: '註冊成功！請使用您的帳號登入。' } });
+      }, 3000);
     } catch (err) {
       console.error('Registration failed:', err);
       // 使用格式化的錯誤訊息
@@ -316,7 +321,7 @@ const RegisterPage = () => {
               />
             </Grid>
             <Grid item xs={12}>
-              <Grid container spacing={1}>
+              <Grid container spacing={1} alignItems="flex-end">
                 <Grid item xs={4}>
                   <FormControl fullWidth required>
                     <InputLabel id="area-code-label">區號</InputLabel>
@@ -327,6 +332,8 @@ const RegisterPage = () => {
                       value={formData.areaCode}
                       onChange={handleChange}
                       label="區號"
+                      size="small"
+                      sx={{ height: '56px' }}
                       startAdornment={
                         <InputAdornment position="start">
                           <PhoneIcon color="action" />
@@ -352,6 +359,11 @@ const RegisterPage = () => {
                     error={!!errors.phone}
                     helperText={errors.phone}
                     placeholder="請輸入電話號碼"
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        height: '56px'
+                      }
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -458,6 +470,30 @@ const RegisterPage = () => {
           </Grid>
         );
       case 2:
+        if (registrationSuccess) {
+          return (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="h5" gutterBottom color="success.main" sx={{ fontWeight: 'bold' }}>
+                🎉 註冊成功！
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mt: 2, mb: 3 }}>
+                您的帳號已成功創建，系統將在3秒後自動跳轉到登入頁面。
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                如果頁面未自動跳轉，請點擊{' '}
+                <Link
+                  component={RouterLink}
+                  to="/login"
+                  color="primary"
+                  fontWeight="medium"
+                >
+                  這裡
+                </Link>
+                {' '}手動跳轉。
+              </Typography>
+            </Box>
+          );
+        }
         return (
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h6" gutterBottom>
@@ -519,7 +555,7 @@ const RegisterPage = () => {
           創建您的帳號以使用心理治療預約系統
         </Typography>
 
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ width: '100%', mb: 4 }}>
+        <Stepper activeStep={registrationSuccess ? 3 : activeStep} alternativeLabel sx={{ width: '100%', mb: 4 }}>
           {steps.map(label => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
@@ -534,40 +570,42 @@ const RegisterPage = () => {
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           {getStepContent(activeStep)}
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-            <Button
-              disabled={activeStep === 0}
-              onClick={handleBack}
-              variant="outlined"
-              sx={{ mr: 1 }}
-            >
-              上一步
-            </Button>
-            <Box>
-              {activeStep === steps.length - 1 ? (
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  sx={{ py: 1, px: 4 }}
-                  disabled={loading}
-                >
-                  {loading ? <CircularProgress size={24} color="inherit" /> : '完成註冊'}
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleNext}
-                  size="large"
-                  sx={{ py: 1, px: 4 }}
-                >
-                  下一步
-                </Button>
-              )}
+          {!registrationSuccess && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+              <Button
+                disabled={activeStep === 0}
+                onClick={handleBack}
+                variant="outlined"
+                sx={{ mr: 1 }}
+              >
+                上一步
+              </Button>
+              <Box>
+                {activeStep === steps.length - 1 ? (
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    sx={{ py: 1, px: 4 }}
+                    disabled={loading}
+                  >
+                    {loading ? <CircularProgress size={24} color="inherit" /> : '完成註冊'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleNext}
+                    size="large"
+                    sx={{ py: 1, px: 4 }}
+                  >
+                    下一步
+                  </Button>
+                )}
+              </Box>
             </Box>
-          </Box>
+          )}
         </Box>
 
         <Box sx={{ width: '100%', mt: 4 }}>
