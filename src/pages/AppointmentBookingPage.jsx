@@ -529,6 +529,34 @@ const AppointmentBookingPage = () => {
         return;
       }
     }
+    
+    if (activeStep === 1) { // Validating Step 2: Appointment Info
+      if (!bookingDetails.doctorId) {
+        setBookingError('請選擇一位治療師。');
+        return;
+      }
+      if (!selectedDate) {
+        setBookingError('請選擇預約日期。');
+        return;
+      }
+      if (!selectedTimeSlot) {
+        setBookingError('請選擇預約時段。');
+        return;
+      }
+      if (!bookingDetails.isNewPatient) {
+        setBookingError('請選擇是否為初診。');
+        return;
+      }
+      if (!bookingDetails.gender) {
+        setBookingError('請選擇性別。');
+        return;
+      }
+      if (!bookingDetails.birthDate) {
+        setBookingError('請填寫出生年月日。');
+        return;
+      }
+    }
+    
     // Clear previous error when moving to next step if validation passes
     setBookingError(''); 
     setActiveStep((prevActiveStep) => prevActiveStep + 1);

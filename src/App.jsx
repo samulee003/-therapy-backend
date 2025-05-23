@@ -65,8 +65,11 @@ function App() {
 
           <Route element={<ProtectedRoute allowedRoles={['patient']} />}>
             <Route path="/patient-dashboard" element={<PatientDashboard />} />
+          </Route>
+
+          {/* Route for any authenticated user */}
+          <Route element={<ProtectedRoute />}>
             <Route path="/appointment" element={<AppointmentBookingPage />} />
-            {/* Add other patient specific routes here */}
           </Route>
 
           {/* Fallback for any other authenticated user? Or handle specific roles above?*/}
