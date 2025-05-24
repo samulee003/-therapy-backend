@@ -256,18 +256,22 @@ const AppointmentManager = ({ user }) => {
                 </TableRow>
               ) : (
                 filteredAppointments.map(appointment => (
-                  <TableRow key={appointment.id}>
+                  <TableRow 
+                    key={appointment.id}
+                    sx={{
+                      backgroundColor: appointment.status === 'cancelled' 
+                        ? 'action.hover' 
+                        : 'inherit',
+                      opacity: appointment.status === 'cancelled' ? 0.6 : 1,
+                      '&:hover': {
+                        backgroundColor: appointment.status === 'cancelled' 
+                          ? 'action.selected' 
+                          : 'action.hover',
+                      }
+                    }}
+                  >
                     <TableCell>
                       {appointment.patientName || '未指定患者'}
-                      <br />
-                      <small style={{ color: '#666' }}>
-                        調試: {JSON.stringify({
-                          patientName: appointment.patientName,
-                          patientId: appointment.patientId,
-                          doctorName: appointment.doctorName,
-                          doctorId: appointment.doctorId
-                        })}
-                      </small>
                     </TableCell>
                     <TableCell>{appointment.date}</TableCell>
                     <TableCell>{appointment.time}</TableCell>
