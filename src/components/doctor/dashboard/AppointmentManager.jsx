@@ -257,7 +257,18 @@ const AppointmentManager = ({ user }) => {
               ) : (
                 filteredAppointments.map(appointment => (
                   <TableRow key={appointment.id}>
-                    <TableCell>{appointment.patientName}</TableCell>
+                    <TableCell>
+                      {appointment.patientName || '未指定患者'}
+                      <br />
+                      <small style={{ color: '#666' }}>
+                        調試: {JSON.stringify({
+                          patientName: appointment.patientName,
+                          patientId: appointment.patientId,
+                          doctorName: appointment.doctorName,
+                          doctorId: appointment.doctorId
+                        })}
+                      </small>
+                    </TableCell>
                     <TableCell>{appointment.date}</TableCell>
                     <TableCell>{appointment.time}</TableCell>
                     <TableCell>
