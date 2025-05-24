@@ -557,14 +557,6 @@ const AppointmentBookingPage = () => {
         setBookingError('請選擇是否為初診。');
         return;
       }
-      if (!bookingDetails.gender) {
-        setBookingError('請選擇性別。');
-        return;
-      }
-      if (!bookingDetails.birthDate) {
-        setBookingError('請填寫出生年月日。');
-        return;
-      }
     }
     
     // Clear previous error when moving to next step if validation passes
@@ -1084,7 +1076,7 @@ const AppointmentBookingPage = () => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                      <TextField
-                        label="出生年月日"
+                        label="出生年月日 (選填)"
                         name="birthDate"
                         type="date"
                         value={bookingDetails.birthDate}
@@ -1095,17 +1087,18 @@ const AppointmentBookingPage = () => {
                         InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
                         InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
                         disabled={bookingLoading}
+                        helperText="此資訊為選填，您可以稍後向治療師提供"
                       />
                   </Grid>
                    <Grid item xs={12}>
                      <FormControl fullWidth margin="dense" size={isMobile ? "small" : "medium"} disabled={bookingLoading}>
-                        <InputLabel id="gender-select-label" shrink style={{ fontSize: isMobile ? '0.95rem' : undefined }}>性別</InputLabel>
+                        <InputLabel id="gender-select-label" shrink style={{ fontSize: isMobile ? '0.95rem' : undefined }}>性別 (選填)</InputLabel>
                         <Select
                           labelId="gender-select-label"
                           name="gender"
                           value={bookingDetails.gender}
                           onChange={handleBookingDetailsChange}
-                          label="性別"
+                          label="性別 (選填)"
                           sx={{ input: {fontSize: isMobile ? '0.95rem' : undefined } }}
                         >
                           <MenuItem value="male">男</MenuItem>
@@ -1113,6 +1106,7 @@ const AppointmentBookingPage = () => {
                           <MenuItem value="other">其他</MenuItem>
                           <MenuItem value="prefer_not_to_say">不願透露</MenuItem>
                         </Select>
+                        <FormHelperText>此資訊為選填，有助於治療師了解您的需求</FormHelperText>
                       </FormControl>
                    </Grid>
                   <Grid item xs={12}>
