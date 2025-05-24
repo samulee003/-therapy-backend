@@ -1,2 +1,6 @@
+ M .cursor/scratchpad.md
  M changed_files.txt
+ M src/components/doctor/dashboard/AppointmentManager.jsx
  M src/pages/AppointmentBookingPage.jsx
+?? quick-check.cjs
+?? quick-check.js
