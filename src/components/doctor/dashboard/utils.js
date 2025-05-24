@@ -26,7 +26,7 @@ export const getStatusColor = status => {
     case 'confirmed':
       return 'success';
     case 'cancelled':
-      return 'default';
+      return 'error';
     case 'completed':
       return 'primary';
     default:
