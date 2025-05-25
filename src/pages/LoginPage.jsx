@@ -270,14 +270,21 @@ const LoginPage = () => {
 
           {/* Google 登入按鈕 */}
           <GoogleLoginButton 
+            mode="login"
             onSuccess={(response) => {
               console.log('Google login success:', response);
-              // TODO: 處理Google登入成功
+              // 根據用戶角色重定向
+              if (response.user.role === 'doctor' || response.user.role === 'admin') {
+                navigate('/therapist-dashboard');
+              } else {
+                navigate('/patient-dashboard');
+              }
             }}
             onError={(error) => {
               console.error('Google login error:', error);
               setError(error.message || 'Google登入失敗');
             }}
+            disabled={loading}
           />
 
           <Box sx={{ mt: 3, textAlign: 'center' }}>

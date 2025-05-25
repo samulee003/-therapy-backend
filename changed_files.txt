@@ -1,3 +1,9 @@
- M .cursor/scratchpad.md
+ M .env.example
  M changed_files.txt
- M src/components/doctor/dashboard/AppointmentManager.jsx
+ M src/components/auth/GoogleLoginButton.jsx
+ M src/context/AuthContext.jsx
+ M src/pages/LoginPage.jsx
+ M src/pages/RegisterPage.jsx
+ M src/services/api.js
+?? GOOGLE_OAUTH_INTEGRATION.md
+?? TROUBLESHOOTING.md

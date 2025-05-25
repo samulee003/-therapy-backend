@@ -177,16 +177,22 @@ export const registerUser = registrationData => {
 
 // --- Google OAuth Authentication --- //
 
-// Google Login (Send Google token to backend for verification)
-export const googleLogin = (googleToken) => {
-  console.log('[api.js] googleLogin: sending token to backend');
-  return apiClient.post('/api/auth/google/login', { token: googleToken });
+// Get Google OAuth configuration
+export const getGoogleConfig = () => {
+  console.log('[api.js] getGoogleConfig: fetching configuration');
+  return apiClient.get('/api/auth/google/config');
 };
 
-// Google Register (Send Google user data to backend for registration)
-export const googleRegister = (googleUserData) => {
-  console.log('[api.js] googleRegister: sending user data to backend');
-  return apiClient.post('/api/auth/google/register', googleUserData);
+// Google Login (Send Google ID token to backend for verification)
+export const googleLogin = (idToken) => {
+  console.log('[api.js] googleLogin: sending ID token to backend');
+  return apiClient.post('/api/auth/google/login', { idToken });
+};
+
+// Google Register (Send Google ID token and role to backend for registration)
+export const googleRegister = (idToken, role) => {
+  console.log('[api.js] googleRegister: sending ID token and role to backend');
+  return apiClient.post('/api/auth/google/register', { idToken, role });
 };
 
 // --- Settings --- //
