@@ -442,7 +442,7 @@ const PatientDashboard = () => {
                     paragraph
                     sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
                   >
-                    歡迎回來，{user?.name || user?.username}！在這裡管理您的預約。
+                    歡迎回來，{user?.name || user?.email?.split('@')[0] || '用戶'}！在這裡管理您的預約。
                   </Typography>
 
                   <Grid container spacing={isMobile ? 2 : 3} sx={{ mt: isMobile ? 0 : 1 }}>
@@ -706,7 +706,7 @@ const PatientDashboard = () => {
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Typography variant="body2" color="text.secondary">
                           <Box component="span" fontWeight="medium" display="inline-block" width="100px">姓名:</Box> 
-                          {user?.name || '未提供'}
+                          {user?.name || user?.email?.split('@')[0] || '未提供'}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           <Box component="span" fontWeight="medium" display="inline-block" width="100px">用戶名/郵箱:</Box> 
@@ -1048,7 +1048,7 @@ const PatientDashboard = () => {
                 label="姓名"
                 fullWidth
                 margin="normal"
-                value={profileData.name || user?.name || ''}
+                                          value={profileData.name || user?.name || user?.email?.split('@')[0] || ''}
                 onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                 disabled={updatingProfile}
               />

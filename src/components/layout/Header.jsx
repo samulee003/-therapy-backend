@@ -213,7 +213,7 @@ const Header = () => {
                   aria-expanded={openUserMenu ? 'true' : undefined}
                   sx={{ fontWeight: 500, textTransform: 'none' }}
                 >
-                  {user?.name || user?.username}
+                  {user?.name || user?.email?.split('@')[0] || '用戶'}
                 </Button>
                 <Menu
                   id="user-menu"
