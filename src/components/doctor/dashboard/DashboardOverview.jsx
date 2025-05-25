@@ -204,13 +204,13 @@ const DashboardOverview = ({ user, onNavigateToTab }) => {
                       >
                         <ListItemAvatar>
                           <Avatar sx={{ bgcolor: theme.palette.secondary.main }}>
-                            {appointment.patientName?.charAt(0) || '患'}
+                            {appointment.actualPatientName?.charAt(0) || '患'}
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
                           primary={
                             <Typography variant="body1" fontWeight="medium">
-                              {appointment.patientName || '患者'}
+                              {appointment.actualPatientName || '患者'}
                             </Typography>
                           }
                           secondary={
