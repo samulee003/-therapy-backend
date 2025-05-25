@@ -328,6 +328,7 @@ const AppointmentBookingPage = () => {
         doctorId: slot.doctorId.toString(),
       });
     }
+    setActiveStep(0); // 確保從第一步開始
     setBookingDialogOpen(true);
   };
 
@@ -342,14 +343,18 @@ const AppointmentBookingPage = () => {
     setBookingSuccess(null); // Clear success message
     setSelectedDate(null);
     setSelectedTimeSlot(null);
+    setActiveStep(0); // 重置步驟到第一步
     // Optionally reset parts of bookingDetails if needed for a new booking
     // For example, clear appointmentReason and notes, but keep patient info if logged in
     setBookingDetails(prev => ({
       ...prev,
+      patientName: '', // 清空就診者姓名，讓用戶重新填寫
       appointmentReason: '',
       notes: '',
-      // doctorId might need to be reset if the user should re-select a doctor for a new booking
-      // doctorId: '', 
+      isNewPatient: 'yes', // 重置為預設值
+      gender: '',
+      birthDate: '',
+      doctorId: '', // 重置治療師選擇，讓用戶重新選擇
     }));
     // Potentially refetch schedule if the booked slot should now appear as unavailable immediately
     // However, this might be better handled by the calendar view updating based on booking.
