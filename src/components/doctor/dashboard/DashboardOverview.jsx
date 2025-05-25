@@ -97,7 +97,7 @@ const DashboardOverview = ({ user, onNavigateToTab }) => {
         心理治療師儀表板
       </Typography>
       <Typography variant="body1" color="text.secondary" paragraph>
-        歡迎回來，{user?.name || user?.username}！管理您的預約和時段。
+                  歡迎回來，{user?.name || user?.email?.split('@')[0] || '用戶'}！管理您的預約和時段。
       </Typography>
 
       {errorAppointments && (

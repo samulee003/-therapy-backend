@@ -1,7 +1,13 @@
  M .cursor/scratchpad.md
  M changed_files.txt
- M src/components/doctor/dashboard/AppointmentManager.jsx
+ M package-lock.json
+ M package.json
  M src/components/doctor/dashboard/DashboardOverview.jsx
-?? check-tables.cjs
-?? diagnose-appointments.cjs
-?? diagnose-appointments.js
+ M src/components/layout/Header.jsx
+ M src/context/AuthContext.jsx
+ M src/pages/LoginPage.jsx
+ M src/pages/RegisterPage.jsx
+ M src/pages/patient/PatientDashboard.jsx
+ M src/services/api.js
+?? .env.example
+?? src/components/auth/GoogleLoginButton.jsx

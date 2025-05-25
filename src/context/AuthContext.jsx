@@ -61,6 +61,31 @@ export const AuthProvider = ({ children }) => {
     console.log('[AuthContext.jsx] login: finished');
   };
 
+  // Google登入函數
+  const googleLogin = async (googleToken) => {
+    console.log('[AuthContext.jsx] googleLogin: starting with token');
+    setLoading(true);
+    setError(null);
+    try {
+      // TODO: 調用後端Google登入API
+      // const response = await googleLoginApi(googleToken);
+      // if (response.data && response.data.user) {
+      //   setUser(response.data.user);
+      //   if (response.data.token) {
+      //     localStorage.setItem('auth_token', response.data.token);
+      //   }
+      //   return response.data.user;
+      // }
+      throw new Error('Google登入功能正在開發中');
+    } catch (err) {
+      console.error('[AuthContext.jsx] googleLogin: error:', err);
+      setError(err.message || 'Google登入失敗');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 登出函數
   const logout = async () => {
     console.log('[AuthContext.jsx] logout: starting');
@@ -85,6 +110,7 @@ export const AuthProvider = ({ children }) => {
     isLoading: loading,
     error,
     login,
+    googleLogin,
     logout,
     refreshUser: checkAuth, // 提供刷新用戶資料的方法
   };

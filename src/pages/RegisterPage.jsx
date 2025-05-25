@@ -17,40 +17,29 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Stepper,
-  Step,
-  StepLabel,
   useTheme,
   useMediaQuery,
   Alert,
   CircularProgress,
   FormHelperText,
-  Select,
-  MenuItem,
-  InputLabel,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import PhoneIcon from '@mui/icons-material/Phone';
 import { registerUser, formatApiError } from '../services/api';
 import { ErrorAlert } from '../components/common';
+import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 
 const RegisterPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [activeStep, setActiveStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    areaCode: '+86',
-    phone: '',
     password: '',
     confirmPassword: '',
     role: 'patient',
@@ -58,9 +47,7 @@ const RegisterPage = () => {
 
   // 表單驗證錯誤
   const [errors, setErrors] = useState({
-    name: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: '',
   });
@@ -68,16 +55,12 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const navigate = useNavigate();
 
   // 表單驗證正則表達式
   const PATTERNS = {
     EMAIL: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-    PHONE: /^[0-9]{7,11}$/, // 只驗證數字，7-11位數字（不包含區號）
-    PASSWORD_STRONG: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/,
     PASSWORD_MEDIUM: /^(?=.*[a-zA-Z])(?=.*\d)[A-Za-z\d]{6,}$/,
-    NAME: /^[\u4e00-\u9fa5a-zA-Z\s]{2,30}$/, // 中文或英文名，2-30個字符
   };
 
   const handleTogglePasswordVisibility = () => {
@@ -92,27 +75,11 @@ const RegisterPage = () => {
     let errorMessage = '';
 
     switch (name) {
-      case 'name':
-        if (!value.trim()) {
-          errorMessage = '請輸入您的姓名';
-        } else if (!PATTERNS.NAME.test(value)) {
-          errorMessage = '姓名應為 2-30 個漢字或英文字母';
-        }
-        break;
-
       case 'email':
         if (!value.trim()) {
           errorMessage = '請輸入您的電子郵件';
         } else if (!PATTERNS.EMAIL.test(value)) {
           errorMessage = '請輸入有效的電子郵件格式 (例如: user@example.com)';
-        }
-        break;
-
-      case 'phone':
-        if (!value.trim()) {
-          errorMessage = '請輸入您的電話號碼';
-        } else if (!PATTERNS.PHONE.test(value)) {
-          errorMessage = '請輸入有效的電話號碼（至少 7 位數字，最多 11 位數字）';
         }
         break;
 
@@ -156,7 +123,7 @@ const RegisterPage = () => {
       [name]: validateField(name, value),
     });
 
-    // 在確認密碼欄位變化時，重新驗證確認密碼
+    // 在密碼欄位變化時，重新驗證確認密碼
     if (name === 'password') {
       setErrors(prev => ({
         ...prev,
@@ -169,70 +136,36 @@ const RegisterPage = () => {
     }
   };
 
-  const validateCurrentStep = () => {
-    if (activeStep === 0) {
-      // 基本信息
-      const stepErrors = {};
+  const validateForm = () => {
+    const formErrors = {};
 
-      // 驗證姓名
-      stepErrors.name = validateField('name', formData.name);
+    // 驗證電子郵件
+    formErrors.email = validateField('email', formData.email);
 
-      // 驗證電子郵件
-      stepErrors.email = validateField('email', formData.email);
+    // 驗證密碼
+    formErrors.password = validateField('password', formData.password);
 
-      // 驗證電話號碼
-      stepErrors.phone = validateField('phone', formData.phone);
+    // 驗證確認密碼
+    formErrors.confirmPassword = validateField('confirmPassword', formData.confirmPassword);
 
-      setErrors({ ...errors, ...stepErrors });
+    setErrors(formErrors);
 
-      return !stepErrors.name && !stepErrors.email && !stepErrors.phone;
-    } else if (activeStep === 1) {
-      // 帳號設置
-      const stepErrors = {};
-
-      // 驗證密碼
-      stepErrors.password = validateField('password', formData.password);
-
-      // 驗證確認密碼
-      stepErrors.confirmPassword = validateField('confirmPassword', formData.confirmPassword);
-
-      setErrors({ ...errors, ...stepErrors });
-
-      return !stepErrors.password && !stepErrors.confirmPassword;
-    }
-
-    return true;
+    return !formErrors.email && !formErrors.password && !formErrors.confirmPassword;
   };
 
-  const handleNext = () => {
-    if (validateCurrentStep()) {
-      if (activeStep === steps.length - 1) {
-        // 在最後一步，顯示確認畫面
-        setShowConfirmation(true);
-      } else {
-        setActiveStep(prevActiveStep => prevActiveStep + 1);
-      }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!validateForm()) {
+      return;
     }
-  };
 
-  const handleBack = () => {
-    if (showConfirmation) {
-      // 如果在確認狀態，返回到確認資料頁面
-      setShowConfirmation(false);
-    } else {
-      setActiveStep(prevActiveStep => prevActiveStep - 1);
-    }
-  };
-
-  const handleConfirmRegistration = async () => {
     setError('');
     setLoading(true);
 
     const registrationData = {
       username: formData.email,
       password: formData.password,
-      name: formData.name,
-      phone: formData.areaCode + formData.phone,
       role: formData.role,
     };
 
@@ -256,45 +189,77 @@ const RegisterPage = () => {
           email: '此電子郵件已被註冊',
         }));
       }
-      // 註冊失敗時，回到確認資料頁面
-      setShowConfirmation(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    // 防止表單提交導致頁面刷新
-  };
+  // 如果註冊成功，顯示成功頁面
+  if (registrationSuccess) {
+    return (
+      <Container component="main" maxWidth="sm" sx={{ mb: 4 }}>
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            borderRadius: 2,
+            mt: isMobile ? 2 : 8,
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="h4" gutterBottom color="success.main" sx={{ fontWeight: 'bold' }}>
+            🎉 註冊成功！
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2, mb: 3 }}>
+            您的帳號已成功創建，系統將在3秒後自動跳轉到登入頁面。
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            如果頁面未自動跳轉，請點擊{' '}
+            <Link
+              component={RouterLink}
+              to="/login"
+              color="primary"
+              fontWeight="medium"
+            >
+              這裡
+            </Link>
+            {' '}手動跳轉。
+          </Typography>
+        </Paper>
+      </Container>
+    );
+  }
 
-  const steps = ['基本信息', '帳號設置', '完成註冊'];
+  return (
+    <Container component="main" maxWidth="sm" sx={{ mb: 4 }}>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          borderRadius: 2,
+          mt: isMobile ? 2 : 8,
+        }}
+      >
+        <Typography component="h1" variant="h4" color="primary" fontWeight="bold" gutterBottom>
+          註冊帳號
+        </Typography>
+        <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
+          創建您的帳號以使用心理治療預約系統
+        </Typography>
 
-  const getStepContent = step => {
-    switch (step) {
-      case 0:
-        return (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                required
-                fullWidth
-                id="name"
-                label="姓名 (Name)"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                error={!!errors.name}
-                helperText={errors.name}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonOutlineIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+        {error && (
+          <ErrorAlert message={error} onClose={() => setError('')} sx={{ width: '100%', mb: 3 }} />
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+          <Grid container spacing={3}>
+            {/* 電子郵件欄位 */}
             <Grid item xs={12}>
               <TextField
                 required
@@ -306,7 +271,7 @@ const RegisterPage = () => {
                 value={formData.email}
                 onChange={handleChange}
                 error={!!errors.email}
-                helperText={errors.email}
+                helperText={errors.email || '這將作為您的登入用戶名'}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -316,78 +281,8 @@ const RegisterPage = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
-              <Grid container spacing={1} alignItems="flex-end">
-                <Grid item xs={4}>
-                  <FormControl fullWidth required>
-                    <InputLabel id="area-code-label">區號</InputLabel>
-                    <Select
-                      labelId="area-code-label"
-                      id="areaCode"
-                      name="areaCode"
-                      value={formData.areaCode}
-                      onChange={handleChange}
-                      label="區號"
-                      size="small"
-                      sx={{ height: '56px' }}
-                      startAdornment={
-                        <InputAdornment position="start">
-                          <PhoneIcon color="action" />
-                        </InputAdornment>
-                      }
-                    >
-                      <MenuItem value="+86">中國 +86</MenuItem>
-                      <MenuItem value="+852">中國香港 +852</MenuItem>
-                      <MenuItem value="+853">中國澳門 +853</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={8}>
-                  <TextField
-                    required
-                    fullWidth
-                    id="phone"
-                    label="電話號碼 (Phone Number)"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    error={!!errors.phone}
-                    helperText={errors.phone}
-                    placeholder="請輸入電話號碼"
-                    sx={{ 
-                      '& .MuiOutlinedInput-root': {
-                        height: '56px'
-                      }
-                    }}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl component="fieldset" required>
-                <FormLabel component="legend">註冊身份 (Role)</FormLabel>
-                <RadioGroup
-                  row
-                  aria-label="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                >
-                  <FormControlLabel value="patient" control={<Radio />} label="患者 (Patient)" />
-                  <FormControlLabel
-                    value="doctor"
-                    control={<Radio />}
-                    label="心理治療師 (Therapist)"
-                  />
-                </RadioGroup>
-              </FormControl>
-            </Grid>
-          </Grid>
-        );
-      case 1:
-        return (
-          <Grid container spacing={2}>
+
+            {/* 密碼欄位 */}
             <Grid item xs={12}>
               <TextField
                 required
@@ -421,6 +316,8 @@ const RegisterPage = () => {
                 }}
               />
             </Grid>
+
+            {/* 確認密碼欄位 */}
             <Grid item xs={12}>
               <TextField
                 required
@@ -454,213 +351,77 @@ const RegisterPage = () => {
                 }}
               />
             </Grid>
+
+            {/* 密碼安全提示 */}
             <Grid item xs={12}>
               <FormHelperText>
                 密碼安全規則:
-                <ul>
+                <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
                   <li>至少 6 個字符</li>
                   <li>必須包含至少一個字母和一個數字</li>
                 </ul>
               </FormHelperText>
             </Grid>
-          </Grid>
-        );
-      case 2:
-        if (registrationSuccess) {
-          // 註冊成功狀態
-          return (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="h5" gutterBottom color="success.main" sx={{ fontWeight: 'bold' }}>
-                🎉 註冊成功！
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mt: 2, mb: 3 }}>
-                您的帳號已成功創建，系統將在3秒後自動跳轉到登入頁面。
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                如果頁面未自動跳轉，請點擊{' '}
-                <Link
-                  component={RouterLink}
-                  to="/login"
-                  color="primary"
-                  fontWeight="medium"
+
+            {/* 身份選擇 */}
+            <Grid item xs={12}>
+              <FormControl component="fieldset" required>
+                <FormLabel component="legend">註冊身份 (Role)</FormLabel>
+                <RadioGroup
+                  row
+                  aria-label="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  sx={{ mt: 1 }}
                 >
-                  這裡
-                </Link>
-                {' '}手動跳轉。
-              </Typography>
-            </Box>
-          );
-        } else if (showConfirmation) {
-          // 等待用戶確認註冊狀態
-          return (
-            <Box sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h6" gutterBottom color="warning.main" sx={{ fontWeight: 'bold' }}>
-                ⚠️ 請確認您的註冊資訊
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                請仔細檢查以下資訊，一旦確認註冊後將無法修改基本資料。
-              </Typography>
-              <Paper elevation={1} sx={{ p: 2, bgcolor: 'grey.50', borderLeft: '4px solid', borderColor: 'primary.main' }}>
-                <Grid container spacing={1}>
-                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                    <Typography variant="body2">姓名:</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
-                    <Typography variant="body2">{formData.name}</Typography>
-                  </Grid>
-                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                    <Typography variant="body2">電子郵件:</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
-                    <Typography variant="body2">{formData.email}</Typography>
-                  </Grid>
-                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                    <Typography variant="body2">電話號碼:</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
-                    <Typography variant="body2">{formData.areaCode + formData.phone}</Typography>
-                  </Grid>
-                  <Grid item xs={4} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                    <Typography variant="body2">身份:</Typography>
-                  </Grid>
-                  <Grid item xs={8} sx={{ textAlign: 'left' }}>
-                    <Typography variant="body2">{formData.role === 'patient' ? '患者' : '心理治療師'}</Typography>
-                  </Grid>
-                </Grid>
-              </Paper>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                確認資訊無誤後，請點擊「確認註冊」按鈕完成註冊程序。
-              </Typography>
-            </Box>
-          );
-        }
-        // 預設的確認資料狀態
-        return (
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>
-              註冊資訊確認
-            </Typography>
-            <Grid container spacing={2} sx={{ mt: 2 }}>
-              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                <Typography>姓名:</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'left' }}>
-                <Typography>{formData.name}</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                <Typography>電子郵件:</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'left' }}>
-                <Typography>{formData.email}</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                <Typography>電話號碼:</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'left' }}>
-                <Typography>{formData.areaCode + formData.phone}</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 'bold' }}>
-                <Typography>身份:</Typography>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'left' }}>
-                <Typography>{formData.role === 'patient' ? '患者' : '心理治療師'}</Typography>
-              </Grid>
+                  <FormControlLabel value="patient" control={<Radio />} label="患者 (Patient)" />
+                  <FormControlLabel
+                    value="doctor"
+                    control={<Radio />}
+                    label="心理治療師 (Therapist)"
+                  />
+                </RadioGroup>
+              </FormControl>
             </Grid>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-              請確認以上資訊無誤。點擊「下一步」按鈕進行最終確認。
-            </Typography>
-          </Box>
-        );
-      default:
-        return 'Unknown step';
-    }
-  };
 
-  return (
-    <Container component="main" maxWidth="sm" sx={{ mb: 4 }}>
-      <Paper
-        elevation={3}
-        sx={{
-          p: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          borderRadius: 2,
-          mt: isMobile ? 2 : 8,
-        }}
-      >
-        <Typography component="h1" variant="h4" color="primary" fontWeight="bold" gutterBottom>
-          註冊帳號
-        </Typography>
-        <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          創建您的帳號以使用心理治療預約系統
-        </Typography>
-
-        <Stepper activeStep={registrationSuccess ? 3 : activeStep} alternativeLabel sx={{ width: '100%', mb: 4 }}>
-          {steps.map(label => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {error && (
-          <ErrorAlert message={error} onClose={() => setError('')} sx={{ width: '100%', mb: 3 }} />
-        )}
-
-        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-          {getStepContent(activeStep)}
-
-          {!registrationSuccess && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            {/* 註冊按鈕 */}
+            <Grid item xs={12}>
               <Button
-                disabled={activeStep === 0}
-                onClick={handleBack}
-                variant="outlined"
-                sx={{ mr: 1 }}
+                type="submit"
+                fullWidth
+                variant="contained"
+                color="primary"
+                size="large"
+                disabled={loading}
+                sx={{ mt: 2, py: 1.5 }}
               >
-                上一步
+                {loading ? <CircularProgress size={24} color="inherit" /> : '註冊帳號'}
               </Button>
-              <Box>
-                {showConfirmation ? (
-                  <Button
-                    onClick={handleConfirmRegistration}
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    sx={{ py: 1, px: 4 }}
-                    disabled={loading}
-                  >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : '確認註冊'}
-                  </Button>
-                ) : activeStep === steps.length - 1 ? (
-                  <Button
-                    onClick={handleNext}
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    sx={{ py: 1, px: 4 }}
-                  >
-                    下一步
-                  </Button>
-                ) : (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleNext}
-                    size="large"
-                    sx={{ py: 1, px: 4 }}
-                  >
-                    下一步
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          )}
+            </Grid>
+          </Grid>
         </Box>
 
         <Box sx={{ width: '100%', mt: 4 }}>
-          <Divider sx={{ mb: 2 }} />
+          <Divider sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              或使用社交帳號註冊
+            </Typography>
+          </Divider>
+
+          {/* Google 註冊按鈕 */}
+          <GoogleLoginButton 
+            onSuccess={(response) => {
+              console.log('Google register success:', response);
+              // TODO: 處理Google註冊成功
+            }}
+            onError={(error) => {
+              console.error('Google register error:', error);
+              setError(error.message || 'Google註冊失敗');
+            }}
+          />
+
+          <Divider sx={{ my: 3 }} />
 
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">

@@ -175,6 +175,20 @@ export const registerUser = registrationData => {
   return apiClient.post('/api/auth/register', registrationData); // 修改為標準路徑
 };
 
+// --- Google OAuth Authentication --- //
+
+// Google Login (Send Google token to backend for verification)
+export const googleLogin = (googleToken) => {
+  console.log('[api.js] googleLogin: sending token to backend');
+  return apiClient.post('/api/auth/google/login', { token: googleToken });
+};
+
+// Google Register (Send Google user data to backend for registration)
+export const googleRegister = (googleUserData) => {
+  console.log('[api.js] googleRegister: sending user data to backend');
+  return apiClient.post('/api/auth/google/register', googleUserData);
+};
+
 // --- Settings --- //
 
 // Get Settings (Matches GET /api/settings)

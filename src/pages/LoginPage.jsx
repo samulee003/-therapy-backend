@@ -25,6 +25,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import { loginUser } from '../services/api';
 import { AuthContext } from '../context/AuthContext'; // Import AuthContext
+import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 
 const LoginPage = () => {
   const theme = useTheme();
@@ -260,6 +261,24 @@ const LoginPage = () => {
               {loading ? <CircularProgress size={24} color="inherit" /> : '登入'}
             </Button>
           </Box>
+
+          <Divider sx={{ my: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              或使用社交帳號登入
+            </Typography>
+          </Divider>
+
+          {/* Google 登入按鈕 */}
+          <GoogleLoginButton 
+            onSuccess={(response) => {
+              console.log('Google login success:', response);
+              // TODO: 處理Google登入成功
+            }}
+            onError={(error) => {
+              console.error('Google login error:', error);
+              setError(error.message || 'Google登入失敗');
+            }}
+          />
 
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
