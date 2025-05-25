@@ -61,25 +61,32 @@ export const AuthProvider = ({ children }) => {
     console.log('[AuthContext.jsx] login: finished');
   };
 
-  // Google登入函數
-  const googleLogin = async (googleToken) => {
-    console.log('[AuthContext.jsx] googleLogin: starting with token');
+  // Google登入函數 (已由GoogleLoginButton組件處理，這裡保留作為備用)
+  const googleLogin = async (idToken, mode = 'login', role = 'patient') => {
+    console.log('[AuthContext.jsx] googleLogin: starting with ID token');
     setLoading(true);
     setError(null);
     try {
-      // TODO: 調用後端Google登入API
-      // const response = await googleLoginApi(googleToken);
-      // if (response.data && response.data.user) {
-      //   setUser(response.data.user);
-      //   if (response.data.token) {
-      //     localStorage.setItem('auth_token', response.data.token);
-      //   }
-      //   return response.data.user;
-      // }
-      throw new Error('Google登入功能正在開發中');
+      // 這個函數現在主要由GoogleLoginButton組件處理
+      // 保留作為直接調用的備用方案
+      const { googleLogin: apiGoogleLogin, googleRegister } = await import('../services/api');
+      
+      let response;
+      if (mode === 'register') {
+        response = await googleRegister(idToken, role);
+      } else {
+        response = await apiGoogleLogin(idToken);
+      }
+      
+      if (response.data && response.data.success && response.data.user) {
+        setUser(response.data.user);
+        return response.data.user;
+      } else {
+        throw new Error(response.data?.error || `Google${mode === 'register' ? '註冊' : '登入'}失敗`);
+      }
     } catch (err) {
       console.error('[AuthContext.jsx] googleLogin: error:', err);
-      setError(err.message || 'Google登入失敗');
+      setError(err.response?.data?.error || err.message || `Google${mode === 'register' ? '註冊' : '登入'}失敗`);
       throw err;
     } finally {
       setLoading(false);

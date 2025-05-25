@@ -410,16 +410,45 @@ const RegisterPage = () => {
           </Divider>
 
           {/* Google 註冊按鈕 */}
-          <GoogleLoginButton 
-            onSuccess={(response) => {
-              console.log('Google register success:', response);
-              // TODO: 處理Google註冊成功
-            }}
-            onError={(error) => {
-              console.error('Google register error:', error);
-              setError(error.message || 'Google註冊失敗');
-            }}
-          />
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              選擇身份進行Google註冊：
+            </Typography>
+            <Grid container spacing={1}>
+              <Grid item xs={6}>
+                <GoogleLoginButton 
+                  mode="register"
+                  role="patient"
+                  size="medium"
+                  onSuccess={(response) => {
+                    console.log('Google register success (patient):', response);
+                    navigate('/patient-dashboard');
+                  }}
+                  onError={(error) => {
+                    console.error('Google register error:', error);
+                    setError(error.message || 'Google註冊失敗');
+                  }}
+                  disabled={loading}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <GoogleLoginButton 
+                  mode="register"
+                  role="doctor"
+                  size="medium"
+                  onSuccess={(response) => {
+                    console.log('Google register success (doctor):', response);
+                    navigate('/therapist-dashboard');
+                  }}
+                  onError={(error) => {
+                    console.error('Google register error:', error);
+                    setError(error.message || 'Google註冊失敗');
+                  }}
+                  disabled={loading}
+                />
+              </Grid>
+            </Grid>
+          </Box>
 
           <Divider sx={{ my: 3 }} />
 
