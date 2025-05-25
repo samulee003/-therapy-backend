@@ -105,7 +105,7 @@ const AppointmentManager = ({ user }) => {
     const lowerCaseSearch = searchTerm.toLowerCase();
     const filtered = appointments.filter(
       appointment =>
-        appointment.patientName?.toLowerCase().includes(lowerCaseSearch) ||
+        appointment.actualPatientName?.toLowerCase().includes(lowerCaseSearch) ||
         appointment.patientEmail?.toLowerCase().includes(lowerCaseSearch) ||
         appointment.patientPhone?.includes(searchTerm) ||
         appointment.date?.includes(searchTerm) ||
@@ -271,7 +271,7 @@ const AppointmentManager = ({ user }) => {
                     }}
                   >
                     <TableCell>
-                      {appointment.patientName || '未指定患者'}
+                      {appointment.actualPatientName || '未指定患者'}
                     </TableCell>
                     <TableCell>{appointment.date}</TableCell>
                     <TableCell>{appointment.time}</TableCell>
@@ -328,7 +328,7 @@ const AppointmentManager = ({ user }) => {
           {selectedAppointment && (
             <Box sx={{ minWidth: 300 }}>
               <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6">{selectedAppointment.patientName}</Typography>
+                <Typography variant="h6">{selectedAppointment.actualPatientName}</Typography>
                 <Chip
                   label={getStatusText(selectedAppointment.status)}
                   color={getStatusColor(selectedAppointment.status)}
@@ -386,7 +386,7 @@ const AppointmentManager = ({ user }) => {
         <DialogContent>
           <DialogContentText>
             {appointmentToCancel
-              ? `您確定要取消 ${appointmentToCancel.patientName} 於 ${appointmentToCancel.date} ${appointmentToCancel.time} 的預約嗎？此操作無法撤銷。`
+              ? `您確定要取消 ${appointmentToCancel.actualPatientName} 於 ${appointmentToCancel.date} ${appointmentToCancel.time} 的預約嗎？此操作無法撤銷。`
               : '確定要取消此預約嗎？此操作無法撤銷。'}
           </DialogContentText>
           {cancelError && (
