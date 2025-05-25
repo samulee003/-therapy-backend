@@ -1853,3 +1853,67 @@ const handleTimeSlotClick = slot => {
 3. 選擇新的日期和時段
 4. 確認對話框從第一步「個人資料」開始
 5. 驗證所有欄位都是空白/預設值
+
+**[2025-01-02 12:00] - 優化患者儀表板顯示就診者姓名**
+
+**問題描述：**
+用戶反映患者端幫不同孩子預約完後，在儀表板只看到治療師名稱，但沒有顯示就診者姓名，導致家長無法區分哪個預約是為哪個孩子安排的。
+
+**優化目標：**
+讓家長能夠清楚地在患者儀表板上看到每個預約的就診者姓名，提升多人預約管理的用戶體驗。
+
+**實施的修改：**
+
+1. **預約列表主要顯示邏輯**：
+   - 修改`renderAppointmentItems`函數中的`ListItemText`組件
+   - 將主要顯示文字改為「就診者：[姓名]」
+   - 將治療師名稱移至次要顯示位置「治療師：[姓名]」
+
+2. **儀表板概覽預約預覽**：
+   - 修改概覽頁面中的預約預覽列表
+   - 同樣顯示就診者姓名為主，治療師名稱為次
+
+3. **預約詳情對話框**：
+   - 在詳情對話框中優先顯示就診者姓名
+   - 調整治療師名稱的數據來源優先級
+
+**技術實現細節：**
+```javascript
+// 修改前：只顯示治療師名稱
+<Typography variant="body1" fontWeight="medium">
+  {appointment.doctorName || appointment.doctor?.name || '心理治療師 (已排定)'}
+</Typography>
+
+// 修改後：優先顯示就診者姓名
+<Box>
+  <Typography variant="body1" fontWeight="medium">
+    就診者：{appointment.actualPatientName || appointment.patientName || '未指定患者'}
+  </Typography>
+  <Typography variant="body2" color="text.secondary">
+    治療師：{appointment.doctorName || appointment.doctor?.name || '心理治療師 (已排定)'}
+  </Typography>
+</Box>
+```
+
+**資料來源優先級：**
+- 就診者姓名：`actualPatientName` > `patientName` > '未指定患者'
+- 治療師姓名：`doctorName` > `therapistName` > `doctor?.name` > 預設值
+
+**優化效果：**
+✅ 患者儀表板清楚顯示每個預約的就診者姓名
+✅ 家長可以輕鬆區分為不同孩子安排的預約
+✅ 保持治療師信息的可見性
+✅ 改善多人預約管理的用戶體驗
+✅ 預約詳情對話框也包含完整的就診者信息
+
+**用戶體驗提升：**
+- 家長在儀表板一眼就能看到「就診者：小明」、「就診者：小華」等
+- 減少混淆和管理難度
+- 提高預約系統的實用性
+
+**測試建議：**
+請測試以下場景：
+1. 為不同家庭成員創建多個預約
+2. 檢查儀表板預約列表是否清楚顯示就診者姓名
+3. 確認預約詳情對話框顯示完整信息
+4. 驗證響應式設計在手機端的顯示效果

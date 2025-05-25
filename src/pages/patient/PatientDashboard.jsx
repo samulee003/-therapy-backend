@@ -333,13 +333,22 @@ const PatientDashboard = () => {
             </ListItemAvatar>
             <ListItemText
               primary={
-                <Typography 
-                  variant="body1" 
-                  fontWeight="medium"
-                  sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
-                >
-                  {appointment.doctorName || appointment.doctor?.name || '心理治療師 (已排定)'}
-                </Typography>
+                <Box>
+                  <Typography 
+                    variant="body1" 
+                    fontWeight="medium"
+                    sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                  >
+                    就診者：{appointment.actualPatientName || appointment.patientName || '未指定患者'}
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+                  >
+                    治療師：{appointment.doctorName || appointment.doctor?.name || '心理治療師 (已排定)'}
+                  </Typography>
+                </Box>
               }
               secondary={
                 <Box
@@ -589,11 +598,16 @@ const PatientDashboard = () => {
                                   </ListItemAvatar>
                                   <ListItemText
                                     primary={
-                                      <Typography variant="body1" fontWeight="medium">
-                                        {appointment.doctorName ||
-                                          appointment.doctor?.name ||
-                                          '心理治療師 (已排定)'}
-                                      </Typography>
+                                      <Box>
+                                        <Typography variant="body1" fontWeight="medium">
+                                          就診者：{appointment.actualPatientName || appointment.patientName || '未指定患者'}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          治療師：{appointment.doctorName ||
+                                            appointment.doctor?.name ||
+                                            '心理治療師 (已排定)'}
+                                        </Typography>
+                                      </Box>
                                     }
                                     secondary={
                                       <Box
@@ -929,9 +943,10 @@ const PatientDashboard = () => {
         <DialogContent dividers>
           {selectedAppointment ? (
             <Box>
+              <Typography gutterBottom><strong>就診者姓名：</strong> {selectedAppointment.actualPatientName || selectedAppointment.patientName || '未指定患者'}</Typography>
               <Typography gutterBottom><strong>日期：</strong> {selectedAppointment.date ? new Date(selectedAppointment.date + 'T00:00:00').toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }) : 'N/A'}</Typography>
               <Typography gutterBottom><strong>時間：</strong> {selectedAppointment.time || 'N/A'}</Typography>
-              <Typography gutterBottom><strong>治療師：</strong> {selectedAppointment.therapistName || selectedAppointment.doctorId?.name || 'N/A'}</Typography>
+              <Typography gutterBottom><strong>治療師：</strong> {selectedAppointment.doctorName || selectedAppointment.therapistName || selectedAppointment.doctorId?.name || 'N/A'}</Typography>
               <Typography gutterBottom><strong>服務項目：</strong> {selectedAppointment.service || '未指定'}</Typography>
               <Typography gutterBottom>
                 <strong>狀態：</strong>
