@@ -36,6 +36,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -56,6 +58,11 @@ import { getStatusText, getStatusColor } from './utils';
 
 // 預約管理組件
 const AppointmentManager = ({ user }) => {
+  // 響應式設計
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   // 狀態管理
   const [appointments, setAppointments] = useState([]);
   const [filteredAppointments, setFilteredAppointments] = useState([]);
@@ -274,7 +281,7 @@ const AppointmentManager = ({ user }) => {
                 weekday: 'long' 
               })}
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={isMobile ? 1.5 : 2}>
               {groupedAppointments[date].map(appointment => (
                 <Grid item xs={12} sm={6} md={4} key={appointment.id}>
                   <Card 
@@ -286,53 +293,82 @@ const AppointmentManager = ({ user }) => {
                       borderColor: appointment.status === 'cancelled' ? 'grey.300' : 'transparent',
                       opacity: appointment.status === 'cancelled' ? 0.7 : 1,
                       '&:hover': {
-                        boxShadow: 3,
-                        transform: 'translateY(-2px)'
+                        boxShadow: isMobile ? 2 : 3,
+                        transform: isMobile ? 'none' : 'translateY(-2px)'
                       }
                     }}
                     onClick={() => handleViewAppointmentDetails(appointment)}
                   >
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <CardContent sx={{ p: isMobile ? 1.5 : 2, '&:last-child': { pb: isMobile ? 1.5 : 2 } }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'flex-start', 
+                        mb: isMobile ? 1.5 : 2,
+                        flexDirection: isSmallMobile ? 'column' : 'row',
+                        gap: isSmallMobile ? 1 : 0
+                      }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                            <PersonIcon />
+                          <Avatar sx={{ 
+                            bgcolor: 'primary.main', 
+                            width: isMobile ? 35 : 40, 
+                            height: isMobile ? 35 : 40 
+                          }}>
+                            <PersonIcon fontSize={isMobile ? 'medium' : 'large'} />
                           </Avatar>
                           <Box>
-                            <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                            <Typography variant="h6" sx={{ 
+                              fontSize: isMobile ? '1rem' : '1.1rem', 
+                              fontWeight: 'bold',
+                              lineHeight: 1.2
+                            }}>
                               {appointment.actualPatientName || '未指定患者'}
                             </Typography>
                             <Chip
                               size="small"
                               label={getStatusText(appointment.status)}
                               color={getStatusColor(appointment.status)}
-                              sx={{ mt: 0.5 }}
+                              sx={{ 
+                                mt: 0.5,
+                                height: isMobile ? 20 : 24,
+                                fontSize: isMobile ? '0.7rem' : '0.75rem'
+                              }}
                             />
                           </Box>
                         </Box>
                       </Box>
                       
-                      <Box sx={{ mb: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Box sx={{ mb: isMobile ? 1 : 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.8 }}>
                           <AccessTimeIcon fontSize="small" color="action" />
-                          <Typography variant="body2" fontWeight="medium">
+                          <Typography variant="body2" fontWeight="medium" sx={{ 
+                            fontSize: isMobile ? '0.85rem' : '0.875rem' 
+                          }}>
                             {appointment.time}
                           </Typography>
                         </Box>
                         
                         {appointment.patientEmail && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                             <EmailIcon fontSize="small" color="action" />
-                            <Typography variant="body2" color="text.secondary" noWrap>
+                            <Typography variant="body2" color="text.secondary" sx={{ 
+                              fontSize: isMobile ? '0.8rem' : '0.875rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: isMobile ? '200px' : 'none'
+                            }}>
                               {appointment.patientEmail}
                             </Typography>
                           </Box>
                         )}
                         
                         {appointment.patientPhone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                             <PhoneIcon fontSize="small" color="action" />
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ 
+                              fontSize: isMobile ? '0.8rem' : '0.875rem' 
+                            }}>
                               {appointment.patientPhone}
                             </Typography>
                           </Box>
@@ -345,40 +381,55 @@ const AppointmentManager = ({ user }) => {
                           color="text.secondary" 
                           sx={{ 
                             display: '-webkit-box',
-                            WebkitLineClamp: 2,
+                            WebkitLineClamp: isMobile ? 1 : 2,
                             WebkitBoxOrient: 'vertical',
                             overflow: 'hidden',
-                            mb: 1.5
+                            mb: isMobile ? 1 : 1.5,
+                            fontSize: isMobile ? '0.8rem' : '0.875rem',
+                            lineHeight: 1.3
                           }}
                         >
                           原因：{appointment.appointmentReason}
                         </Typography>
                       )}
 
-                      <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        gap: isMobile ? 0.5 : 1, 
+                        mt: isMobile ? 1.5 : 2,
+                        flexDirection: isSmallMobile ? 'column' : 'row'
+                      }}>
                         <Button
-                          size="small"
+                          size={isMobile ? 'small' : 'small'}
                           variant="outlined"
-                          startIcon={<VisibilityIcon />}
+                          startIcon={isMobile ? null : <VisibilityIcon />}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleViewAppointmentDetails(appointment);
                           }}
                           fullWidth
+                          sx={{ 
+                            fontSize: isMobile ? '0.8rem' : '0.875rem',
+                            py: isMobile ? 0.5 : 0.6
+                          }}
                         >
                           詳情
                         </Button>
                         {appointment.status !== 'cancelled' && (
                           <Button
-                            size="small"
+                            size={isMobile ? 'small' : 'small'}
                             variant="outlined"
                             color="error"
-                            startIcon={<CancelIcon />}
+                            startIcon={isMobile ? null : <CancelIcon />}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenCancelConfirm(appointment);
                             }}
                             fullWidth
+                            sx={{ 
+                              fontSize: isMobile ? '0.8rem' : '0.875rem',
+                              py: isMobile ? 0.5 : 0.6
+                            }}
                           >
                             取消
                           </Button>
@@ -499,43 +550,58 @@ const AppointmentManager = ({ user }) => {
     <Box>
       {/* 標題和統計 */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" gutterBottom fontWeight="medium">
+        <Typography variant={isMobile ? "h6" : "h5"} gutterBottom fontWeight="medium" sx={{
+          fontSize: isMobile ? '1.25rem' : undefined,
+          mb: isMobile ? 1 : undefined
+        }}>
           預約管理
         </Typography>
         
         {/* 統計卡片 */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={4}>
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={4} sm={4}>
             <Card sx={{ textAlign: 'center', bgcolor: 'primary.50' }}>
-              <CardContent sx={{ py: 2 }}>
-                <Typography color="primary" variant="h4" fontWeight="bold">
+              <CardContent sx={{ py: isMobile ? 1.5 : 2, px: isMobile ? 1 : 2 }}>
+                <Typography color="primary" variant={isMobile ? "h5" : "h4"} fontWeight="bold" sx={{
+                  fontSize: isMobile ? '1.5rem' : undefined
+                }}>
                   {stats.todayCount}
                 </Typography>
-                <Typography color="text.secondary" variant="body2">
+                <Typography color="text.secondary" variant="body2" sx={{
+                  fontSize: isMobile ? '0.75rem' : undefined
+                }}>
                   今日預約
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={4} sm={4}>
             <Card sx={{ textAlign: 'center', bgcolor: 'success.50' }}>
-              <CardContent sx={{ py: 2 }}>
-                <Typography color="success.main" variant="h4" fontWeight="bold">
+              <CardContent sx={{ py: isMobile ? 1.5 : 2, px: isMobile ? 1 : 2 }}>
+                <Typography color="success.main" variant={isMobile ? "h5" : "h4"} fontWeight="bold" sx={{
+                  fontSize: isMobile ? '1.5rem' : undefined
+                }}>
                   {stats.upcomingCount}
                 </Typography>
-                <Typography color="text.secondary" variant="body2">
+                <Typography color="text.secondary" variant="body2" sx={{
+                  fontSize: isMobile ? '0.75rem' : undefined
+                }}>
                   即將到來
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={4} sm={4}>
             <Card sx={{ textAlign: 'center', bgcolor: 'warning.50' }}>
-              <CardContent sx={{ py: 2 }}>
-                <Typography color="warning.main" variant="h4" fontWeight="bold">
+              <CardContent sx={{ py: isMobile ? 1.5 : 2, px: isMobile ? 1 : 2 }}>
+                <Typography color="warning.main" variant={isMobile ? "h5" : "h4"} fontWeight="bold" sx={{
+                  fontSize: isMobile ? '1.5rem' : undefined
+                }}>
                   {stats.pendingCount}
                 </Typography>
-                <Typography color="text.secondary" variant="body2">
+                <Typography color="text.secondary" variant="body2" sx={{
+                  fontSize: isMobile ? '0.75rem' : undefined
+                }}>
                   待處理
                 </Typography>
               </CardContent>
@@ -554,55 +620,88 @@ const AppointmentManager = ({ user }) => {
         justifyContent: 'space-between'
       }}>
         {/* 搜索和篩選 */}
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: isMobile ? 1 : 2, 
+          flexWrap: 'wrap', 
+          alignItems: 'center',
+          width: '100%'
+        }}>
           <TextField
             label="搜索預約"
             variant="outlined"
             size="small"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ minWidth: 250 }}
+            sx={{ 
+              minWidth: isMobile ? '100%' : 250,
+              flexGrow: isMobile ? 1 : 0
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon />
+                  <SearchIcon fontSize={isMobile ? 'small' : 'medium'} />
                 </InputAdornment>
               ),
             }}
-            placeholder="患者姓名、電話、日期..."
+            placeholder={isMobile ? "搜索..." : "患者姓名、電話、日期..."}
           />
           
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>時間篩選</InputLabel>
-            <Select
-              value={timeFilter}
-              label="時間篩選"
-              onChange={(e) => setTimeFilter(e.target.value)}
-            >
-              <MenuItem value="all">全部</MenuItem>
-              <MenuItem value="today">今日</MenuItem>
-              <MenuItem value="week">本週</MenuItem>
-              <MenuItem value="upcoming">即將到來</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>狀態篩選</InputLabel>
-            <Select
-              value={statusFilter}
-              label="狀態篩選"
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="all">全部狀態</MenuItem>
-              <MenuItem value="confirmed">已確認</MenuItem>
-              <MenuItem value="pending">待確認</MenuItem>
-              <MenuItem value="cancelled">已取消</MenuItem>
-            </Select>
-          </FormControl>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: isMobile ? 1 : 2, 
+            width: isMobile ? '100%' : 'auto',
+            flexWrap: isMobile ? 'nowrap' : 'wrap'
+          }}>
+            <FormControl size="small" sx={{ 
+              minWidth: isMobile ? 0 : 120,
+              flex: isMobile ? 1 : 'none'
+            }}>
+              <InputLabel sx={{ fontSize: isMobile ? '0.8rem' : undefined }}>
+                {isMobile ? '時間' : '時間篩選'}
+              </InputLabel>
+              <Select
+                value={timeFilter}
+                label={isMobile ? '時間' : '時間篩選'}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+              >
+                <MenuItem value="all">全部</MenuItem>
+                <MenuItem value="today">今日</MenuItem>
+                <MenuItem value="week">本週</MenuItem>
+                <MenuItem value="upcoming">即將</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControl size="small" sx={{ 
+              minWidth: isMobile ? 0 : 120,
+              flex: isMobile ? 1 : 'none'
+            }}>
+              <InputLabel sx={{ fontSize: isMobile ? '0.8rem' : undefined }}>
+                {isMobile ? '狀態' : '狀態篩選'}
+              </InputLabel>
+              <Select
+                value={statusFilter}
+                label={isMobile ? '狀態' : '狀態篩選'}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+              >
+                <MenuItem value="all">全部</MenuItem>
+                <MenuItem value="confirmed">已確認</MenuItem>
+                <MenuItem value="pending">待確認</MenuItem>
+                <MenuItem value="cancelled">已取消</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
         </Box>
 
         {/* 視圖切換和刷新 */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: isMobile ? 0.5 : 1, 
+          alignItems: 'center',
+          justifyContent: isMobile ? 'center' : 'flex-start'
+        }}>
           <ToggleButtonGroup
             value={viewMode}
             exclusive
@@ -613,11 +712,11 @@ const AppointmentManager = ({ user }) => {
             }}
             size="small"
           >
-            <ToggleButton value="cards">
-              <ViewModuleIcon />
+            <ToggleButton value="cards" sx={{ px: isMobile ? 1 : 1.5 }}>
+              <ViewModuleIcon fontSize={isMobile ? 'small' : 'medium'} />
             </ToggleButton>
-            <ToggleButton value="table">
-              <ViewListIcon />
+            <ToggleButton value="table" sx={{ px: isMobile ? 1 : 1.5 }}>
+              <ViewListIcon fontSize={isMobile ? 'small' : 'medium'} />
             </ToggleButton>
           </ToggleButtonGroup>
           
@@ -627,7 +726,7 @@ const AppointmentManager = ({ user }) => {
               disabled={loadingAppointments}
               size="small"
             >
-              <RefreshIcon />
+              <RefreshIcon fontSize={isMobile ? 'small' : 'medium'} />
             </IconButton>
           </Tooltip>
         </Box>
