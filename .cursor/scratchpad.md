@@ -1799,3 +1799,57 @@ if (!bookingDetails.birthDate) {
 
 **下一步行動：**
 等待用戶測試反饋，如有需要可進一步調整。
+
+**[2025-01-02 11:45] - 修復重複預約邏輯Bug**
+
+**問題描述：**
+用戶報告患者預約完一個時段後，如果想再預約另一個時段，會自動跳出確認頁面，邏輯有BUG。
+
+**根本原因分析：**
+1. 預約成功後，`activeStep`狀態沒有被正確重置
+2. 當用戶點擊新時段時，對話框直接顯示第3步「確認預約」而不是從第1步開始
+3. 預約成功後，部分表單狀態（如治療師選擇、就診者姓名等）沒有被清空
+
+**修復方案：**
+1. **修改`handleBookingSuccessDialogClose`函數**：
+   - 添加`setActiveStep(0)`重置步驟到第一步
+   - 清空更多表單狀態：就診者姓名、治療師選擇、性別、生日等
+   - 重置預設值：`isNewPatient: 'yes'`
+
+2. **修改`handleTimeSlotClick`函數**：
+   - 在打開對話框前添加`setActiveStep(0)`確保從第一步開始
+
+**技術實現：**
+```javascript
+// 修復1：預約成功後完整重置狀態
+const handleBookingSuccessDialogClose = () => {
+  setActiveStep(0); // 重置步驟
+  setBookingDetails(prev => ({
+    ...prev,
+    patientName: '', // 清空就診者姓名
+    doctorId: '', // 重置治療師選擇
+    // ... 其他欄位重置
+  }));
+  // ... 其他邏輯
+};
+
+// 修復2：點擊新時段時確保從第一步開始
+const handleTimeSlotClick = slot => {
+  setActiveStep(0); // 確保從第一步開始
+  setBookingDialogOpen(true);
+};
+```
+
+**修復結果：**
+✅ 預約成功後狀態完全重置
+✅ 新預約從第一步「個人資料」開始
+✅ 用戶可以正常進行多次預約
+✅ 表單狀態不會在預約間殘留
+
+**測試建議：**
+請測試以下場景：
+1. 完成一次預約
+2. 關閉成功對話框
+3. 選擇新的日期和時段
+4. 確認對話框從第一步「個人資料」開始
+5. 驗證所有欄位都是空白/預設值
