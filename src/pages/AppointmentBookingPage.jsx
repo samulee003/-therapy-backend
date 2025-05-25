@@ -524,20 +524,6 @@ const AppointmentBookingPage = () => {
         setBookingError('請填寫就診者姓名。');
         return;
       }
-      if (!bookingDetails.patientPhone) {
-        setBookingError('預約人電話號碼不能為空，請檢查您的帳戶資料。');
-        return;
-      }
-      if (!bookingDetails.patientEmail) {
-        setBookingError('預約人電子郵件不能為空，請檢查您的帳戶資料。');
-        return;
-      }
-       // Basic email validation
-      const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
-      if (!emailRegex.test(bookingDetails.patientEmail)) {
-        setBookingError('請輸入有效的電子郵件格式。');
-        return;
-      }
     }
     
     if (activeStep === 1) { // Validating Step 2: Appointment Info
@@ -1015,46 +1001,6 @@ const AppointmentBookingPage = () => {
                       InputProps={{ style: { fontSize: isMobile ? '0.95rem' : undefined } }}
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      label="預約人電話號碼"
-                      name="patientPhone"
-                      value={bookingDetails.patientPhone}
-                      onChange={handleBookingDetailsChange}
-                      fullWidth
-                      size={isMobile ? "small" : "medium"}
-                      margin="dense"
-                      disabled={true} // 設為只讀
-                      type="tel"
-                      inputMode="tel"
-                      helperText="來自您的帳戶資料，如需修改請聯繫管理員"
-                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
-                      InputProps={{ 
-                        style: { fontSize: isMobile ? '0.95rem' : undefined },
-                        readOnly: true
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      label="預約人電子郵件"
-                      name="patientEmail"
-                      type="email"
-                      inputMode="email"
-                      value={bookingDetails.patientEmail}
-                      onChange={handleBookingDetailsChange}
-                      fullWidth
-                      size={isMobile ? "small" : "medium"}
-                      margin="dense"
-                      disabled={true} // 設為只讀
-                      helperText="來自您的帳戶資料，如需修改請聯繫管理員"
-                      InputLabelProps={{ shrink: true, style: { fontSize: isMobile ? '0.95rem' : undefined } }}
-                      InputProps={{ 
-                        style: { fontSize: isMobile ? '0.95rem' : undefined },
-                        readOnly: true
-                      }}
-                    />
-                  </Grid>
                 </Grid>
               )}
               {activeStep === 1 && (
@@ -1158,7 +1104,7 @@ const AppointmentBookingPage = () => {
                     <Typography variant="body2" gutterBottom><strong>預約人電話：</strong> {bookingDetails.patientPhone}</Typography>
                     <Typography variant="body2" gutterBottom><strong>預約人Email：</strong> {bookingDetails.patientEmail}</Typography>
                     <Typography variant="body2" gutterBottom><strong>初診：</strong> {bookingDetails.isNewPatient === 'yes' ? '是' : '否'}</Typography>
-                     {bookingDetails.birthDate && <Typography variant="body2" gutterBottom><strong>生日：</strong> {bookingDetails.birthDate}</Typography>}
+                    {bookingDetails.birthDate && <Typography variant="body2" gutterBottom><strong>生日：</strong> {bookingDetails.birthDate}</Typography>}
                     {bookingDetails.gender && <Typography variant="body2" gutterBottom><strong>性別：</strong> {bookingDetails.gender}</Typography>}
                     <Typography variant="body2" gutterBottom><strong>預約原因：</strong> {bookingDetails.appointmentReason || '未填寫'}</Typography>
                     {bookingDetails.notes && <Typography variant="body2"><strong>備註：</strong> {bookingDetails.notes}</Typography>}
