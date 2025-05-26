@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Client ID 驗證</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h1>Google OAuth 測試</h1>
+    <div id="g_id_onload"
+         data-client_id="18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <script>
+        function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+            alert("Google 登入成功！");
+        }
+
+        window.onload = function() {
+            console.log('測試 Client ID: 18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com');
+            console.log('當前域名:', window.location.hostname);
+            console.log('當前來源:', window.location.origin);
+        }
+    </script>
+</body>
+</html> 
