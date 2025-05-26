@@ -29,10 +29,19 @@ const GoogleLoginButton = ({
     const fetchGoogleConfig = async () => {
       try {
         const response = await getGoogleConfig();
-        if (response.data && response.data.clientId) {
-          setGoogleClientId(response.data.clientId);
+        console.log('Google config response:', response.data);
+        
+        // 檢查後端返回的配置格式
+        const clientId = response.data?.details?.clientId || response.data?.clientId;
+        
+        if (clientId) {
+          console.log('Setting Google Client ID:', clientId);
+          setGoogleClientId(clientId);
           // 動態載入Google Identity Services
           loadGoogleScript();
+        } else {
+          console.error('No client ID found in response:', response.data);
+          setError('Google配置中缺少Client ID');
         }
       } catch (err) {
         console.error('Failed to fetch Google config:', err);
@@ -46,24 +55,45 @@ const GoogleLoginButton = ({
   // 動態載入Google Identity Services腳本
   const loadGoogleScript = () => {
     if (window.google) {
+      console.log('Google script already loaded, initializing...');
       initializeGoogle();
       return;
     }
 
+    console.log('Loading Google Identity Services script...');
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
-    script.onload = initializeGoogle;
+    script.onload = () => {
+      console.log('Google script loaded successfully');
+      initializeGoogle();
+    };
+    script.onerror = () => {
+      console.error('Failed to load Google script');
+      setError('無法載入Google服務腳本');
+    };
     document.head.appendChild(script);
   };
 
   // 初始化Google Identity Services
   const initializeGoogle = () => {
     if (window.google && googleClientId) {
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleCredentialResponse,
+      console.log('Initializing Google with Client ID:', googleClientId);
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleCredentialResponse,
+        });
+        console.log('Google Identity Services initialized successfully');
+      } catch (err) {
+        console.error('Failed to initialize Google Identity Services:', err);
+        setError('Google服務初始化失敗');
+      }
+    } else {
+      console.log('Cannot initialize Google - missing requirements:', {
+        hasGoogle: !!window.google,
+        hasClientId: !!googleClientId
       });
     }
   };
