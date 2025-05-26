@@ -1,5 +1,3 @@
  M .cursor/scratchpad.md
  M changed_files.txt
  M src/components/auth/GoogleLoginButton.jsx
- M src/components/doctor/dashboard/AppointmentManager.jsx
- M vite.config.js
