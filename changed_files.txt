@@ -1,2 +1,2 @@
+ M .cursor/scratchpad.md
  M changed_files.txt
- M src/components/auth/GoogleLoginButton.jsx

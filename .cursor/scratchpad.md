@@ -2107,3 +2107,80 @@ startIcon={isMobile ? null : <VisibilityIcon />}
 4. 桌面電腦 (1200px+ 寬度)
 
 確認：統計數據、卡片顯示、篩選功能、按鈕操作在各種螢幕尺寸下都能正常使用。
+
+## 項目狀態板 (Project Status Board)
+
+### 當前進行中的任務
+
+#### Google OAuth 2.0 前端整合 ✅ 已完成
+- [x] **API服務更新** - 已完成 `src/services/api.js` 的Google OAuth相關函數
+  - [x] 添加 `getGoogleConfig()` 函數獲取後端Google配置
+  - [x] 更新 `googleLogin(idToken)` 函數發送Google ID Token到後端
+  - [x] 更新 `googleRegister(idToken, role)` 函數處理Google註冊
+- [x] **GoogleLoginButton組件** - 已完成完整重寫
+  - [x] 支援登入和註冊兩種模式
+  - [x] 動態載入Google Identity Services腳本
+  - [x] 自動從後端獲取Google Client ID配置
+  - [x] 實現Google回調處理邏輯
+  - [x] 支援不同角色的註冊選項
+- [x] **AuthContext更新** - 已完成認證上下文擴展
+  - [x] 擴展 `googleLogin` 函數支援註冊模式
+  - [x] 添加 `refreshUser` 方法
+  - [x] 完整的錯誤處理和狀態管理
+- [x] **登入頁面整合** - 已完成 `src/pages/LoginPage.jsx` 更新
+  - [x] 整合Google登入按鈕
+  - [x] 添加基於角色的重定向邏輯
+  - [x] 統一錯誤處理
+- [x] **註冊頁面整合** - 已完成 `src/pages/RegisterPage.jsx` 更新
+  - [x] 添加雙重Google註冊按鈕（患者/治療師）
+  - [x] 網格佈局的角色選擇
+  - [x] 一致的成功處理和重定向
+- [x] **環境配置** - 已完成 `.env` 和 `.env.example` 配置
+  - [x] 設定正確的API URL
+  - [x] 添加Google OAuth配置
+  - [x] 設定功能開關
+
+#### 測試與故障排除 ✅ 已完成
+- [x] **本地開發環境設置** - 已解決連接問題
+  - [x] 修正前端API URL配置（從生產環境改為本地）
+  - [x] 確認前端服務器運行在端口3000
+  - [x] 確認後端服務器運行在端口5000
+  - [x] 驗證API連接正常
+- [x] **後端功能驗證** - 已確認所有功能正常
+  - [x] Google配置端點返回有效數據
+  - [x] 傳統登入/註冊功能正常
+  - [x] 用戶認證和授權正常
+  - [x] 預約系統功能完整
+  - [x] 資料庫操作正常
+- [x] **前端功能測試** - 已確認基本功能正常
+  - [x] 前端成功連接到本地後端
+  - [x] API請求返回正確響應
+  - [x] Google按鈕顯示適當警告（預期行為）
+  - [x] 網絡標籤顯示成功的API通信
+  - [x] 無404錯誤
+
+### 當前狀態總結
+
+**✅ 已完成的里程碑：**
+1. **Google OAuth 2.0 架構完整實現** - 前端已具備完整的Google登入/註冊功能
+2. **本地開發環境完全運行** - 前後端通信正常，所有API端點工作正常
+3. **傳統認證系統穩定** - 用戶註冊、登入、預約等核心功能運行良好
+
+**⚠️ 待完善項目：**
+1. **Google OAuth實際測試** - 需要有效的Google憑證進行完整功能測試
+2. **生產環境部署** - 需要在Google Cloud Console配置正確的憑證
+
+**📋 技術實現詳情：**
+- **Google Identity Services整合** - 動態腳本載入，適當的初始化和回調處理
+- **API端點映射** - 完整的Google配置、登入、註冊端點
+- **安全考量** - Google Client Secret僅保存在後端，ID Token服務器端驗證
+- **錯誤處理** - 完善的錯誤狀態管理，不暴露敏感信息
+
+**🎯 當前系統狀態：**
+- ✅ 前端實現完成且功能正常
+- ✅ 後端Google OAuth端點工作正常  
+- ✅ 本地開發環境完全運行
+- ✅ 傳統認證工作正常
+- ✅ Google OAuth架構就位
+- ⚠️ Google OAuth需要有效憑證進行完整功能測試
+- 📋 準備好進行生產部署，需要適當的Google Cloud Console配置
