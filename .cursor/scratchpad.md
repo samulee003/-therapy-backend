@@ -2229,3 +2229,9 @@ startIcon={isMobile ? null : <VisibilityIcon />}
   - ✅ Google初始化過程詳細記錄（🚀✅❌）
   - ✅ 前置條件檢查和錯誤定位
   - ✅ 重新建構完成，準備部署測試
+- [x] **異步時序問題修復** - ✅ 已解決Client ID丟失問題
+  - ✅ 問題根源：React狀態更新異步導致Client ID在初始化時為空
+  - ✅ 解決方案：直接傳遞Client ID參數，避免依賴狀態
+  - ✅ 新增initializeGoogleWithClientId函數
+  - ✅ 修改loadGoogleScript接受clientId參數
+  - ✅ 重新建構完成，準備最終測試

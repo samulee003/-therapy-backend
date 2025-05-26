@@ -47,9 +47,10 @@ const GoogleLoginButton = ({
         
         if (clientId && clientId.trim()) {
           console.log('✅ Setting Google Client ID:', clientId);
-          setGoogleClientId(clientId.trim());
-          // 動態載入Google Identity Services
-          loadGoogleScript();
+          const trimmedClientId = clientId.trim();
+          setGoogleClientId(trimmedClientId);
+          // 動態載入Google Identity Services，直接傳遞clientId
+          loadGoogleScript(trimmedClientId);
         } else {
           console.error('❌ No valid client ID found in response');
           console.error('❌ Response structure:', JSON.stringify(responseData, null, 2));
@@ -74,11 +75,13 @@ const GoogleLoginButton = ({
   }, [googleClientId]);
 
   // 動態載入Google Identity Services腳本
-  const loadGoogleScript = () => {
+  const loadGoogleScript = (clientId) => {
+    console.log('🔄 Loading Google script with Client ID:', clientId);
+    
     if (window.google) {
-      console.log('Google script already loaded, initializing...');
-      // 延遲初始化，確保clientId已設置
-      setTimeout(() => initializeGoogle(), 100);
+      console.log('Google script already loaded, initializing with Client ID:', clientId);
+      // 直接傳遞clientId，避免狀態異步問題
+      setTimeout(() => initializeGoogleWithClientId(clientId), 100);
       return;
     }
 
@@ -89,8 +92,8 @@ const GoogleLoginButton = ({
     script.defer = true;
     script.onload = () => {
       console.log('Google script loaded successfully');
-      // 延遲初始化，確保clientId已設置
-      setTimeout(() => initializeGoogle(), 100);
+      // 直接傳遞clientId，避免狀態異步問題
+      setTimeout(() => initializeGoogleWithClientId(clientId), 100);
     };
     script.onerror = () => {
       console.error('Failed to load Google script');
@@ -99,25 +102,26 @@ const GoogleLoginButton = ({
     document.head.appendChild(script);
   };
 
-  // 初始化Google Identity Services
-  const initializeGoogle = () => {
+  // 使用直接傳遞的clientId初始化Google Identity Services
+  const initializeGoogleWithClientId = (clientId) => {
     console.log('🚀 開始初始化Google Identity Services...');
     console.log('🔍 檢查前置條件:', {
       hasGoogle: !!window.google,
-      hasClientId: !!googleClientId,
-      clientIdValue: googleClientId,
-      clientIdLength: googleClientId?.length,
+      hasClientId: !!clientId,
+      clientIdValue: clientId,
+      clientIdLength: clientId?.length,
+      stateClientId: googleClientId,
       currentDomain: window.location.hostname,
       currentOrigin: window.location.origin
     });
     
-    if (window.google && googleClientId) {
+    if (window.google && clientId && clientId.trim()) {
       console.log('✅ 前置條件滿足，開始初始化...');
-      console.log('🎯 使用Client ID:', googleClientId);
+      console.log('🎯 使用Client ID:', clientId);
       
       try {
         const config = {
-          client_id: googleClientId,
+          client_id: clientId.trim(),
           callback: handleCredentialResponse,
           auto_select: false,
           cancel_on_tap_outside: true,
@@ -153,18 +157,24 @@ const GoogleLoginButton = ({
     } else {
       console.log('❌ Cannot initialize Google - missing requirements:', {
         hasGoogle: !!window.google,
-        hasClientId: !!googleClientId,
+        hasClientId: !!clientId,
         googleObject: window.google ? 'exists' : 'missing',
-        clientIdValue: googleClientId || 'empty',
+        clientIdValue: clientId || 'empty',
+        stateClientId: googleClientId || 'empty',
         currentDomain: window.location.hostname
       });
       
       if (!window.google) {
         setError('Google服務腳本尚未載入');
-      } else if (!googleClientId) {
+      } else if (!clientId) {
         setError('Google Client ID未配置');
       }
     }
+  };
+
+  // 保留原有的初始化函數作為備用
+  const initializeGoogle = () => {
+    initializeGoogleWithClientId(googleClientId);
   };
 
   // 處理Google回調
