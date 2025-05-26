@@ -52,11 +52,20 @@ const GoogleLoginButton = ({
     fetchGoogleConfig();
   }, []);
 
+  // 當googleClientId設置後，重新初始化Google服務
+  useEffect(() => {
+    if (googleClientId && window.google) {
+      console.log('Client ID updated, re-initializing Google...');
+      initializeGoogle();
+    }
+  }, [googleClientId]);
+
   // 動態載入Google Identity Services腳本
   const loadGoogleScript = () => {
     if (window.google) {
       console.log('Google script already loaded, initializing...');
-      initializeGoogle();
+      // 延遲初始化，確保clientId已設置
+      setTimeout(() => initializeGoogle(), 100);
       return;
     }
 
@@ -67,7 +76,8 @@ const GoogleLoginButton = ({
     script.defer = true;
     script.onload = () => {
       console.log('Google script loaded successfully');
-      initializeGoogle();
+      // 延遲初始化，確保clientId已設置
+      setTimeout(() => initializeGoogle(), 100);
     };
     script.onerror = () => {
       console.error('Failed to load Google script');
@@ -84,6 +94,9 @@ const GoogleLoginButton = ({
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           callback: handleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          use_fedcm_for_prompt: false // 禁用FedCM以避免第三方Cookie問題
         });
         console.log('Google Identity Services initialized successfully');
       } catch (err) {
@@ -136,13 +149,32 @@ const GoogleLoginButton = ({
 
   // 觸發Google登入流程
   const handleGoogleLogin = async () => {
-    if (!window.google || !googleClientId) {
+    console.log('Google login triggered', {
+      hasGoogle: !!window.google,
+      hasClientId: !!googleClientId,
+      clientId: googleClientId
+    });
+
+    if (!window.google) {
       setError('Google服務尚未載入，請稍後再試');
       return;
     }
 
+    if (!googleClientId) {
+      setError('Google配置尚未完成，請稍後再試');
+      return;
+    }
+
     try {
-      window.google.accounts.id.prompt();
+      // 直接使用prompt方法
+      console.log('Attempting to show Google prompt...');
+      window.google.accounts.id.prompt((notification) => {
+        console.log('Google prompt notification:', notification);
+        if (notification.isNotDisplayed()) {
+          console.log('Prompt not displayed:', notification.getNotDisplayedReason());
+          setError(`Google登入不可用: ${notification.getNotDisplayedReason()}`);
+        }
+      });
     } catch (err) {
       console.error('Failed to trigger Google login:', err);
       setError('無法啟動Google登入，請稍後再試');
