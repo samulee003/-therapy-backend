@@ -2235,3 +2235,22 @@ startIcon={isMobile ? null : <VisibilityIcon />}
   - ✅ 新增initializeGoogleWithClientId函數
   - ✅ 修改loadGoogleScript接受clientId參數
   - ✅ 重新建構完成，準備最終測試
+
+#### Google Cloud Console配置問題 (2025-01-02)
+- [x] **前端代碼問題** - ✅ 已解決，Google Identity Services成功初始化
+- [x] **Google Cloud Console配置問題** - ✅ 已修正配置
+  - 問題根源：重定向URI配置過多，干擾Google Identity Services
+  - 解決方案：簡化配置，只保留必要的URI
+  - ✅ JavaScript來源：https://therapy-booking.zeabur.app
+  - ✅ 重定向URI：只保留後端回調和前端主頁
+  - ✅ 刪除了干擾的前端路由URI（/login, /auth/callback等）
+- [x] **域名配置驗證** - ✅ 配置正確
+  - ✅ 當前域名：therapy-booking.zeabur.app 已正確添加
+  - ✅ 授權來源配置正確
+  - ⏳ 等待配置生效（5分鐘）後進行最終測試
+- [ ] **持續的invalid_client問題** - 配置後仍出現錯誤
+  - 問題：儘管修正了Google Console配置，仍然出現invalid_client錯誤
+  - 新發現：FedCM相關警告和Cross-Origin-Opener-Policy錯誤
+  - 解決嘗試：改用renderButton方法，避免prompt方法的問題
+  - 測試工具：創建了簡單的HTML測試頁面（test-simple-google.html）
+  - 狀態：重新建構完成，準備測試新方法

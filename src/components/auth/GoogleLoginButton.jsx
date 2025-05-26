@@ -126,7 +126,6 @@ const GoogleLoginButton = ({
           auto_select: false,
           cancel_on_tap_outside: true,
           use_fedcm_for_prompt: false, // 禁用FedCM以避免第三方Cookie問題
-          ux_mode: 'popup', // 使用彈窗模式
           context: 'signin' // 明確指定上下文
         };
         
@@ -237,65 +236,72 @@ const GoogleLoginButton = ({
       setLoading(true);
       setError('');
       
-      // 使用renderButton方法作為備選方案
-      console.log('Attempting to show Google prompt...');
+      console.log('🚀 Attempting to show Google prompt...');
       
-      // 先嘗試使用prompt方法
-      window.google.accounts.id.prompt((notification) => {
-        console.log('Google prompt notification:', notification);
-        if (notification.isNotDisplayed()) {
-          const reason = notification.getNotDisplayedReason();
-          console.log('Prompt not displayed:', reason);
-          
-          // 如果prompt失敗，嘗試使用renderButton
-          if (reason === 'browser_not_supported' || reason === 'invalid_client') {
-            console.log('Trying alternative method: renderButton');
-            tryRenderButton();
-          } else {
-            setError(`Google登入不可用: ${reason}`);
-            setLoading(false);
-          }
-        } else {
-          setLoading(false);
-        }
-      });
+      // 直接使用renderButton方法，更穩定
+      tryRenderButton();
+      
     } catch (err) {
-      console.error('Failed to trigger Google login:', err);
+      console.error('❌ Failed to trigger Google login:', err);
       setError(`無法啟動Google登入: ${err.message}`);
       setLoading(false);
     }
   };
 
-  // 備選方案：使用renderButton
+  // 使用renderButton方法
   const tryRenderButton = () => {
     try {
+      console.log('🔧 Using renderButton method...');
+      
       // 創建臨時按鈕容器
       const tempDiv = document.createElement('div');
       tempDiv.style.position = 'absolute';
       tempDiv.style.top = '-9999px';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.width = '1px';
+      tempDiv.style.height = '1px';
+      tempDiv.style.overflow = 'hidden';
       document.body.appendChild(tempDiv);
 
+      console.log('🎯 Rendering Google button...');
+      
       window.google.accounts.id.renderButton(tempDiv, {
         theme: 'outline',
         size: 'large',
         type: 'standard',
-        click_listener: () => {
-          console.log('Google button clicked via renderButton');
-        }
+        shape: 'rectangular',
+        text: 'signin_with',
+        logo_alignment: 'left',
+        width: 250
       });
 
-      // 模擬點擊
+      // 等待按鈕渲染完成後點擊
       setTimeout(() => {
-        const button = tempDiv.querySelector('div[role="button"]');
+        console.log('🖱️ Attempting to click Google button...');
+        const button = tempDiv.querySelector('div[role="button"]') || 
+                      tempDiv.querySelector('button') || 
+                      tempDiv.querySelector('[data-idom-class]');
+        
         if (button) {
+          console.log('✅ Found Google button, clicking...');
           button.click();
+        } else {
+          console.error('❌ Google button not found in rendered content');
+          setError('無法找到Google登入按鈕');
         }
-        document.body.removeChild(tempDiv);
-        setLoading(false);
-      }, 100);
+        
+        // 清理臨時元素
+        setTimeout(() => {
+          if (document.body.contains(tempDiv)) {
+            document.body.removeChild(tempDiv);
+          }
+          setLoading(false);
+        }, 1000);
+      }, 500);
+      
     } catch (err) {
-      console.error('RenderButton method also failed:', err);
-      setError('Google登入服務暫時不可用');
+      console.error('❌ RenderButton method failed:', err);
+      setError(`Google登入服務暫時不可用: ${err.message}`);
       setLoading(false);
     }
   };

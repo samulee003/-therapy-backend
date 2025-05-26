@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>簡單Google登入測試</title>
+    <meta name="google-signin-client_id" content="18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com">
+</head>
+<body>
+    <h1>Google登入測試</h1>
+    <p>當前域名: <span id="domain"></span></p>
+    <p>當前時間: <span id="time"></span></p>
+    
+    <div id="g_id_onload"
+         data-client_id="18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com"
+         data-context="signin"
+         data-ux_mode="popup"
+         data-callback="onSignIn"
+         data-auto_prompt="false">
+    </div>
+    
+    <div class="g_id_signin"
+         data-type="standard"
+         data-shape="rectangular"
+         data-theme="outline"
+         data-text="signin_with"
+         data-size="large"
+         data-logo_alignment="left">
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        // 顯示當前信息
+        document.getElementById('domain').textContent = window.location.hostname;
+        document.getElementById('time').textContent = new Date().toLocaleString();
+        
+        function onSignIn(credentialResponse) {
+            console.log('✅ Google登入成功!');
+            console.log('ID Token:', credentialResponse.credential);
+            alert('Google登入成功！\n\nID Token: ' + credentialResponse.credential.substring(0, 50) + '...');
+        }
+        
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('頁面錯誤:', msg, 'at', url, ':', lineNo);
+            return false;
+        };
+        
+        console.log('測試頁面載入完成');
+        console.log('Client ID: 18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com');
+        console.log('域名:', window.location.hostname);
+        console.log('來源:', window.location.origin);
+    </script>
+</body>
+</html> 
