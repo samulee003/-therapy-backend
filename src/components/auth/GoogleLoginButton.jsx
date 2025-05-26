@@ -28,23 +28,36 @@ const GoogleLoginButton = ({
   useEffect(() => {
     const fetchGoogleConfig = async () => {
       try {
+        console.log('🔍 開始獲取Google配置...');
         const response = await getGoogleConfig();
-        console.log('Google config response:', response.data);
+        console.log('📡 Google config API response:', response);
+        console.log('📊 Response data:', response.data);
+        console.log('🔍 Response data type:', typeof response.data);
+        console.log('🔍 Response data keys:', Object.keys(response.data || {}));
         
-        // 檢查後端返回的配置格式
-        const clientId = response.data?.details?.clientId || response.data?.clientId;
+        // 詳細檢查後端返回的配置格式
+        const responseData = response.data;
+        console.log('🔍 Details object:', responseData?.details);
+        console.log('🔍 Details keys:', Object.keys(responseData?.details || {}));
         
-        if (clientId) {
-          console.log('Setting Google Client ID:', clientId);
-          setGoogleClientId(clientId);
+        const clientId = responseData?.details?.clientId || responseData?.clientId;
+        console.log('🎯 Extracted Client ID:', clientId);
+        console.log('🎯 Client ID type:', typeof clientId);
+        console.log('🎯 Client ID length:', clientId?.length);
+        
+        if (clientId && clientId.trim()) {
+          console.log('✅ Setting Google Client ID:', clientId);
+          setGoogleClientId(clientId.trim());
           // 動態載入Google Identity Services
           loadGoogleScript();
         } else {
-          console.error('No client ID found in response:', response.data);
-          setError('Google配置中缺少Client ID');
+          console.error('❌ No valid client ID found in response');
+          console.error('❌ Response structure:', JSON.stringify(responseData, null, 2));
+          setError('Google配置中缺少有效的Client ID');
         }
       } catch (err) {
-        console.error('Failed to fetch Google config:', err);
+        console.error('❌ Failed to fetch Google config:', err);
+        console.error('❌ Error details:', err.response?.data || err.message);
         setError('無法載入Google登入配置');
       }
     };
@@ -88,26 +101,69 @@ const GoogleLoginButton = ({
 
   // 初始化Google Identity Services
   const initializeGoogle = () => {
+    console.log('🚀 開始初始化Google Identity Services...');
+    console.log('🔍 檢查前置條件:', {
+      hasGoogle: !!window.google,
+      hasClientId: !!googleClientId,
+      clientIdValue: googleClientId,
+      clientIdLength: googleClientId?.length,
+      currentDomain: window.location.hostname,
+      currentOrigin: window.location.origin
+    });
+    
     if (window.google && googleClientId) {
-      console.log('Initializing Google with Client ID:', googleClientId);
+      console.log('✅ 前置條件滿足，開始初始化...');
+      console.log('🎯 使用Client ID:', googleClientId);
+      
       try {
-        window.google.accounts.id.initialize({
+        const config = {
           client_id: googleClientId,
           callback: handleCredentialResponse,
           auto_select: false,
           cancel_on_tap_outside: true,
-          use_fedcm_for_prompt: false // 禁用FedCM以避免第三方Cookie問題
+          use_fedcm_for_prompt: false, // 禁用FedCM以避免第三方Cookie問題
+          ux_mode: 'popup', // 使用彈窗模式
+          context: 'signin' // 明確指定上下文
+        };
+        
+        console.log('🔧 Google初始化配置:', config);
+        
+        window.google.accounts.id.initialize(config);
+        console.log('✅ Google Identity Services initialized successfully');
+        
+        // 測試Google服務是否可用
+        if (window.google.accounts.id.prompt) {
+          console.log('✅ Google prompt method available');
+        } else {
+          console.warn('⚠️ Google prompt method not available');
+        }
+        
+        // 測試其他Google方法
+        console.log('🔍 可用的Google方法:', {
+          hasPrompt: !!window.google.accounts.id.prompt,
+          hasRenderButton: !!window.google.accounts.id.renderButton,
+          hasRevoke: !!window.google.accounts.id.revoke
         });
-        console.log('Google Identity Services initialized successfully');
+        
       } catch (err) {
-        console.error('Failed to initialize Google Identity Services:', err);
-        setError('Google服務初始化失敗');
+        console.error('❌ Failed to initialize Google Identity Services:', err);
+        console.error('❌ Error details:', err.message, err.stack);
+        setError(`Google服務初始化失敗: ${err.message}`);
       }
     } else {
-      console.log('Cannot initialize Google - missing requirements:', {
+      console.log('❌ Cannot initialize Google - missing requirements:', {
         hasGoogle: !!window.google,
-        hasClientId: !!googleClientId
+        hasClientId: !!googleClientId,
+        googleObject: window.google ? 'exists' : 'missing',
+        clientIdValue: googleClientId || 'empty',
+        currentDomain: window.location.hostname
       });
+      
+      if (!window.google) {
+        setError('Google服務腳本尚未載入');
+      } else if (!googleClientId) {
+        setError('Google Client ID未配置');
+      }
     }
   };
 
@@ -152,7 +208,9 @@ const GoogleLoginButton = ({
     console.log('Google login triggered', {
       hasGoogle: !!window.google,
       hasClientId: !!googleClientId,
-      clientId: googleClientId
+      clientId: googleClientId,
+      domain: window.location.hostname,
+      origin: window.location.origin
     });
 
     if (!window.google) {
@@ -166,18 +224,69 @@ const GoogleLoginButton = ({
     }
 
     try {
-      // 直接使用prompt方法
+      setLoading(true);
+      setError('');
+      
+      // 使用renderButton方法作為備選方案
       console.log('Attempting to show Google prompt...');
+      
+      // 先嘗試使用prompt方法
       window.google.accounts.id.prompt((notification) => {
         console.log('Google prompt notification:', notification);
         if (notification.isNotDisplayed()) {
-          console.log('Prompt not displayed:', notification.getNotDisplayedReason());
-          setError(`Google登入不可用: ${notification.getNotDisplayedReason()}`);
+          const reason = notification.getNotDisplayedReason();
+          console.log('Prompt not displayed:', reason);
+          
+          // 如果prompt失敗，嘗試使用renderButton
+          if (reason === 'browser_not_supported' || reason === 'invalid_client') {
+            console.log('Trying alternative method: renderButton');
+            tryRenderButton();
+          } else {
+            setError(`Google登入不可用: ${reason}`);
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
         }
       });
     } catch (err) {
       console.error('Failed to trigger Google login:', err);
-      setError('無法啟動Google登入，請稍後再試');
+      setError(`無法啟動Google登入: ${err.message}`);
+      setLoading(false);
+    }
+  };
+
+  // 備選方案：使用renderButton
+  const tryRenderButton = () => {
+    try {
+      // 創建臨時按鈕容器
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.top = '-9999px';
+      document.body.appendChild(tempDiv);
+
+      window.google.accounts.id.renderButton(tempDiv, {
+        theme: 'outline',
+        size: 'large',
+        type: 'standard',
+        click_listener: () => {
+          console.log('Google button clicked via renderButton');
+        }
+      });
+
+      // 模擬點擊
+      setTimeout(() => {
+        const button = tempDiv.querySelector('div[role="button"]');
+        if (button) {
+          button.click();
+        }
+        document.body.removeChild(tempDiv);
+        setLoading(false);
+      }, 100);
+    } catch (err) {
+      console.error('RenderButton method also failed:', err);
+      setError('Google登入服務暫時不可用');
+      setLoading(false);
     }
   };
 

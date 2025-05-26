@@ -125,16 +125,16 @@ const AppointmentManager = ({ user }) => {
 
     // 搜索過濾
     if (searchTerm) {
-      const lowerCaseSearch = searchTerm.toLowerCase();
+    const lowerCaseSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        appointment =>
+      appointment =>
           appointment.actualPatientName?.toLowerCase().includes(lowerCaseSearch) ||
-          appointment.patientEmail?.toLowerCase().includes(lowerCaseSearch) ||
-          appointment.patientPhone?.includes(searchTerm) ||
-          appointment.date?.includes(searchTerm) ||
-          appointment.time?.includes(searchTerm) ||
-          appointment.appointmentReason?.toLowerCase().includes(lowerCaseSearch)
-      );
+        appointment.patientEmail?.toLowerCase().includes(lowerCaseSearch) ||
+        appointment.patientPhone?.includes(searchTerm) ||
+        appointment.date?.includes(searchTerm) ||
+        appointment.time?.includes(searchTerm) ||
+        appointment.appointmentReason?.toLowerCase().includes(lowerCaseSearch)
+    );
     }
 
     // 時間過濾
@@ -219,10 +219,10 @@ const AppointmentManager = ({ user }) => {
       setCancelSuccess('預約已成功取消');
       
       // 1.5秒後關閉對話框
-      setTimeout(() => {
-        closeCancelConfirm();
+        setTimeout(() => {
+          closeCancelConfirm();
         setCancelSuccess('');
-      }, 1500);
+        }, 1500);
 
     } catch (err) {
       console.error('取消預約失敗:', err);
@@ -268,9 +268,9 @@ const AppointmentManager = ({ user }) => {
   // 渲染卡片視圖
   const renderCardsView = () => {
     const groupedAppointments = groupAppointmentsByDate(filteredAppointments);
-    
-    return (
-      <Box>
+
+  return (
+    <Box>
         {Object.keys(groupedAppointments).map(date => (
           <Box key={date} sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
@@ -280,7 +280,7 @@ const AppointmentManager = ({ user }) => {
                 day: 'numeric', 
                 weekday: 'long' 
               })}
-            </Typography>
+      </Typography>
             <Grid container spacing={isMobile ? 1.5 : 2}>
               {groupedAppointments[date].map(appointment => (
                 <Grid item xs={12} sm={6} md={4} key={appointment.id}>
@@ -323,9 +323,9 @@ const AppointmentManager = ({ user }) => {
                               lineHeight: 1.2
                             }}>
                               {appointment.actualPatientName || '未指定患者'}
-                            </Typography>
+      </Typography>
                             <Chip
-                              size="small"
+          size="small"
                               label={getStatusText(appointment.status)}
                               color={getStatusColor(appointment.status)}
                               sx={{ 
@@ -346,8 +346,8 @@ const AppointmentManager = ({ user }) => {
                           }}>
                             {appointment.time}
                           </Typography>
-                        </Box>
-                        
+      </Box>
+
                         {appointment.patientEmail && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                             <EmailIcon fontSize="small" color="action" />
@@ -452,98 +452,98 @@ const AppointmentManager = ({ user }) => {
             </Typography>
           </Box>
         )}
-      </Box>
+        </Box>
     );
   };
 
   // 渲染表格視圖
   const renderTableView = () => (
-    <TableContainer component={Paper} sx={{ mb: 5 }}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>患者姓名</TableCell>
-            <TableCell>日期</TableCell>
-            <TableCell>時間</TableCell>
-            <TableCell>聯繫方式</TableCell>
-            <TableCell>狀態</TableCell>
-            <TableCell align="right">操作</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredAppointments.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} align="center">
+        <TableContainer component={Paper} sx={{ mb: 5 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>患者姓名</TableCell>
+                <TableCell>日期</TableCell>
+                <TableCell>時間</TableCell>
+                <TableCell>聯繫方式</TableCell>
+                <TableCell>狀態</TableCell>
+                <TableCell align="right">操作</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredAppointments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
                 {searchTerm || timeFilter !== 'all' || statusFilter !== 'all' 
                   ? '沒有符合條件的預約' 
                   : '暫無預約記錄'}
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredAppointments.map(appointment => (
-              <TableRow 
-                key={appointment.id}
-                sx={{
-                  backgroundColor: appointment.status === 'cancelled' 
-                    ? 'action.hover' 
-                    : 'inherit',
-                  opacity: appointment.status === 'cancelled' ? 0.6 : 1,
-                  '&:hover': {
-                    backgroundColor: appointment.status === 'cancelled' 
-                      ? 'action.selected' 
-                      : 'action.hover',
-                  }
-                }}
-              >
-                <TableCell>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAppointments.map(appointment => (
+                  <TableRow 
+                    key={appointment.id}
+                    sx={{
+                      backgroundColor: appointment.status === 'cancelled' 
+                        ? 'action.hover' 
+                        : 'inherit',
+                      opacity: appointment.status === 'cancelled' ? 0.6 : 1,
+                      '&:hover': {
+                        backgroundColor: appointment.status === 'cancelled' 
+                          ? 'action.selected' 
+                          : 'action.hover',
+                      }
+                    }}
+                  >
+                    <TableCell>
                   {appointment.actualPatientName || '未指定患者'}
-                </TableCell>
-                <TableCell>{appointment.date}</TableCell>
-                <TableCell>{appointment.time}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" noWrap>
-                    {appointment.patientEmail}
-                  </Typography>
-                  {appointment.patientPhone && (
-                    <Typography variant="body2" color="text.secondary">
-                      {appointment.patientPhone}
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={getStatusText(appointment.status)}
-                    color={getStatusColor(appointment.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Tooltip title="查看詳情">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleViewAppointmentDetails(appointment)}
-                    >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {appointment.status !== 'cancelled' && (
-                    <Tooltip title="取消預約">
-                      <IconButton
+                    </TableCell>
+                    <TableCell>{appointment.date}</TableCell>
+                    <TableCell>{appointment.time}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap>
+                        {appointment.patientEmail}
+                      </Typography>
+                      {appointment.patientPhone && (
+                        <Typography variant="body2" color="text.secondary">
+                          {appointment.patientPhone}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getStatusText(appointment.status)}
+                        color={getStatusColor(appointment.status)}
                         size="small"
-                        color="error"
-                        onClick={() => handleOpenCancelConfirm(appointment)}
-                      >
-                        <CancelIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="查看詳情">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewAppointmentDetails(appointment)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {appointment.status !== 'cancelled' && (
+                        <Tooltip title="取消預約">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleOpenCancelConfirm(appointment)}
+                          >
+                            <CancelIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
   );
 
   return (
