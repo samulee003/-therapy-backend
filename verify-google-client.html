@@ -1,28 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <title>Google Client ID 驗證</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直接驗證 Google 客戶端</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-button {
+            background: #4285f4;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 10px;
+            display: block;
+            width: 100%;
+        }
+        .test-button:hover {
+            background: #3367d6;
+        }
+    </style>
 </head>
 <body>
-    <h1>Google OAuth 測試</h1>
-    <div id="g_id_onload"
-         data-client_id="18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com"
-         data-callback="handleCredentialResponse">
-    </div>
-    <div class="g_id_signin" data-type="standard"></div>
+    <h1>🔍 直接驗證 Google 客戶端</h1>
+    
+    <p><strong>Client ID:</strong> 18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f</p>
+    
+    <button class="test-button" onclick="testDirect()">
+        🚀 直接測試（跳過檢查）
+    </button>
 
     <script>
-        function handleCredentialResponse(response) {
-            console.log("Encoded JWT ID token: " + response.credential);
-            alert("Google 登入成功！");
+        function testDirect() {
+            // 直接構建最簡單的 OAuth URL
+            const clientId = '18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f.apps.googleusercontent.com';
+            const redirectUri = 'http://localhost:8080';
+            
+            const url = `https://accounts.google.com/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+            
+            console.log('測試 URL:', url);
+            alert('即將重定向到 Google...\n\n如果看到 Google 登入頁面，說明配置正確！');
+            
+            // 直接跳轉
+            window.location.href = url;
         }
-
+        
+        // 檢查回調
         window.onload = function() {
-            console.log('測試 Client ID: 18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com');
-            console.log('當前域名:', window.location.hostname);
-            console.log('當前來源:', window.location.origin);
-        }
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            
+            if (code) {
+                document.body.innerHTML = `
+                    <h1 style="color: green;">🎉 成功！</h1>
+                    <p><strong>授權碼:</strong> ${code}</p>
+                    <p>Google OAuth 配置完全正確！</p>
+                `;
+            } else if (error) {
+                document.body.innerHTML = `
+                    <h1 style="color: red;">❌ 錯誤</h1>
+                    <p><strong>錯誤:</strong> ${error}</p>
+                `;
+            }
+        };
     </script>
 </body>
 </html> 

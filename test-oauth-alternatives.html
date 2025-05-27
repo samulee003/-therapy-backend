@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth 替代端點測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4285f4;
+        }
+        .test-button {
+            background: #4285f4;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+            display: block;
+            width: 100%;
+        }
+        .test-button:hover {
+            background: #3367d6;
+        }
+        .url-preview {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 OAuth 替代端點測試</h1>
+    
+    <div class="test-section">
+        <h3>方法 1：標準 OAuth 2.0 端點</h3>
+        <div class="url-preview" id="url1"></div>
+        <button class="test-button" onclick="testMethod1()">測試方法 1</button>
+    </div>
+
+    <div class="test-section">
+        <h3>方法 2：舊版 OAuth 端點</h3>
+        <div class="url-preview" id="url2"></div>
+        <button class="test-button" onclick="testMethod2()">測試方法 2</button>
+    </div>
+
+    <div class="test-section">
+        <h3>方法 3：OAuth 1.0 兼容端點</h3>
+        <div class="url-preview" id="url3"></div>
+        <button class="test-button" onclick="testMethod3()">測試方法 3</button>
+    </div>
+
+    <div class="test-section">
+        <h3>方法 4：Google Identity Services (GSI)</h3>
+        <div id="gsi-container">
+            <p>載入 Google Identity Services...</p>
+        </div>
+        <button class="test-button" onclick="testGSI()">測試 GSI 方法</button>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        const CLIENT_ID = '18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f.apps.googleusercontent.com';
+        const REDIRECT_URI = 'http://localhost:8080';
+        
+        // 方法 1：標準 OAuth 2.0
+        function testMethod1() {
+            const url = `https://accounts.google.com/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid%20email%20profile`;
+            document.getElementById('url1').textContent = url;
+            setTimeout(() => window.location.href = url, 2000);
+        }
+        
+        // 方法 2：舊版端點
+        function testMethod2() {
+            const url = `https://accounts.google.com/o/oauth2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid%20email%20profile`;
+            document.getElementById('url2').textContent = url;
+            setTimeout(() => window.location.href = url, 2000);
+        }
+        
+        // 方法 3：OAuth 1.0 兼容
+        function testMethod3() {
+            const url = `https://accounts.google.com/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+            document.getElementById('url3').textContent = url;
+            setTimeout(() => window.location.href = url, 2000);
+        }
+        
+        // 方法 4：Google Identity Services
+        function testGSI() {
+            if (window.google) {
+                try {
+                    window.google.accounts.id.initialize({
+                        client_id: CLIENT_ID,
+                        callback: handleCredentialResponse
+                    });
+                    
+                    window.google.accounts.id.prompt((notification) => {
+                        if (notification.isNotDisplayed()) {
+                            alert('GSI 提示未顯示: ' + notification.getNotDisplayedReason());
+                        }
+                    });
+                } catch (error) {
+                    alert('GSI 錯誤: ' + error.message);
+                }
+            } else {
+                alert('Google Identity Services 未載入');
+            }
+        }
+        
+        function handleCredentialResponse(response) {
+            document.body.innerHTML = `
+                <h1 style="color: green;">🎉 GSI 成功！</h1>
+                <p><strong>JWT Token:</strong> ${response.credential.substring(0, 50)}...</p>
+                <p>Google OAuth 通過 GSI 工作正常！</p>
+            `;
+        }
+        
+        // 檢查回調
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            
+            if (code) {
+                document.body.innerHTML = `
+                    <h1 style="color: green;">🎉 成功！</h1>
+                    <p><strong>授權碼:</strong> ${code}</p>
+                    <p>OAuth 配置正確！</p>
+                `;
+            } else if (error) {
+                document.body.innerHTML = `
+                    <h1 style="color: red;">❌ 錯誤</h1>
+                    <p><strong>錯誤:</strong> ${error}</p>
+                `;
+            }
+            
+            // 預覽 URLs
+            document.getElementById('url1').textContent = `https://accounts.google.com/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid%20email%20profile`;
+            document.getElementById('url2').textContent = `https://accounts.google.com/o/oauth2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid%20email%20profile`;
+            document.getElementById('url3').textContent = `https://accounts.google.com/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+        };
+    </script>
+</body>
+</html> 

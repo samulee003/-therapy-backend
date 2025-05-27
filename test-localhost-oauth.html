@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>簡潔 Google OAuth 測試</title>
+    <title>Localhost Google OAuth 測試</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -32,24 +32,47 @@
             margin: 20px 0;
             word-break: break-all;
             font-family: monospace;
+            font-size: 12px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
-    <h1>🔍 簡潔 Google OAuth 測試</h1>
+    <h1>🔍 Localhost Google OAuth 測試</h1>
+    
+    <div class="info">
+        <h3>📋 使用說明：</h3>
+        <p>1. 在 Google Cloud Console 中添加重定向 URI：<br>
+        <code>http://localhost:8080</code></p>
+        <p>2. 啟動本地服務器（見下方）</p>
+        <p>3. 點擊測試按鈕</p>
+    </div>
     
     <button class="test-button" onclick="testGoogleAuth()">
-        🚀 測試 Google 登入
+        🚀 測試 Google 登入 (Localhost)
     </button>
     
     <div id="url-display" class="url-display" style="display: none;"></div>
     
+    <div class="info">
+        <h3>🖥️ 啟動本地服務器：</h3>
+        <p>在項目目錄中運行：</p>
+        <code>python -m http.server 8080</code><br>
+        或<br>
+        <code>npx serve -p 8080</code>
+    </div>
+    
     <script>
         const CLIENT_ID = '18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f.apps.googleusercontent.com';
-        const REDIRECT_URI = 'https://therapy-booking.zeabur.app';
+        const REDIRECT_URI = 'http://localhost:8080';
         
         function testGoogleAuth() {
-            // 構建簡潔的授權 URL
+            // 構建授權 URL
             const params = new URLSearchParams({
                 'client_id': CLIENT_ID,
                 'redirect_uri': REDIRECT_URI,
@@ -84,6 +107,7 @@
                     <h1>🎉 OAuth 成功！</h1>
                     <p><strong>授權碼:</strong> ${code}</p>
                     <p>Google OAuth 配置完全正確！</p>
+                    <p>現在可以在 Zeabur 上使用相同的配置了。</p>
                 `;
             } else if (error) {
                 document.body.innerHTML = `
