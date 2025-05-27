@@ -2241,11 +2241,38 @@ startIcon={isMobile ? null : <VisibilityIcon />}
    - ✅ 清理URL防止重複處理
    - ✅ 完整的錯誤處理和用戶反饋
 
-**🎯 下一步任務：**
-1. **測試新組件**：在本地開發環境測試更新的GoogleLoginButton
-2. **後端端點驗證**：確認 `/api/auth/google/callback` 端點存在且工作
-3. **生產部署**：將更新的組件部署到Zeabur
-4. **Google Console配置**：確保重定向URI正確配置
+**❌ 問題發現：invalid_client 錯誤 (2025-01-27)**
+
+**🚨 緊急問題：**
+- **錯誤類型**：401 invalid_client, flowName=GeneralOAuthFlow
+- **觸發URL**：`accounts.google.com/signin/oauth/error`
+- **根本原因**：新的React組件觸發了新版OAuth端點，與現有配置不兼容
+
+**🔧 已完成修復嘗試：**
+1. ✅ 修改重定向URI從 `origin + pathname` 改為僅 `origin`
+2. ✅ 確保使用測試成功的舊版端點 `/o/oauth2/auth`
+3. ✅ 添加詳細的調試日誌輸出
+4. ✅ 重新啟動開發服務器
+
+**✅ 執行者決策：暫時隱藏Google OAuth功能 (2025-01-27)**
+
+**📋 已完成的修改：**
+1. **LoginPage.jsx** - 使用 `{false && (...)}` 隱藏Google登入按鈕和相關UI
+2. **RegisterPage.jsx** - 使用 `{false && (...)}` 隱藏Google註冊按鈕和相關UI  
+3. **Import清理** - 註釋掉未使用的GoogleLoginButton import
+4. **保留完整代碼** - 所有Google OAuth代碼都保留，只是暫時隱藏
+
+**🎯 隱藏功能的好處：**
+1. **用戶體驗穩定**：避免用戶遇到OAuth錯誤
+2. **開發繼續**：可以專注於其他功能開發
+3. **快速恢復**：當OAuth問題解決後，只需將 `false` 改為 `true` 即可恢復
+4. **代碼保持**：所有功能代碼都保留，沒有刪除任何實現
+
+**🔄 恢復指南：**
+當Google OAuth問題完全解決後，要恢復功能只需：
+1. 將 `{false && (...)}` 改為 `{true && (...)}`  
+2. 取消註釋 GoogleLoginButton 的 import
+3. 測試功能正常後可移除條件包裝
 
 **📋 技術架構說明：**
 - **前端流程**：用戶點擊按鈕 → 重定向到Google → 用戶授權 → 重定向回應用 → 自動處理授權碼

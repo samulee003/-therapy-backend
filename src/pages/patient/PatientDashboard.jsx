@@ -334,13 +334,13 @@ const PatientDashboard = () => {
             <ListItemText
               primary={
                 <Box>
-                  <Typography 
-                    variant="body1" 
-                    fontWeight="medium"
-                    sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
-                  >
+                <Typography 
+                  variant="body1" 
+                  fontWeight="medium"
+                  sx={{ fontSize: isMobile ? '0.9rem' : undefined }}
+                >
                     就診者：{appointment.actualPatientName || appointment.patientName || '未指定患者'}
-                  </Typography>
+                </Typography>
                   <Typography 
                     variant="body2" 
                     color="text.secondary"
@@ -599,14 +599,14 @@ const PatientDashboard = () => {
                                   <ListItemText
                                     primary={
                                       <Box>
-                                        <Typography variant="body1" fontWeight="medium">
+                                      <Typography variant="body1" fontWeight="medium">
                                           就診者：{appointment.actualPatientName || appointment.patientName || '未指定患者'}
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary">
                                           治療師：{appointment.doctorName ||
-                                            appointment.doctor?.name ||
-                                            '心理治療師 (已排定)'}
-                                        </Typography>
+                                          appointment.doctor?.name ||
+                                          '心理治療師 (已排定)'}
+                                      </Typography>
                                       </Box>
                                     }
                                     secondary={

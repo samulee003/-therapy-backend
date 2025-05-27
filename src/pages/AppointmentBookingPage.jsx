@@ -1109,7 +1109,7 @@ const AppointmentBookingPage = () => {
                     <Typography variant="body2" gutterBottom><strong>預約人電話：</strong> {bookingDetails.patientPhone}</Typography>
                     <Typography variant="body2" gutterBottom><strong>預約人Email：</strong> {bookingDetails.patientEmail}</Typography>
                     <Typography variant="body2" gutterBottom><strong>初診：</strong> {bookingDetails.isNewPatient === 'yes' ? '是' : '否'}</Typography>
-                    {bookingDetails.birthDate && <Typography variant="body2" gutterBottom><strong>生日：</strong> {bookingDetails.birthDate}</Typography>}
+                     {bookingDetails.birthDate && <Typography variant="body2" gutterBottom><strong>生日：</strong> {bookingDetails.birthDate}</Typography>}
                     {bookingDetails.gender && <Typography variant="body2" gutterBottom><strong>性別：</strong> {bookingDetails.gender}</Typography>}
                     <Typography variant="body2" gutterBottom><strong>預約原因：</strong> {bookingDetails.appointmentReason || '未填寫'}</Typography>
                     {bookingDetails.notes && <Typography variant="body2"><strong>備註：</strong> {bookingDetails.notes}</Typography>}

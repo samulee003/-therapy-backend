@@ -1,16 +1,7 @@
  M .cursor/scratchpad.md
  M changed_files.txt
- M quick-check.cjs
- M quick-check.js
  M src/components/auth/GoogleLoginButton.jsx
- M src/services/api.js
- M test-simple-google.html
- M verify-google-client.html
-?? diagnose-google-oauth.html
-?? google-oauth-checklist.md
-?? privacy-policy.html
-?? test-localhost-oauth.html
-?? test-new-oauth.cjs
-?? test-oauth-alternatives.html
-?? test-oauth-direct.html
-?? wait-and-test.html
+ M src/pages/AppointmentBookingPage.jsx
+ M src/pages/LoginPage.jsx
+ M src/pages/RegisterPage.jsx
+ M src/pages/patient/PatientDashboard.jsx
