@@ -122,10 +122,11 @@ const GoogleLoginButton = ({
       setLoading(true);
       setError('');
       
-      // 構建OAuth URL  
-      const redirectUri = window.location.origin + window.location.pathname;
+      // 構建OAuth URL - 使用測試成功的確切格式
+      const redirectUri = window.location.origin;  // 只使用origin，不包含pathname
       const state = encodeURIComponent(JSON.stringify({ mode, role }));
       
+      // 使用測試成功的舊版端點和參數格式
       const authUrl = `https://accounts.google.com/o/oauth2/auth?` +
         `client_id=${googleClientId}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -134,6 +135,7 @@ const GoogleLoginButton = ({
         `state=${state}`;
       
       console.log('🔗 Redirect URI:', redirectUri);
+      console.log('🔗 Client ID:', googleClientId);
       console.log('🔗 Google OAuth URL:', authUrl);
       
       // 重定向到Google OAuth

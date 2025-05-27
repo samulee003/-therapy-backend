@@ -30,7 +30,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { registerUser, formatApiError } from '../services/api';
 import { ErrorAlert } from '../components/common';
-import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+// import GoogleLoginButton from '../components/auth/GoogleLoginButton'; // 暫時隱藏Google註冊功能
 
 const RegisterPage = () => {
   const theme = useTheme();
@@ -139,13 +139,13 @@ const RegisterPage = () => {
   const validateForm = () => {
     const formErrors = {};
 
-    // 驗證電子郵件
+      // 驗證電子郵件
     formErrors.email = validateField('email', formData.email);
 
-    // 驗證密碼
+      // 驗證密碼
     formErrors.password = validateField('password', formData.password);
 
-    // 驗證確認密碼
+      // 驗證確認密碼
     formErrors.confirmPassword = validateField('confirmPassword', formData.confirmPassword);
 
     setErrors(formErrors);
@@ -233,7 +233,7 @@ const RegisterPage = () => {
     );
   }
 
-  return (
+        return (
     <Container component="main" maxWidth="sm" sx={{ mb: 4 }}>
       <Paper
         elevation={3}
@@ -390,67 +390,73 @@ const RegisterPage = () => {
               <Button
                 type="submit"
                 fullWidth
-                variant="contained"
-                color="primary"
-                size="large"
-                disabled={loading}
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={loading}
                 sx={{ mt: 2, py: 1.5 }}
-              >
+                  >
                 {loading ? <CircularProgress size={24} color="inherit" /> : '註冊帳號'}
-              </Button>
+                  </Button>
             </Grid>
           </Grid>
         </Box>
 
-        <Box sx={{ width: '100%', mt: 4 }}>
-          <Divider sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              或使用社交帳號註冊
-            </Typography>
-          </Divider>
+        {/* Google 註冊功能暫時隱藏 */}
+        {false && (
+          <Box sx={{ width: '100%', mt: 4 }}>
+            <Divider sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                或使用社交帳號註冊
+              </Typography>
+            </Divider>
 
-          {/* Google 註冊按鈕 */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              選擇身份進行Google註冊：
-            </Typography>
-            <Grid container spacing={1}>
-              <Grid item xs={6}>
-                <GoogleLoginButton 
-                  mode="register"
-                  role="patient"
-                  size="medium"
-                  onSuccess={(response) => {
-                    console.log('Google register success (patient):', response);
-                    navigate('/patient-dashboard');
-                  }}
-                  onError={(error) => {
-                    console.error('Google register error:', error);
-                    setError(error.message || 'Google註冊失敗');
-                  }}
-                  disabled={loading}
-                />
+            {/* Google 註冊按鈕 */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                選擇身份進行Google註冊：
+              </Typography>
+              <Grid container spacing={1}>
+                <Grid item xs={6}>
+                  <GoogleLoginButton 
+                    mode="register"
+                    role="patient"
+                    size="medium"
+                    onSuccess={(response) => {
+                      console.log('Google register success (patient):', response);
+                      navigate('/patient-dashboard');
+                    }}
+                    onError={(error) => {
+                      console.error('Google register error:', error);
+                      setError(error.message || 'Google註冊失敗');
+                    }}
+                    disabled={loading}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <GoogleLoginButton 
+                    mode="register"
+                    role="doctor"
+                    size="medium"
+                    onSuccess={(response) => {
+                      console.log('Google register success (doctor):', response);
+                      navigate('/therapist-dashboard');
+                    }}
+                    onError={(error) => {
+                      console.error('Google register error:', error);
+                      setError(error.message || 'Google註冊失敗');
+                    }}
+                    disabled={loading}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={6}>
-                <GoogleLoginButton 
-                  mode="register"
-                  role="doctor"
-                  size="medium"
-                  onSuccess={(response) => {
-                    console.log('Google register success (doctor):', response);
-                    navigate('/therapist-dashboard');
-                  }}
-                  onError={(error) => {
-                    console.error('Google register error:', error);
-                    setError(error.message || 'Google註冊失敗');
-                  }}
-                  disabled={loading}
-                />
-              </Grid>
-            </Grid>
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
           </Box>
+        )}
 
-          <Divider sx={{ my: 3 }} />
+        <Box sx={{ width: '100%', mt: 2 }}>
 
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
