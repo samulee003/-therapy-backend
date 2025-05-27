@@ -45,4 +45,74 @@ db.all('SELECT id, name, email, role FROM users WHERE role = "doctor"', [], (err
     
     db.close();
   });
+});
+
+// 快速檢查 Google OAuth 配置
+const https = require('https');
+
+const clientId = '18566096794-vmvdqvt1k5f3bl40fm7u7c9plk7jq767.apps.googleusercontent.com';
+
+console.log('🔍 檢查 Google OAuth 配置...');
+console.log('Client ID:', clientId);
+
+// 測試 Google OAuth 端點
+const testUrl = `https://accounts.google.com/.well-known/openid_configuration`;
+
+https.get(testUrl, (res) => {
+  let data = '';
+  
+  res.on('data', (chunk) => {
+    data += chunk;
+  });
+  
+  res.on('end', () => {
+    try {
+      const config = JSON.parse(data);
+      console.log('✅ Google OAuth 端點正常');
+      console.log('授權端點:', config.authorization_endpoint);
+      console.log('Token 端點:', config.token_endpoint);
+      
+      // 測試授權 URL
+      const authUrl = `${config.authorization_endpoint}?` +
+        `client_id=${clientId}&` +
+        `redirect_uri=https://therapy-booking.zeabur.app&` +
+        `response_type=code&` +
+        `scope=openid email profile`;
+      
+      console.log('\n🔗 測試授權 URL:');
+      console.log(authUrl);
+      console.log('\n📋 請在瀏覽器中訪問上面的 URL 來測試 OAuth 配置');
+      console.log('如果出現錯誤，請告訴我具體的錯誤訊息');
+      
+    } catch (error) {
+      console.error('❌ 解析 Google 配置失敗:', error.message);
+    }
+  });
+}).on('error', (error) => {
+  console.error('❌ 網路請求失敗:', error.message);
+});
+
+// 檢查後端配置
+console.log('\n🔍 檢查後端配置...');
+const backendUrl = 'https://psy-backend.zeabur.app/api/auth/google/config';
+
+https.get(backendUrl, (res) => {
+  let data = '';
+  
+  res.on('data', (chunk) => {
+    data += chunk;
+  });
+  
+  res.on('end', () => {
+    try {
+      const config = JSON.parse(data);
+      console.log('✅ 後端配置正常');
+      console.log('後端返回:', JSON.stringify(config, null, 2));
+    } catch (error) {
+      console.error('❌ 後端配置解析失敗:', error.message);
+      console.log('原始回應:', data);
+    }
+  });
+}).on('error', (error) => {
+  console.error('❌ 後端請求失敗:', error.message);
 }); 

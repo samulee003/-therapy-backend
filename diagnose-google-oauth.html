@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth 診斷工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4285f4;
+        }
+        .error {
+            border-left-color: #ea4335;
+            background: #fef7f7;
+        }
+        .success {
+            border-left-color: #34a853;
+            background: #f7fef7;
+        }
+        .warning {
+            border-left-color: #fbbc04;
+            background: #fffbf0;
+        }
+        .test-button {
+            background: #4285f4;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .test-button:hover {
+            background: #3367d6;
+        }
+        .code {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            font-size: 12px;
+        }
+        .config-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Google OAuth 診斷工具</h1>
+    
+    <div class="section">
+        <h3>📋 當前配置</h3>
+        <div class="config-item">
+            <strong>Client ID:</strong><br>
+            <span class="code" id="client-id">18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f.apps.googleusercontent.com</span>
+        </div>
+        <div class="config-item">
+            <strong>重定向 URI:</strong><br>
+            <span class="code" id="redirect-uri">http://localhost:8080</span>
+        </div>
+        <div class="config-item">
+            <strong>當前 URL:</strong><br>
+            <span class="code" id="current-url"></span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>🧪 測試選項</h3>
+        <button class="test-button" onclick="testBasicAuth()">基本 OAuth 測試</button>
+        <button class="test-button" onclick="testWithoutScope()">無 Scope 測試</button>
+        <button class="test-button" onclick="testMinimalParams()">最小參數測試</button>
+        <button class="test-button" onclick="checkClientId()">檢查 Client ID</button>
+    </div>
+
+    <div id="results"></div>
+
+    <div class="section">
+        <h3>📝 檢查清單</h3>
+        <div id="checklist">
+            <div>⏳ 檢查 Google Cloud Console 配置...</div>
+        </div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f.apps.googleusercontent.com';
+        const REDIRECT_URI = 'http://localhost:8080';
+        
+        // 顯示當前信息
+        document.getElementById('current-url').textContent = window.location.href;
+        
+        function log(message, type = 'info') {
+            console.log(message);
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `section ${type}`;
+            div.innerHTML = `<pre>${message}</pre>`;
+            results.appendChild(div);
+        }
+
+        function testBasicAuth() {
+            log('🚀 測試基本 OAuth 流程...');
+            
+            const params = new URLSearchParams({
+                'client_id': CLIENT_ID,
+                'redirect_uri': REDIRECT_URI,
+                'response_type': 'code',
+                'scope': 'openid email profile'
+            });
+            
+            const authUrl = 'https://accounts.google.com/oauth2/v2/auth?' + params.toString();
+            log(`授權 URL: ${authUrl}`);
+            
+            setTimeout(() => {
+                window.location.href = authUrl;
+            }, 2000);
+        }
+
+        function testWithoutScope() {
+            log('🚀 測試無 Scope OAuth 流程...');
+            
+            const params = new URLSearchParams({
+                'client_id': CLIENT_ID,
+                'redirect_uri': REDIRECT_URI,
+                'response_type': 'code'
+            });
+            
+            const authUrl = 'https://accounts.google.com/oauth2/v2/auth?' + params.toString();
+            log(`授權 URL: ${authUrl}`);
+            
+            setTimeout(() => {
+                window.location.href = authUrl;
+            }, 2000);
+        }
+
+        function testMinimalParams() {
+            log('🚀 測試最小參數 OAuth 流程...');
+            
+            const authUrl = `https://accounts.google.com/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+            log(`授權 URL: ${authUrl}`);
+            
+            setTimeout(() => {
+                window.location.href = authUrl;
+            }, 2000);
+        }
+
+        function checkClientId() {
+            log('🔍 檢查 Client ID 有效性...');
+            
+            // 嘗試訪問 Google 的 OpenID 配置
+            fetch('https://accounts.google.com/.well-known/openid_configuration')
+                .then(response => response.json())
+                .then(config => {
+                    log('✅ Google OpenID 配置獲取成功', 'success');
+                    log(`授權端點: ${config.authorization_endpoint}`);
+                    log(`Token 端點: ${config.token_endpoint}`);
+                })
+                .catch(error => {
+                    log(`❌ 無法獲取 Google OpenID 配置: ${error.message}`, 'error');
+                });
+        }
+
+        // 檢查是否從 OAuth 重定向回來
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            
+            if (code) {
+                document.body.innerHTML = `
+                    <div class="section success">
+                        <h1>🎉 OAuth 成功！</h1>
+                        <p><strong>授權碼:</strong> ${code}</p>
+                        <p>Google OAuth 配置完全正確！</p>
+                        <p>現在可以在 Zeabur 上使用相同的配置了。</p>
+                    </div>
+                `;
+            } else if (error) {
+                log(`❌ OAuth 錯誤: ${error}`, 'error');
+                const errorDescription = urlParams.get('error_description');
+                if (errorDescription) {
+                    log(`錯誤描述: ${errorDescription}`, 'error');
+                }
+            }
+            
+            // 更新檢查清單
+            updateChecklist();
+        };
+
+        function updateChecklist() {
+            const checklist = document.getElementById('checklist');
+            checklist.innerHTML = `
+                <div>✅ Client ID: ${CLIENT_ID.substring(0, 20)}...</div>
+                <div>✅ 重定向 URI: ${REDIRECT_URI}</div>
+                <div>⚠️ 請確認 Google Cloud Console 中已添加此重定向 URI</div>
+                <div>⚠️ 請確認 OAuth 同意畫面狀態為「測試中」</div>
+                <div>⚠️ 請確認您的 Google 帳號已添加為測試用戶</div>
+            `;
+        }
+    </script>
+</body>
+</html> 

@@ -183,6 +183,16 @@ export const getGoogleConfig = () => {
   return apiClient.get('/api/auth/google/config');
 };
 
+// Google OAuth Callback - Exchange authorization code for user session
+export const googleOAuthCallback = (code, mode = 'login', role = 'patient') => {
+  console.log('[api.js] googleOAuthCallback: sending authorization code to backend');
+  return apiClient.post('/api/auth/google/callback', { 
+    code, 
+    mode, 
+    role 
+  });
+};
+
 // Google Login (Send Google ID token to backend for verification)
 export const googleLogin = (idToken) => {
   console.log('[api.js] googleLogin: sending ID token to backend');

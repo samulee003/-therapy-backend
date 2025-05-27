@@ -2185,6 +2185,73 @@ startIcon={isMobile ? null : <VisibilityIcon />}
 - ⚠️ Google OAuth需要有效憑證進行完整功能測試
 - 📋 準備好進行生產部署，需要適當的Google Cloud Console配置
 
+### Google OAuth 重大突破 - 執行者回饋 (2025-01-27)
+
+**🎉 重大成就：Google OAuth 測試完全成功！**
+
+今天我們取得了重大突破！經過多次測試和診斷，Google OAuth 配置已經完全正常工作：
+
+**✅ 成功驗證項目：**
+1. **Google Client ID 有效**：`18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f`
+2. **OAuth端點工作正常**：舊版端點 `https://accounts.google.com/o/oauth2/auth` 完美運行
+3. **重定向URI配置正確**：`http://localhost:8080` 成功接收授權碼
+4. **授權流程完整**：用戶成功選擇Google帳號並授權
+5. **授權碼成功獲取**：`4/0AUJR-x5varT6-p5GfDVxXejW_5TPSjEN95CtUzxdLqB6RxuvRmQwT-OxBLTz7snud5CHHg`
+
+**🔧 關鍵發現：**
+- 標準OAuth 2.0端點和舊版端點都能工作
+- 問題出現在Google Identity Services (GSI) 的特定實現上
+- 傳統的OAuth 2.0流程（authorization code flow）完全正常
+- 我們的Google Cloud Console配置是正確的
+
+**🎯 下一步任務：**
+1. **整合授權碼交換**：實現授權碼換取Access Token的後端邏輯
+2. **前端OAuth組件更新**：將成功的OAuth流程整合到React組件中
+3. **生產環境測試**：在Zeabur部署環境中測試完整流程
+4. **用戶體驗優化**：確保OAuth登入的用戶體驗流暢
+
+**📋 技術實現準備：**
+- 前端GoogleLoginButton組件需要更新為使用window.location.href進行重定向
+- 後端需要實現授權碼交換端點（如果尚未實現）
+- 需要處理OAuth回調並創建用戶會話
+
+**🚀 當前狀態：**
+從「Google OAuth配置問題」轉為「Google OAuth實現整合」階段。基礎配置已經完全正確，現在專注於應用整合。
+
+### Google OAuth 整合實施 - 執行者進度 (2025-01-27)
+
+**✅ 重大進展：前端組件已更新為使用成功的OAuth流程！**
+
+**🔧 完成的技術實施：**
+
+1. **GoogleLoginButton組件重構**：
+   - ❌ 移除了有問題的Google Identity Services (GSI)
+   - ✅ 改用成功測試的OAuth 2.0 authorization code flow
+   - ✅ 使用標準OAuth重定向而非GSI的popup模式
+   - ✅ 支援登入和註冊兩種模式（患者/治療師）
+
+2. **API服務層更新**：
+   - ✅ 新增 `googleOAuthCallback()` 函數處理authorization code
+   - ✅ 保留原有的ID Token方法作為備用
+   - ✅ 統一錯誤處理和響應格式
+
+3. **OAuth流程優化**：
+   - ✅ 正確的state參數傳遞和驗證
+   - ✅ 支援mode（login/register）和role（patient/therapist）
+   - ✅ 清理URL防止重複處理
+   - ✅ 完整的錯誤處理和用戶反饋
+
+**🎯 下一步任務：**
+1. **測試新組件**：在本地開發環境測試更新的GoogleLoginButton
+2. **後端端點驗證**：確認 `/api/auth/google/callback` 端點存在且工作
+3. **生產部署**：將更新的組件部署到Zeabur
+4. **Google Console配置**：確保重定向URI正確配置
+
+**📋 技術架構說明：**
+- **前端流程**：用戶點擊按鈕 → 重定向到Google → 用戶授權 → 重定向回應用 → 自動處理授權碼
+- **後端流程**：接收授權碼 → 交換access token → 獲取用戶資料 → 創建會話 → 返回成功
+- **安全措施**：state參數CSRF保護、HTTPS重定向、安全的cookie會話
+
 ### 部署問題追蹤
 
 #### Zeabur部署連接問題 (2025-01-02)
@@ -2254,3 +2321,21 @@ startIcon={isMobile ? null : <VisibilityIcon />}
   - 解決嘗試：改用renderButton方法，避免prompt方法的問題
   - 測試工具：創建了簡單的HTML測試頁面（test-simple-google.html）
   - 狀態：重新建構完成，準備測試新方法
+- [x] **深度診斷階段** - ✅ 診斷工具創建並測試成功
+  - 問題：配置正確但仍然出現invalid_client錯誤
+  - 可能原因：OAuth同意畫面配置、Client ID本身問題、項目級別限制
+  - 診斷工具：創建了diagnose-google-oauth.html進行全面測試
+  - 下一步：使用診斷工具確定具體問題，可能需要創建新的Client ID
+- [x] **問題根源確定** - ✅ 已找到確切原因
+  - 錯誤詳情：401 invalid_client, flowName=GeneralOAuthFlow
+  - 根本原因：OAuth同意畫面配置問題
+  - 具體問題：應用程式處於「測試中」狀態，但用戶未添加為測試用戶
+  - 解決方案：在OAuth同意畫面中添加samu003@gmail.com為測試用戶
+  - 檢查清單：已創建google-oauth-checklist.md完整指南
+- [x] **Google OAuth 測試成功** - ✅ 2025-01-27 重大突破
+  - ✅ 舊版OAuth端點測試成功：`https://accounts.google.com/o/oauth2/auth`
+  - ✅ 成功獲得授權碼：`4/0AUJR-x5varT6-p5GfDVxXejW_5TPSjEN95CtUzxdLqB6RxuvRmQwT-OxBLTz7snud5CHHg`
+  - ✅ 用戶成功進入Google帳號選擇頁面
+  - ✅ 重定向回localhost:8080工作正常
+  - ✅ 證明Google Client ID: 18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f 配置正確
+  - ✅ 測試工具test-oauth-alternatives.html成功運行

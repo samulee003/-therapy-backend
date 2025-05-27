@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>等待 Google OAuth 配置生效</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .countdown {
+            font-size: 48px;
+            color: #4285f4;
+            margin: 30px 0;
+        }
+        .status {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: #4285f4;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 10px;
+        }
+        .test-button:hover {
+            background: #3367d6;
+        }
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <h1>⏰ 等待 Google OAuth 配置生效</h1>
+    
+    <div class="status">
+        <h3>📋 配置狀態</h3>
+        <p>✅ Client ID: 18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f...</p>
+        <p>✅ 重定向 URI: http://localhost:8080</p>
+        <p>✅ Google Cloud Console 配置已保存</p>
+    </div>
+
+    <div class="countdown" id="countdown">15:00</div>
+    
+    <div class="status">
+        <p id="status-text">Google 配置更新通常需要 5-15 分鐘生效...</p>
+    </div>
+
+    <button class="test-button" id="test-btn" onclick="testOAuth()" disabled>
+        🚀 測試 OAuth（等待中...）
+    </button>
+
+    <button class="test-button" onclick="testNow()">
+        ⚡ 立即測試
+    </button>
+
+    <div id="test-results"></div>
+
+    <script>
+        const CLIENT_ID = '18566096794-ec7qc6cekboq6am8laiv5odkbqd4i18f.apps.googleusercontent.com';
+        const REDIRECT_URI = 'http://localhost:8080';
+        
+        let timeLeft = 15 * 60; // 15 分鐘
+        let testInterval;
+        
+        function updateCountdown() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('countdown').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 0) {
+                document.getElementById('status-text').textContent = '⏰ 配置應該已經生效，可以開始測試了！';
+                document.getElementById('test-btn').disabled = false;
+                document.getElementById('test-btn').textContent = '🚀 測試 OAuth';
+                clearInterval(testInterval);
+            } else {
+                timeLeft--;
+            }
+        }
+        
+        function testOAuth() {
+            const params = new URLSearchParams({
+                'client_id': CLIENT_ID,
+                'redirect_uri': REDIRECT_URI,
+                'response_type': 'code',
+                'scope': 'openid email profile'
+            });
+            
+            const authUrl = 'https://accounts.google.com/oauth2/v2/auth?' + params.toString();
+            
+            document.getElementById('test-results').innerHTML = `
+                <div class="status">
+                    <p>🚀 正在重定向到 Google...</p>
+                    <p style="font-size: 12px; word-break: break-all;">${authUrl}</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                window.location.href = authUrl;
+            }, 2000);
+        }
+        
+        function testNow() {
+            testOAuth();
+        }
+        
+        // 檢查是否從 OAuth 重定向回來
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            
+            if (code) {
+                document.body.innerHTML = `
+                    <div class="status success">
+                        <h1>🎉 OAuth 成功！</h1>
+                        <p><strong>授權碼:</strong> ${code}</p>
+                        <p>Google OAuth 配置完全正確！</p>
+                        <p>現在可以在實際應用中使用了。</p>
+                    </div>
+                `;
+                return;
+            } else if (error) {
+                document.getElementById('test-results').innerHTML = `
+                    <div class="status error">
+                        <h3>❌ OAuth 錯誤</h3>
+                        <p><strong>錯誤:</strong> ${error}</p>
+                        <p><strong>描述:</strong> ${urlParams.get('error_description') || '無'}</p>
+                        <p>可能需要等待更長時間或檢查配置。</p>
+                    </div>
+                `;
+            }
+            
+            // 啟動倒計時
+            testInterval = setInterval(updateCountdown, 1000);
+            updateCountdown();
+        };
+    </script>
+</body>
+</html> 
