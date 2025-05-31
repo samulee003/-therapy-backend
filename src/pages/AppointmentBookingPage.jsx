@@ -53,6 +53,8 @@ import {
   isSameMonth,
   isSameDay,
   parseISO,
+  addDays,
+  startOfDay,
 } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { getScheduleForMonth, bookAppointment, formatApiError, getDoctors } from '../services/api';
@@ -77,6 +79,19 @@ const minutesToTime = totalMinutes => {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+// 預約時間限制相關函數
+const getMinimumBookingDate = () => {
+  // 返回當前日期的7天後（一週後）
+  return startOfDay(addDays(new Date(), 7));
+};
+
+const isDateBookable = (date) => {
+  // 檢查指定日期是否可以預約（必須是一週之後）
+  const minDate = getMinimumBookingDate();
+  const targetDate = startOfDay(date);
+  return targetDate >= minDate;
 };
 
 const AppointmentBookingPage = () => {
@@ -315,6 +330,13 @@ const AppointmentBookingPage = () => {
   };
 
   const handleDateClick = day => {
+    // 檢查日期是否可以預約（一週之後）
+    if (!isDateBookable(day)) {
+      // 如果日期不可預約，不進行任何操作
+      console.log(`日期 ${format(day, 'yyyy-MM-dd')} 不可預約，需要一週之後的日期`);
+      return;
+    }
+    
     setSelectedDate(day);
     setSelectedTimeSlot(null); // Reset time slot when new date is selected
   };
@@ -648,6 +670,24 @@ const AppointmentBookingPage = () => {
 
       {/* Calendar Display - START */}
       <Box sx={{ mt: isMobile ? 2 : 4, mb: isMobile ? 2 : 3 }}>
+        {/* 預約規則說明 */}
+        <Alert 
+          severity="info" 
+          sx={{ 
+            mb: 2, 
+            fontSize: isMobile ? '0.85rem' : undefined,
+            '& .MuiAlert-icon': {
+              fontSize: isMobile ? '1.2rem' : undefined
+            }
+          }}
+        >
+          <Typography variant="body2" sx={{ fontSize: 'inherit' }}>
+            <strong>預約須知：</strong>為了確保治療師有充分的準備時間，預約需要至少提前一週進行。
+            今天是 {format(new Date(), 'M月d日', { locale: zhTW })}，
+            最早可預約日期為 {format(getMinimumBookingDate(), 'M月d日', { locale: zhTW })}。
+          </Typography>
+        </Alert>
+        
         {/* Month Navigation */}
         <Box
             sx={{ 
@@ -702,68 +742,117 @@ const AppointmentBookingPage = () => {
               const isSelected = selectedDate && isSameDay(day, selectedDate);
               const isToday = isSameDay(day, new Date());
               const isCurrentDisplayMonth = isSameMonth(day, currentDate);
-              const canSelect = isCurrentDisplayMonth && !dayScheduleInfo?.isOverallRestDay && slotsAvailable > 0;
+              const isBookable = isDateBookable(day); // 新增：檢查日期是否可預約
+              const canSelect = isCurrentDisplayMonth && !dayScheduleInfo?.isOverallRestDay && slotsAvailable > 0 && isBookable; // 修改：加入日期限制檢查
 
               return (
                 <Grid item xs={12 / 7} key={dateStr}>
-                  <Paper
-                    elevation={isSelected ? 6 : 1}
-                    onClick={() => (isCurrentDisplayMonth && (slotsAvailable > 0 || dayScheduleInfo?.isOverallRestDay === false)) ? handleDateClick(day) : null}
-                    sx={{
-                      p: isMobile ? 0.5 : 1,
-                      textAlign: 'center',
-                      cursor: (isCurrentDisplayMonth && (slotsAvailable > 0 || dayScheduleInfo?.isOverallRestDay === false)) ? 'pointer' : 'default',
-                      backgroundColor: isSelected
-                        ? theme.palette.primary.main
-                        : isToday
-                        ? theme.palette.action.hover
-                        : 'background.paper',
-                      color: isSelected ? theme.palette.primary.contrastText : 'inherit',
-                      opacity: isCurrentDisplayMonth ? 1 : 0.5,
-                      border: isSelected ? `2px solid ${theme.palette.primary.dark}` : `1px solid ${theme.palette.divider}`,
-                      borderRadius: 1,
-                      minHeight: isMobile ? 50 : 70,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      aspectRatio: '1 / 1', // Maintain square-ish cells
-                      '&:hover': {
-                        backgroundColor: (isCurrentDisplayMonth && (slotsAvailable > 0 || dayScheduleInfo?.isOverallRestDay === false)) ? (isSelected ? theme.palette.primary.dark : theme.palette.action.selected) : undefined,
-                      },
-                      fontSize: isMobile ? '0.8rem' : '1rem',
-                    }}
+                  <Tooltip 
+                    title={
+                      !isBookable && isCurrentDisplayMonth
+                        ? "預約需要至少一週前預訂，請選擇更晚的日期"
+                        : ""
+                    }
+                    arrow
+                    disableHoverListener={isBookable || !isCurrentDisplayMonth}
                   >
-                    <Typography 
-                      variant="body2"
-                      component="div"
-                      fontWeight={isSelected || isToday ? 'bold' : 'normal'}
-                      color={isSelected ? 'inherit' : (isCurrentDisplayMonth ? 'text.primary' : 'text.disabled')}
-                      sx={{ fontSize: 'inherit' }}
+                    <Paper
+                      elevation={isSelected ? 6 : 1}
+                      onClick={() => canSelect ? handleDateClick(day) : null}
+                      sx={{
+                        p: isMobile ? 0.5 : 1,
+                        textAlign: 'center',
+                        cursor: canSelect ? 'pointer' : 'default',
+                        backgroundColor: isSelected
+                          ? theme.palette.primary.main
+                          : isToday
+                          ? theme.palette.action.hover
+                          : !isBookable && isCurrentDisplayMonth
+                          ? theme.palette.grey[100] // 不可預約日期的背景色
+                          : 'background.paper',
+                        color: isSelected 
+                          ? theme.palette.primary.contrastText 
+                          : !isBookable && isCurrentDisplayMonth
+                          ? theme.palette.text.disabled // 不可預約日期的文字顏色
+                          : 'inherit',
+                        opacity: isCurrentDisplayMonth ? (isBookable ? 1 : 0.6) : 0.5, // 修改：不可預約日期降低透明度
+                        border: isSelected ? `2px solid ${theme.palette.primary.dark}` : `1px solid ${theme.palette.divider}`,
+                        borderRadius: 1,
+                        minHeight: isMobile ? 50 : 70,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        aspectRatio: '1 / 1', // Maintain square-ish cells
+                        position: 'relative', // 為斜線覆蓋做準備
+                        '&:hover': {
+                          backgroundColor: canSelect ? (isSelected ? theme.palette.primary.dark : theme.palette.action.selected) : undefined,
+                        },
+                        fontSize: isMobile ? '0.8rem' : '1rem',
+                        // 為不可預約日期添加斜線效果
+                        '&::before': !isBookable && isCurrentDisplayMonth ? {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)',
+                          borderRadius: 'inherit',
+                          pointerEvents: 'none',
+                        } : {},
+                      }}
                     >
-                      {format(day, 'd')}
-                    </Typography>
-                    {isCurrentDisplayMonth && slotsAvailable > 0 && (
-                      <Chip
-                        label={`${slotsAvailable} 時段`}
-                        size="small"
-                        color={isSelected ? "default" : "secondary"}
-                        variant={isSelected ? "filled" : "outlined"}
-                        sx={{
-                          mt: 0.5, 
-                          height: isMobile ? 16 : 20, 
-                          fontSize: isMobile ? '0.6rem' : '0.65rem',
-                          bgcolor: isSelected ? 'common.white' : undefined,
-                          color: isSelected ? 'secondary.main' : undefined,
-                        }}
-                      />
-                    )}
-                    {isCurrentDisplayMonth && dayScheduleInfo?.isOverallRestDay && slotsAvailable === 0 && (
-                       <Typography variant="caption" display="block" sx={{ fontSize: '0.6rem', color: isSelected ? 'common.white' : 'text.secondary', mt:0.5 }}>
-                         休息
-                       </Typography>
-                     )}
-                  </Paper>
+                      <Typography 
+                        variant="body2"
+                        component="div"
+                        fontWeight={isSelected || isToday ? 'bold' : 'normal'}
+                        color={isSelected ? 'inherit' : (isCurrentDisplayMonth ? (isBookable ? 'text.primary' : 'text.disabled') : 'text.disabled')}
+                        sx={{ fontSize: 'inherit', zIndex: 1 }}
+                      >
+                        {format(day, 'd')}
+                      </Typography>
+                      {/* 只有可預約日期才顯示時段信息 */}
+                      {isCurrentDisplayMonth && isBookable && slotsAvailable > 0 && (
+                        <Chip
+                          label={`${slotsAvailable} 時段`}
+                          size="small"
+                          color={isSelected ? "default" : "secondary"}
+                          variant={isSelected ? "filled" : "outlined"}
+                          sx={{
+                            mt: 0.5, 
+                            height: isMobile ? 16 : 20, 
+                            fontSize: isMobile ? '0.6rem' : '0.65rem',
+                            bgcolor: isSelected ? 'common.white' : undefined,
+                            color: isSelected ? 'secondary.main' : undefined,
+                            zIndex: 1,
+                          }}
+                        />
+                      )}
+                      {/* 不可預約日期的提示 */}
+                      {isCurrentDisplayMonth && !isBookable && (
+                        <Typography variant="caption" display="block" sx={{ 
+                          fontSize: '0.6rem', 
+                          color: 'text.disabled',
+                          mt: 0.5,
+                          zIndex: 1,
+                        }}>
+                          未開放
+                        </Typography>
+                      )}
+                      {/* 休息日提示（只有在可預約且為休息日時顯示） */}
+                      {isCurrentDisplayMonth && isBookable && dayScheduleInfo?.isOverallRestDay && slotsAvailable === 0 && (
+                         <Typography variant="caption" display="block" sx={{ 
+                           fontSize: '0.6rem', 
+                           color: isSelected ? 'common.white' : 'text.secondary', 
+                           mt: 0.5,
+                           zIndex: 1,
+                         }}>
+                           休息
+                         </Typography>
+                       )}
+                    </Paper>
+                  </Tooltip>
                 </Grid>
               );
             })}
