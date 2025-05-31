@@ -1,7 +1,1 @@
- M .cursor/scratchpad.md
  M changed_files.txt
- M src/components/auth/GoogleLoginButton.jsx
- M src/pages/AppointmentBookingPage.jsx
- M src/pages/LoginPage.jsx
- M src/pages/RegisterPage.jsx
- M src/pages/patient/PatientDashboard.jsx
