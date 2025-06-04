@@ -566,7 +566,7 @@ const AppointmentBookingPage = () => {
         setBookingError('請選擇預約時段。');
         return;
       }
-      if (!bookingDetails.isNewPatient) {
+      if (!bookingDetails.isNewPatient || (bookingDetails.isNewPatient !== 'yes' && bookingDetails.isNewPatient !== 'no')) {
         setBookingError('請選擇是否為初診。');
         return;
       }
