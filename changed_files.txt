@@ -1,1 +1,3 @@
+ M .cursor/scratchpad.md
  M changed_files.txt
+ M src/pages/AppointmentBookingPage.jsx

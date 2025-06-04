@@ -71,6 +71,28 @@
 
 此需求涉及前端預約頁面的日期選擇邏輯修改，需要在日曆顯示和可選日期上加入時間限制。
 
+**新的需求 (2025-01-02 - TimeTree行事曆整合):**
+
+治療師平常使用TimeTree軟件來做行事曆管理，用戶詢問是否可能接入TimeTree，讓患者預約時能自動同步到治療師的TimeTree行事曆中。這個需求的目標是：
+- **提升治療師工作效率**: 避免手動在兩個系統間同步預約資訊
+- **減少遺漏風險**: 自動同步可以降低人為疏忽導致的預約衝突
+- **改善工作流程**: 讓治療師能在熟悉的TimeTree環境中管理所有行程
+- **提升專業形象**: 展現系統的整合能力和技術先進性
+
+此需求涉及第三方API整合、認證流程設計、資料同步機制等複雜技術挑戰。
+
+**新的需求 (2025-01-02 - 初診預約bug修正):**
+
+使用者報告了一個關鍵bug：患者端預約時，如果選擇了「初診」選項，會無法完成預約。這個問題直接影響新患者的預約體驗，需要立即診斷和修正。
+
+根據初步代碼分析，可能的原因包括：
+1. **前端驗證邏輯問題**: AppointmentBookingPage.jsx中的表單驗證可能在處理`isNewPatient`欄位時出現問題
+2. **API調用問題**: bookAppointment函數的payload格式可能與後端期望不符
+3. **後端處理問題**: 後端API在處理`isNewPatient`相關資料時可能存在驗證或存儲錯誤
+4. **資料型別不匹配**: 前端發送布林值但後端期望字串，或相反情況
+
+此bug的修正對於系統的基本功能至關重要，必須優先處理。
+
 ## 主要挑戰與分析 (Key Challenges and Analysis)
 
 **初步分析 (2024-07-26):**
@@ -172,7 +194,110 @@
    - **替代方案**: 為急需預約的患者提供其他聯繫方式
    - **期望管理**: 幫助用戶理解預約流程的改變
 
+**TimeTree整合挑戰分析 (2025-01-02):**
+
+根據技術調研發現，TimeTree整合面臨重大技術障礙：
+
+1. **API服務終止的根本性挑戰:**
+   - **核心問題**: TimeTree官方已於2023年12月22日正式終止Connect App (API功能)
+   - **影響範圍**: 所有第三方開發者無法再通過官方API與TimeTree進行整合
+   - **技術現實**: 目前除了Amazon Alexa外，所有其他應用都無法與TimeTree建立API連接
+   - **時間線**: 這是一個永久性的政策變更，不是臨時維護
+
+2. **替代方案的技術挑戰:**
+   - **外部行事曆匯入**: TimeTree支援匯入外部行事曆，但這是單向的，無法實現雙向同步
+   - **手動同步**: 需要治療師手動將預約資訊複製到TimeTree，失去自動化的優勢
+   - **其他行事曆服務**: 考慮整合Google Calendar、Outlook等仍有API支援的服務
+
+3. **業務流程重新設計挑戰:**
+   - **工作流程調整**: 需要說服治療師改變使用習慣，轉向其他行事曆解決方案
+   - **資料遷移**: 如果治療師願意轉換，需要協助將TimeTree資料遷移到新平台
+   - **培訓成本**: 新的行事曆工具需要額外的學習和適應時間
+
+4. **技術實施的替代路徑:**
+   - **Google Calendar整合**: 
+     - 技術可行性: 高 (Google Calendar API功能完整且穩定)
+     - 實施複雜度: 中等 (需要OAuth認證和API整合)
+     - 用戶接受度: 需要評估
+   - **Outlook Calendar整合**:
+     - 技術可行性: 高 (Microsoft Graph API支援完整)
+     - 實施複雜度: 中等
+     - 企業用戶友好度: 較高
+   - **多平台支援策略**:
+     - 同時支援多種主流行事曆服務
+     - 讓治療師自行選擇偏好的平台
+
+5. **用戶溝通和期望管理挑戰:**
+   - **技術限制說明**: 需要清楚解釋TimeTree API終止的客觀事實
+   - **替代方案推薦**: 提供具體的替代行事曆整合方案
+   - **價值主張重新定位**: 強調其他行事曆整合的優勢和便利性
+
+**建議的實施策略:**
+1. **短期**: 向用戶說明TimeTree API限制，推薦Google Calendar或Outlook作為替代方案
+2. **中期**: 實施Google Calendar整合作為主要解決方案
+3. **長期**: 建立多平台行事曆整合架構，支援用戶選擇偏好的服務
+
 ## 高層級任務分解 (High-level Task Breakdown)
+
+### TimeTree整合需求分析與替代方案規劃
+
+**階段一：技術可行性確認與用戶溝通 (1-2天)**
+1. **TimeTree API狀態最終確認**
+   - [ ] 1.1：再次確認TimeTree官方API終止政策的詳細內容
+   - [ ] 1.2：研究是否有任何非官方或第三方的TimeTree整合方案
+   - [ ] 1.3：評估TimeTree外部行事曆匯入功能的技術限制
+   - **成功標準**: 獲得明確的技術可行性結論，準備向用戶說明
+
+2. **替代方案技術調研**
+   - [ ] 2.1：深入研究Google Calendar API的整合方案和技術要求
+   - [ ] 2.2：評估Microsoft Graph API (Outlook Calendar)的整合複雜度
+   - [ ] 2.3：調研其他主流行事曆服務的API支援情況
+   - **成功標準**: 完成至少2-3個替代方案的技術可行性分析
+
+3. **用戶需求重新評估**
+   - [ ] 3.1：與用戶確認治療師對行事曆整合的核心需求
+   - [ ] 3.2：了解治療師是否願意考慮其他行事曆平台
+   - [ ] 3.3：評估手動同步vs自動整合的接受度
+   - **成功標準**: 明確用戶的真實需求和接受度底線
+
+**階段二：替代方案設計與規劃 (2-3天)**
+4. **Google Calendar整合方案設計**
+   - [ ] 4.1：設計OAuth 2.0認證流程
+   - [ ] 4.2：規劃預約資料到Google Calendar事件的映射邏輯
+   - [ ] 4.3：設計同步失敗的錯誤處理機制
+   - **成功標準**: 完整的Google Calendar整合技術方案文檔
+
+5. **前後端架構調整規劃**
+   - [ ] 5.1：設計後端行事曆整合API端點
+   - [ ] 5.2：規劃前端治療師設定頁面的行事曆連接功能
+   - [ ] 5.3：設計預約流程中的行事曆同步觸發點
+   - **成功標準**: 完整的系統架構調整方案
+
+6. **多平台支援架構設計**
+   - [ ] 6.1：設計可擴展的行事曆服務抽象層
+   - [ ] 6.2：規劃不同行事曆服務的統一介面
+   - [ ] 6.3：設計用戶選擇和切換行事曆服務的機制
+   - **成功標準**: 支援未來擴展的靈活架構設計
+
+**階段三：實施優先級評估與資源規劃 (1天)**
+7. **開發工作量評估**
+   - [ ] 7.1：評估Google Calendar整合的開發時間和複雜度
+   - [ ] 7.2：評估前端UI調整的工作量
+   - [ ] 7.3：評估測試和部署的額外工作
+   - **成功標準**: 準確的開發時間和資源需求評估
+
+8. **實施策略建議**
+   - [ ] 8.1：制定分階段實施計劃
+   - [ ] 8.2：確定MVP功能範圍
+   - [ ] 8.3：規劃用戶遷移和培訓策略
+   - **成功標準**: 可執行的實施路線圖
+
+**階段四：用戶決策支援 (1天)**
+9. **方案比較與建議**
+   - [ ] 9.1：準備TimeTree限制說明文檔
+   - [ ] 9.2：整理替代方案的優缺點比較
+   - [ ] 9.3：提供具體的實施建議和時間規劃
+   - **成功標準**: 完整的決策支援文檔，幫助用戶做出明智選擇
 
 ### 前端專案重整任務
 
@@ -2556,3 +2681,95 @@ startIcon={isMobile ? null : <VisibilityIcon />}
 **請測試功能並告知是否符合期望！**
 
 **預約時間限制 - Planner 分析報告 (2025-01-02)**
+
+### 初診預約Bug修正
+
+**背景**: 用戶報告患者端預約時，選擇「初診」選項會無法完成預約的問題。
+
+**階段一：問題診斷與定位**
+- [x] 1.1.1：檢查isNewPatient欄位的處理邏輯 ✅
+- [x] 1.1.2：驗證表單驗證規則是否正確 ✅ **發現問題**
+- [x] 1.1.3：確認handleBookingSubmit函數中的資料格式 ✅
+- [x] 2.1.1：修正isNewPatient欄位的驗證邏輯 ✅ **已修正**
+- [ ] 2.1.2：確保資料型別正確（布林值vs字串）
+- [ ] 2.1.3：優化錯誤處理和用戶提示
+- [ ] 3.1.1：測試選擇「初診」的預約流程
+- [ ] 3.1.2：測試選擇「非初診」的預約流程
+
+**已發現並修正的問題**:
+- **驗證邏輯錯誤**: `handleNextStep`函數中的驗證條件 `if (!bookingDetails.isNewPatient)` 無法正確處理 `'no'` 選項
+- **修正方案**: 改為 `if (!bookingDetails.isNewPatient || (bookingDetails.isNewPatient !== 'yes' && bookingDetails.isNewPatient !== 'no'))`
+
+## Executor的反饋或協助請求 (Executor's Feedback or Assistance Requests)
+
+**初診預約Bug修正進度報告 (2025-01-02)**
+
+### 問題診斷完成 ✅
+
+**已確認的主要問題**:
+1. **前端驗證邏輯錯誤**: AppointmentBookingPage.jsx第568行的驗證邏輯有致命錯誤
+   ```javascript
+   // 錯誤的驗證邏輯
+   if (!bookingDetails.isNewPatient) {
+     setBookingError('請選擇是否為初診。');
+     return;
+   }
+   ```
+   
+2. **問題分析**: 
+   - `isNewPatient`的值是字串 `'yes'` 或 `'no'`
+   - 在JavaScript中，非空字串都是truthy值
+   - 因此選擇「否」時，`bookingDetails.isNewPatient` 為 `'no'`（truthy）
+   - 驗證條件 `!bookingDetails.isNewPatient` 評估為false
+   - 導致驗證無法通過，阻止用戶進入下一步
+
+### 修正實施完成 ✅
+
+**已修正的內容**:
+```javascript
+// 修正後的驗證邏輯
+if (!bookingDetails.isNewPatient || (bookingDetails.isNewPatient !== 'yes' && bookingDetails.isNewPatient !== 'no')) {
+  setBookingError('請選擇是否為初診。');
+  return;
+}
+```
+
+**修正說明**:
+- 現在正確檢查是否已選擇選項（非空值）
+- 同時驗證選項值是否為有效的 `'yes'` 或 `'no'`
+- 確保任何無效值都會觸發驗證錯誤
+
+### 後端修改需求分析
+
+**前端發送的資料格式**:
+```javascript
+const appointmentData = {
+  patientId: user.id,
+  doctorId: bookingDetails.doctorId,
+  appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
+  timeSlot: selectedTimeSlot,
+  reason: bookingDetails.appointmentReason,
+  notes: bookingDetails.notes,
+  isNewPatient: bookingDetails.isNewPatient === 'yes', // 布林值
+  patientInfo: {
+    name: bookingDetails.patientName,
+    phone: bookingDetails.patientPhone,
+    email: bookingDetails.patientEmail,
+    gender: bookingDetails.gender,
+    birthDate: bookingDetails.birthDate,
+  }
+};
+```
+
+**後端API端點**: `POST /api/appointments`
+
+**需要後端確認的事項**:
+1. 是否正確接收和處理 `isNewPatient` 布林值欄位
+2. 資料庫中 `isNewPatient` 欄位的型別是否正確（BOOLEAN vs INTEGER vs TEXT）
+3. 是否有針對初診患者的特殊業務邏輯處理
+4. 錯誤訊息是否準確反映驗證失敗的原因
+
+**下一步測試計劃**:
+- 需要人工測試驗證修正是否有效
+- 測試兩種選項（初診/非初診）的完整預約流程
+- 檢查後端是否正確保存 `isNewPatient` 資料
