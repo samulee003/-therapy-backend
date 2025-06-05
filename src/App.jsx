@@ -8,6 +8,8 @@ import PatientDashboard from './pages/patient/PatientDashboard';
 import AppointmentBookingPage from './pages/AppointmentBookingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AuthContext } from './context/AuthContext';
 
@@ -56,6 +58,8 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}>

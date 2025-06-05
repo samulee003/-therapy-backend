@@ -333,6 +333,20 @@ export const changeUserPassword = (passwordData) => {
   return apiClient.put('/api/users/password', passwordData);
 };
 
+// --- Password Reset --- //
+
+// Request password reset (Send reset email)
+export const requestPasswordReset = (data) => {
+  console.log('[api.js] requestPasswordReset: requesting password reset for email:', data.email);
+  return apiClient.post('/api/auth/forgot-password', data);
+};
+
+// Reset password with token
+export const resetPassword = (data) => {
+  console.log('[api.js] resetPassword: resetting password with token');
+  return apiClient.post('/api/auth/reset-password', data);
+};
+
 // --- Removed Functions (Backend doesn't support these) --- //
 // registerUser
 // getUserProfile
