@@ -72,6 +72,7 @@ const AppointmentManager = ({ user }) => {
   const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'table'
   const [timeFilter, setTimeFilter] = useState('all'); // 'all', 'today', 'week', 'upcoming'
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'confirmed', 'pending', 'cancelled'
+  const [sortOrder, setSortOrder] = useState('byDate'); // 'byDate', 'byLatest'
   
   // 預約詳情和取消相關狀態
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -159,15 +160,24 @@ const AppointmentManager = ({ user }) => {
       filtered = filtered.filter(appointment => appointment.status === statusFilter);
     }
 
-    // 按日期和時間排序
+    // 按選擇的方式排序
     filtered.sort((a, b) => {
-      const dateA = new Date(`${a.date} ${a.time}`);
-      const dateB = new Date(`${b.date} ${b.time}`);
-      return dateA - dateB;
+      if (sortOrder === 'byLatest') {
+        // 按最新預約在前排序 (假設有 createdAt 欄位，否則使用 id 作為替代)
+        // 如果後端提供 createdAt 時間戳，使用 createdAt；否則使用 id (通常較大的 id 表示較新的記錄)
+        const timeA = a.createdAt ? new Date(a.createdAt) : a.id;
+        const timeB = b.createdAt ? new Date(b.createdAt) : b.id;
+        return timeB - timeA; // 新的在前
+      } else {
+        // 按預約日期和時間排序 (原有邏輯)
+        const dateA = new Date(`${a.date} ${a.time}`);
+        const dateB = new Date(`${b.date} ${b.time}`);
+        return dateA - dateB;
+      }
     });
 
     setFilteredAppointments(filtered);
-  }, [searchTerm, appointments, timeFilter, statusFilter]);
+  }, [searchTerm, appointments, timeFilter, statusFilter, sortOrder]);
 
   // 查看預約詳情
   const handleViewAppointmentDetails = appointment => {
@@ -690,6 +700,24 @@ const AppointmentManager = ({ user }) => {
                 <MenuItem value="confirmed">已確認</MenuItem>
                 <MenuItem value="pending">待確認</MenuItem>
                 <MenuItem value="cancelled">已取消</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControl size="small" sx={{ 
+              minWidth: isMobile ? 0 : 120,
+              flex: isMobile ? 1 : 'none'
+            }}>
+              <InputLabel sx={{ fontSize: isMobile ? '0.8rem' : undefined }}>
+                {isMobile ? '排序' : '排序方式'}
+              </InputLabel>
+              <Select
+                value={sortOrder}
+                label={isMobile ? '排序' : '排序方式'}
+                onChange={(e) => setSortOrder(e.target.value)}
+                sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+              >
+                <MenuItem value="byDate">按預約日期</MenuItem>
+                <MenuItem value="byLatest">最新預約在前</MenuItem>
               </Select>
             </FormControl>
           </Box>
