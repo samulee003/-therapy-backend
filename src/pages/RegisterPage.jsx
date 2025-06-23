@@ -417,31 +417,54 @@ const RegisterPage = () => {
                       }}
                       name="agreeToPrivacyPolicy"
                       color="primary"
+                      size="small"
                     />
                   }
                   label={
-                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', lineHeight: 1.6 }}>
-                      <Typography variant="body2" component="span" sx={{ mr: 0.5 }}>
+                    <Box component="span" sx={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      flexWrap: 'wrap',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.4,
+                      ml: 0.5
+                    }}>
+                      <Typography 
+                        variant="body2" 
+                        component="span" 
+                        sx={{ 
+                          mr: 0.5,
+                          fontSize: '0.8rem',
+                          lineHeight: 1.4
+                        }}
+                      >
                         我已詳閱並同意
                       </Typography>
                       <PrivacyPolicyDialog 
                         linkText="個人資料收集條款" 
                         linkProps={{ 
                           variant: 'body2',
-                          sx: { fontSize: 'inherit' }
+                          sx: { 
+                            fontSize: '0.8rem',
+                            lineHeight: 1.4
+                          }
                         }}
                       />
                     </Box>
                   }
                   sx={{
-                    alignItems: 'flex-start',
+                    alignItems: 'center',
+                    margin: 0,
                     '& .MuiFormControlLabel-label': {
-                      paddingTop: '2px',
+                      fontSize: '0.8rem',
+                    },
+                    '& .MuiCheckbox-root': {
+                      padding: '6px',
                     }
                   }}
                 />
                 {errors.agreeToPrivacyPolicy && (
-                  <FormHelperText error sx={{ mt: 1, ml: 4 }}>
+                  <FormHelperText error sx={{ mt: 0.5, ml: 4.5, fontSize: '0.75rem' }}>
                     {errors.agreeToPrivacyPolicy}
                   </FormHelperText>
                 )}
