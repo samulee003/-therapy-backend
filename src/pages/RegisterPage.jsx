@@ -30,7 +30,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { registerUser, formatApiError } from '../services/api';
-import { ErrorAlert, PrivacyPolicyContent } from '../components/common';
+import { ErrorAlert, PrivacyPolicyDialog } from '../components/common';
 // import GoogleLoginButton from '../components/auth/GoogleLoginButton'; // 暫時隱藏Google註冊功能
 
 const RegisterPage = () => {
@@ -397,15 +397,9 @@ const RegisterPage = () => {
               </FormControl>
             </Grid>
 
-            {/* 個人資料收集條款 */}
+            {/* 個人資料收集條款同意 */}
             <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
-                個人資料收集條款
-              </Typography>
-              <PrivacyPolicyContent maxHeight={250} />
-              
-              {/* 條款同意勾選框 */}
-              <Box sx={{ mt: 2 }}>
+              <Box sx={{ mt: 1 }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -426,13 +420,14 @@ const RegisterPage = () => {
                     />
                   }
                   label={
-                    <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
-                      我已詳閱並<strong>同意</strong>上述個人資料收集條款
+                    <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                      我已詳閱並同意{' '}
+                      <PrivacyPolicyDialog linkText="個人資料收集條款" />
                     </Typography>
                   }
                 />
                 {errors.agreeToPrivacyPolicy && (
-                  <FormHelperText error sx={{ mt: 1 }}>
+                  <FormHelperText error sx={{ mt: 1, ml: 4 }}>
                     {errors.agreeToPrivacyPolicy}
                   </FormHelperText>
                 )}

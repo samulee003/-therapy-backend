@@ -9,16 +9,23 @@ import {
 const PrivacyPolicyContent = ({ maxHeight = 300 }) => {
   const theme = useTheme();
 
-  return (
-    <Paper 
-      variant="outlined" 
-      sx={{ 
-        p: 3, 
+  const containerStyle = maxHeight === 'none' 
+    ? {} 
+    : { 
         maxHeight, 
         overflowY: 'auto',
+        p: 3, 
         backgroundColor: theme.palette.grey[50],
         border: `1px solid ${theme.palette.divider}`,
-      }}
+        borderRadius: 1,
+      };
+
+  const Wrapper = maxHeight === 'none' ? Box : Paper;
+
+  return (
+    <Wrapper 
+      variant={maxHeight === 'none' ? undefined : "outlined"}
+      sx={containerStyle}
     >
       {/* 標題和機構 Logo 區域 */}
       <Box sx={{ textAlign: 'center', mb: 3 }}>
@@ -88,7 +95,7 @@ const PrivacyPolicyContent = ({ maxHeight = 300 }) => {
           ※請您回答是否知悉且同意上述條款※
         </Typography>
       </Box>
-    </Paper>
+    </Wrapper>
   );
 };
 
