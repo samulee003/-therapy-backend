@@ -1,6 +1,0 @@
- M .cursor/scratchpad.md
- M changed_files.txt
- M src/App.jsx
- M src/services/api.js
-?? src/pages/ForgotPasswordPage.jsx
-?? src/pages/ResetPasswordPage.jsx

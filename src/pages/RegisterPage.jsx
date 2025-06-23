@@ -17,6 +17,7 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
+  Checkbox,
   useTheme,
   useMediaQuery,
   Alert,
@@ -29,7 +30,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { registerUser, formatApiError } from '../services/api';
-import { ErrorAlert } from '../components/common';
+import { ErrorAlert, PrivacyPolicyContent } from '../components/common';
 // import GoogleLoginButton from '../components/auth/GoogleLoginButton'; // 暫時隱藏Google註冊功能
 
 const RegisterPage = () => {
@@ -43,6 +44,7 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     role: 'patient',
+    agreeToPrivacyPolicy: false,
   });
 
   // 表單驗證錯誤
@@ -50,6 +52,7 @@ const RegisterPage = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    agreeToPrivacyPolicy: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -101,6 +104,12 @@ const RegisterPage = () => {
         }
         break;
 
+      case 'agreeToPrivacyPolicy':
+        if (!value) {
+          errorMessage = '請詳閱並同意個人資料收集條款';
+        }
+        break;
+
       default:
         break;
     }
@@ -148,9 +157,12 @@ const RegisterPage = () => {
       // 驗證確認密碼
     formErrors.confirmPassword = validateField('confirmPassword', formData.confirmPassword);
 
+      // 驗證條款同意
+    formErrors.agreeToPrivacyPolicy = validateField('agreeToPrivacyPolicy', formData.agreeToPrivacyPolicy);
+
     setErrors(formErrors);
 
-    return !formErrors.email && !formErrors.password && !formErrors.confirmPassword;
+    return !formErrors.email && !formErrors.password && !formErrors.confirmPassword && !formErrors.agreeToPrivacyPolicy;
   };
 
   const handleSubmit = async (event) => {
@@ -383,6 +395,48 @@ const RegisterPage = () => {
                   />
                 </RadioGroup>
               </FormControl>
+            </Grid>
+
+            {/* 個人資料收集條款 */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
+                個人資料收集條款
+              </Typography>
+              <PrivacyPolicyContent maxHeight={250} />
+              
+              {/* 條款同意勾選框 */}
+              <Box sx={{ mt: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.agreeToPrivacyPolicy}
+                      onChange={(e) => {
+                        const newValue = e.target.checked;
+                        setFormData({
+                          ...formData,
+                          agreeToPrivacyPolicy: newValue,
+                        });
+                        setErrors({
+                          ...errors,
+                          agreeToPrivacyPolicy: validateField('agreeToPrivacyPolicy', newValue),
+                        });
+                      }}
+                      name="agreeToPrivacyPolicy"
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
+                      我已詳閱並<strong>同意</strong>上述個人資料收集條款
+                    </Typography>
+                  }
+                />
+                {errors.agreeToPrivacyPolicy && (
+                  <FormHelperText error sx={{ mt: 1 }}>
+                    {errors.agreeToPrivacyPolicy}
+                  </FormHelperText>
+                )}
+              </Box>
             </Grid>
 
             {/* 註冊按鈕 */}
