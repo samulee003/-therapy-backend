@@ -420,11 +420,19 @@ const RegisterPage = () => {
                     />
                   }
                   label={
-                    <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-                      我已詳閱並同意{' '}
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', lineHeight: 1.6 }}>
+                      <Typography variant="body2" component="span" sx={{ mr: 0.5 }}>
+                        我已詳閱並同意
+                      </Typography>
                       <PrivacyPolicyDialog linkText="個人資料收集條款" />
-                    </Typography>
+                    </Box>
                   }
+                  sx={{
+                    alignItems: 'flex-start',
+                    '& .MuiFormControlLabel-label': {
+                      paddingTop: '2px',
+                    }
+                  }}
                 />
                 {errors.agreeToPrivacyPolicy && (
                   <FormHelperText error sx={{ mt: 1, ml: 4 }}>
