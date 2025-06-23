@@ -32,7 +32,7 @@ const PrivacyPolicyContent = ({ maxHeight = 300 }) => {
         <Box sx={{ mb: 2 }}>
           {/* 這裡可以放置機構 Logo */}
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
-            培善心理治療中心
+            培甯心理治療中心
           </Typography>
           <Typography variant="subtitle2" color="text.secondary">
             Nurturing Natures Psychotherapy Centre
@@ -50,7 +50,7 @@ const PrivacyPolicyContent = ({ maxHeight = 300 }) => {
       {/* 條款內容 */}
       <Box sx={{ mb: 2 }}>
         <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.8 }}>
-          <strong>1.</strong> 您在此表單上提供的個人資料，只會用作培善心理服務預約、聯絡及跟進之用途。
+          <strong>1.</strong> 您在此表單上提供的個人資料，只會用作培甯心理服務預約、聯絡及跟進之用途。
         </Typography>
 
         <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.8 }}>
