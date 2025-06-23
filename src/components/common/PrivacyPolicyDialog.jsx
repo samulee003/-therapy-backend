@@ -47,7 +47,8 @@ const PrivacyPolicyDialog = ({ linkText = "個人資料收集條款", linkProps 
           cursor: 'pointer',
           padding: 0,
           font: 'inherit',
-          fontSize: '0.875rem', // 確保與body2一致
+          fontSize: linkProps?.sx?.fontSize || '0.875rem',
+          lineHeight: linkProps?.sx?.lineHeight || 1.4,
           '&:hover': {
             color: theme.palette.primary.dark,
             textDecoration: 'underline',
