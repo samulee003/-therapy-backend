@@ -31,12 +31,22 @@ const PrivacyPolicyDialog = ({ linkText = "個人資料收集條款", linkProps 
       {/* 條款連結 */}
       <Link
         component="button"
+        type="button"
         variant="body2"
-        onClick={handleOpen}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleOpen();
+        }}
         sx={{
           color: theme.palette.primary.main,
           textDecoration: 'underline',
           fontWeight: 'medium',
+          border: 'none',
+          background: 'none',
+          cursor: 'pointer',
+          padding: 0,
+          font: 'inherit',
           '&:hover': {
             color: theme.palette.primary.dark,
           },
