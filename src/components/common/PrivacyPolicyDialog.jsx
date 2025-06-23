@@ -40,7 +40,7 @@ const PrivacyPolicyDialog = ({ linkText = "個人資料收集條款", linkProps 
         }}
         sx={{
           color: theme.palette.primary.main,
-          textDecoration: 'underline',
+          textDecoration: 'none',
           fontWeight: 'medium',
           border: 'none',
           background: 'none',
@@ -50,6 +50,7 @@ const PrivacyPolicyDialog = ({ linkText = "個人資料收集條款", linkProps 
           fontSize: '0.875rem', // 確保與body2一致
           '&:hover': {
             color: theme.palette.primary.dark,
+            textDecoration: 'underline',
           },
           ...(linkProps?.sx || {}),
         }}
