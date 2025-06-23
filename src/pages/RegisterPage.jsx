@@ -424,7 +424,13 @@ const RegisterPage = () => {
                       <Typography variant="body2" component="span" sx={{ mr: 0.5 }}>
                         我已詳閱並同意
                       </Typography>
-                      <PrivacyPolicyDialog linkText="個人資料收集條款" />
+                      <PrivacyPolicyDialog 
+                        linkText="個人資料收集條款" 
+                        linkProps={{ 
+                          variant: 'body2',
+                          sx: { fontSize: 'inherit' }
+                        }}
+                      />
                     </Box>
                   }
                   sx={{
