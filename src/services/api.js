@@ -335,16 +335,87 @@ export const changeUserPassword = (passwordData) => {
 
 // --- Password Reset --- //
 
-// Request password reset (Send reset email)
-export const requestPasswordReset = (data) => {
+import { 
+  sendPasswordResetEmail, 
+  simulatePasswordResetEmail, 
+  validateResetToken, 
+  markTokenAsUsed 
+} from './emailService';
+
+// Request password reset (使用EmailJS發送重置郵件)
+export const requestPasswordReset = async (data) => {
   console.log('[api.js] requestPasswordReset: requesting password reset for email:', data.email);
-  return apiClient.post('/api/auth/forgot-password', data);
+  
+  try {
+    // 首先嘗試使用EmailJS發送真實郵件
+    const result = await sendPasswordResetEmail(data.email);
+    
+    if (result.success) {
+      return { data: { message: result.message } };
+    } else {
+      // 如果EmailJS服務未配置，使用模擬模式
+      if (result.showAdminContact) {
+        const simulateResult = simulatePasswordResetEmail(data.email);
+        return { 
+          data: { 
+            message: simulateResult.message,
+            resetUrl: simulateResult.resetUrl,
+            isDevelopment: simulateResult.isDevelopment,
+            showAdminContact: true
+          }
+        };
+      }
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error('密碼重置請求失敗:', error);
+    throw {
+      response: {
+        data: {
+          error: error.message || '發送重置郵件失敗，請聯繫系統管理員'
+        }
+      }
+    };
+  }
 };
 
-// Reset password with token
-export const resetPassword = (data) => {
+// Reset password with token (使用本地令牌驗證)
+export const resetPassword = async (data) => {
   console.log('[api.js] resetPassword: resetting password with token');
-  return apiClient.post('/api/auth/reset-password', data);
+  
+  try {
+    // 驗證令牌
+    const validation = validateResetToken(data.token);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+    
+    // 模擬更新密碼（在沒有後端的情況下）
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const userIndex = users.findIndex(user => user.email === validation.email);
+    
+    if (userIndex === -1) {
+      throw new Error('用戶不存在');
+    }
+    
+    // 更新用戶密碼
+    users[userIndex].password = data.password; // 在實際應用中需要加密
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    // 標記令牌為已使用
+    markTokenAsUsed(data.token);
+    
+    return { data: { message: '密碼重置成功' } };
+  } catch (error) {
+    console.error('密碼重置失敗:', error);
+    throw {
+      response: {
+        data: {
+          error: error.message || '密碼重置失敗，請重新嘗試'
+        }
+      }
+    };
+  }
 };
 
 // --- Removed Functions (Backend doesn't support these) --- //
