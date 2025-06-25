@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>後端密碼重置API測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .success { border-color: #28a745; background: #f8fff9; }
+        .error { border-color: #dc3545; background: #fff8f8; }
+        .warning { border-color: #ffc107; background: #fffdf5; }
+        .input-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        input {
+            width: 100%;
+            max-width: 400px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+            padding: 12px 20px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { 
+            background: #6c757d; 
+            cursor: not-allowed; 
+        }
+        .result {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-pending { background: #ffc107; }
+        h1, h2 { color: #333; }
+        h1 { text-align: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 後端密碼重置API整合測試</h1>
+        
+        <div class="test-section warning">
+            <h2>📋 說明</h2>
+            <p>此頁面用於測試前端與後端的密碼重置API整合是否正常工作。</p>
+            <p><strong>後端API地址：</strong> https://psy-backend.zeabur.app</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🌐 1. API連接測試</h2>
+            <p>測試後端服務是否可訪問</p>
+            <button onclick="testApiConnection()">測試API連接</button>
+            <div id="api-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📧 2. 忘記密碼API測試</h2>
+            <p>測試後端用戶驗證功能</p>
+            <div class="input-group">
+                <label for="forgot-email">用戶郵箱：</label>
+                <input type="email" id="forgot-email" placeholder="輸入已存在的用戶郵箱" value="test@example.com">
+            </div>
+            <button onclick="testForgotPassword()">測試忘記密碼API</button>
+            <div id="forgot-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔐 3. 密碼更新API測試</h2>
+            <p>測試後端密碼更新功能</p>
+            <div class="input-group">
+                <label for="update-email">用戶郵箱：</label>
+                <input type="email" id="update-email" placeholder="輸入要更新密碼的用戶郵箱" value="test@example.com">
+            </div>
+            <div class="input-group">
+                <label for="new-password">新密碼：</label>
+                <input type="password" id="new-password" placeholder="輸入新密碼" value="newpassword123">
+            </div>
+            <button onclick="testUpdatePassword()">測試密碼更新API</button>
+            <div id="update-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://psy-backend.zeabur.app';
+        
+        function updateStatus(id, success) {
+            const element = document.getElementById(id);
+            element.className = `status-indicator ${success ? 'status-success' : 'status-error'}`;
+        }
+
+        function showResult(elementId, content, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = content;
+            element.parentElement.className = `test-section ${isError ? 'error' : 'success'}`;
+        }
+
+        function setButtonLoading(buttonId, loading) {
+            const button = document.getElementById(buttonId);
+            button.disabled = loading;
+            button.textContent = loading ? '測試中...' : button.getAttribute('data-original-text') || button.textContent;
+            if (!loading) {
+                button.setAttribute('data-original-text', button.textContent);
+            }
+        }
+
+        async function testApiConnection() {
+            setButtonLoading('test-api-btn', true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (response.status === 401) {
+                    // 401是預期的，表示API可訪問但需要認證
+                    result.message = 'API連接正常 (需要認證，這是預期的)';
+                    showResult('api-result', JSON.stringify(result, null, 2), false);
+                    updateStatus('api-check', true);
+                } else {
+                    result.data = await response.text();
+                    showResult('api-result', JSON.stringify(result, null, 2), false);
+                    updateStatus('api-check', true);
+                }
+            } catch (error) {
+                showResult('api-result', `API連接失敗:\n${error.message}`, true);
+                updateStatus('api-check', false);
+            } finally {
+                setButtonLoading('test-api-btn', false);
+            }
+        }
+
+        async function testForgotPassword() {
+            setButtonLoading('forgot-btn', true);
+            const email = document.getElementById('forgot-email').value;
+
+            if (!email) {
+                showResult('forgot-result', '請輸入郵箱', true);
+                setButtonLoading('forgot-btn', false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (response.ok) {
+                    showResult('forgot-result', JSON.stringify(result, null, 2), false);
+                    updateStatus('forgot-check', true);
+                } else {
+                    showResult('forgot-result', JSON.stringify(result, null, 2), true);
+                    updateStatus('forgot-check', false);
+                }
+            } catch (error) {
+                showResult('forgot-result', `請求失敗:\n${error.message}`, true);
+                updateStatus('forgot-check', false);
+            } finally {
+                setButtonLoading('forgot-btn', false);
+            }
+        }
+
+        async function testUpdatePassword() {
+            setButtonLoading('update-btn', true);
+            const email = document.getElementById('update-email').value;
+            const newPassword = document.getElementById('new-password').value;
+
+            if (!email || !newPassword) {
+                showResult('update-result', '請輸入郵箱和新密碼', true);
+                setButtonLoading('update-btn', false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/update-password`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, newPassword })
+                });
+
+                const data = await response.json();
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (response.ok) {
+                    showResult('update-result', JSON.stringify(result, null, 2), false);
+                    updateStatus('update-check', true);
+                } else {
+                    showResult('update-result', JSON.stringify(result, null, 2), true);
+                    updateStatus('update-check', false);
+                }
+            } catch (error) {
+                showResult('update-result', `請求失敗:\n${error.message}`, true);
+                updateStatus('update-check', false);
+            } finally {
+                setButtonLoading('update-btn', false);
+            }
+        }
+
+        // 頁面載入時顯示當前配置
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('測試頁面載入完成');
+            console.log('API基礎URL:', API_BASE_URL);
+        });
+    </script>
+</body>
+</html> 
