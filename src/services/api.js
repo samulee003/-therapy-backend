@@ -3,7 +3,7 @@ import axios from 'axios';
 // Determine the base URL based on the environment
 // IMPORTANT: Set VITE_API_BASE_URL in your frontend service environment variables on Zeabur
 // to your backend service URL (e.g., https://psy-backend.zeabur.app)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'; // 默認使用本地開發環境的URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://psy-backend.zeabur.app'; // 默認使用部署的後端服務
 
 // If API_BASE_URL is empty after checking env var, log an error or throw,
 // because relative paths won't work correctly with separate frontend/backend services.
