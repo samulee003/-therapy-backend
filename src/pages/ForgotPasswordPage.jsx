@@ -28,8 +28,6 @@ const ForgotPasswordPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [emailError, setEmailError] = useState('');
-  const [isDevelopmentMode, setIsDevelopmentMode] = useState(false);
-  const [resetUrl, setResetUrl] = useState('');
   const [showAdminContact, setShowAdminContact] = useState(false);
 
   // Email validation pattern
@@ -70,18 +68,13 @@ const ForgotPasswordPage = () => {
     setLoading(true);
     setError('');
     setSuccess(false);
+    setShowAdminContact(false);
 
     try {
       const response = await requestPasswordReset({ email });
       
       if (response && response.data) {
         setSuccess(true);
-        
-        // 檢查是否為開發模式
-        if (response.data.isDevelopment) {
-          setIsDevelopmentMode(true);
-          setResetUrl(response.data.resetUrl);
-        }
         
         // 檢查是否需要顯示管理員聯繫方式
         if (response.data.showAdminContact) {
@@ -97,8 +90,8 @@ const ForgotPasswordPage = () => {
         '無法發送密碼重置郵件，請稍後再試。';
       setError(errorMessage);
       
-      // 如果錯誤提到管理員，顯示聯繫方式
-      if (errorMessage.includes('管理員')) {
+      // 檢查是否需要顯示管理員聯繫方式
+      if (err.response?.data?.showAdminContact) {
         setShowAdminContact(true);
       }
     } finally {
@@ -133,26 +126,12 @@ const ForgotPasswordPage = () => {
             請檢查您的收件箱並按照郵件中的指示重置密碼。
           </Typography>
           
-          {isDevelopmentMode && resetUrl && (
-            <Alert severity="info" sx={{ width: '100%', mb: 3 }}>
-              <Typography variant="body2" component="div">
-                <strong>開發模式：</strong>由於 EmailJS 服務未配置，重置連結已複製到剪貼板。
-                <br />
-                <Link href={resetUrl} target="_blank" rel="noopener" sx={{ wordBreak: 'break-all' }}>
-                  {resetUrl}
-                </Link>
-              </Typography>
-            </Alert>
-          )}
-          
           {showAdminContact && (
             <Alert severity="warning" sx={{ width: '100%', mb: 3 }}>
               <Typography variant="body2">
                 如果您仍無法重置密碼，請聯繫系統管理員：
                 <br />
-                📧 admin@therapy-system.com
-                <br />
-                📞 (853) 1234-5678
+                📧 fronttallobe.trainer@gmail.com
               </Typography>
             </Alert>
           )}

@@ -347,32 +347,41 @@ export const requestPasswordReset = async (data) => {
   console.log('[api.js] requestPasswordReset: requesting password reset for email:', data.email);
   
   try {
-    // 首先嘗試使用EmailJS發送真實郵件
+    // 使用EmailJS發送重置郵件
     const result = await sendPasswordResetEmail(data.email);
     
     if (result.success) {
-      return { data: { message: result.message } };
+      return { 
+        data: { 
+          message: result.message,
+          showAdminContact: result.showAdminContact || false
+        } 
+      };
     } else {
-      // 如果EmailJS服務未配置，使用模擬模式
-      if (result.showAdminContact) {
-        const simulateResult = simulatePasswordResetEmail(data.email);
-        return { 
-          data: { 
-            message: simulateResult.message,
-            resetUrl: simulateResult.resetUrl,
-            isDevelopment: simulateResult.isDevelopment,
-            showAdminContact: true
+      // 返回錯誤信息，不再回退到開發模式
+      throw {
+        response: {
+          data: {
+            error: result.error,
+            showAdminContact: result.showAdminContact || false
           }
-        };
-      }
-      throw new Error(result.error);
+        }
+      };
     }
   } catch (error) {
     console.error('密碼重置請求失敗:', error);
+    
+    // 如果是已經包裝的錯誤，直接重新拋出
+    if (error.response?.data?.error) {
+      throw error;
+    }
+    
+    // 處理其他類型的錯誤
     throw {
       response: {
         data: {
-          error: error.message || '發送重置郵件失敗，請聯繫系統管理員'
+          error: error.message || '發送重置郵件失敗，請聯繫系統管理員',
+          showAdminContact: true
         }
       }
     };
@@ -381,33 +390,73 @@ export const requestPasswordReset = async (data) => {
 
 // Reset password with token (使用本地令牌驗證)
 export const resetPassword = async (data) => {
-  console.log('[api.js] resetPassword: resetting password with token');
+  console.log('[api.js] resetPassword: 開始重置密碼流程');
+  console.log('重置數據:', { token: data.token ? '存在' : '不存在', password: '***' });
   
   try {
+    if (!data.token) {
+      throw new Error('缺少重置令牌');
+    }
+    
+    if (!data.password) {
+      throw new Error('缺少新密碼');
+    }
+    
     // 驗證令牌
+    console.log('開始驗證令牌...');
     const validation = validateResetToken(data.token);
+    console.log('令牌驗證結果:', validation);
+    
     if (!validation.valid) {
       throw new Error(validation.error);
     }
     
-    // 模擬更新密碼（在沒有後端的情況下）
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const userIndex = users.findIndex(user => user.email === validation.email);
+    console.log('令牌驗證成功，用戶郵箱:', validation.email);
     
+    // 獲取或創建用戶數據
+    let users = JSON.parse(localStorage.getItem('users') || '[]');
+    console.log('當前用戶數量:', users.length);
+    
+    let userIndex = users.findIndex(user => user.email === validation.email);
+    console.log('用戶索引:', userIndex);
+    
+    // 如果用戶不存在，創建一個模擬用戶
     if (userIndex === -1) {
-      throw new Error('用戶不存在');
+      console.log('用戶不存在，創建新用戶:', validation.email);
+      const newUser = {
+        id: Date.now(),
+        email: validation.email,
+        password: data.password,
+        role: 'patient',
+        name: validation.email.split('@')[0],
+        createdAt: new Date().toISOString()
+      };
+      users.push(newUser);
+      userIndex = users.length - 1;
+      console.log('新用戶已創建:', newUser);
+    } else {
+      console.log('找到現有用戶，更新密碼:', validation.email);
+      // 更新現有用戶密碼
+      users[userIndex].password = data.password;
+      console.log('用戶密碼已更新');
     }
     
-    // 更新用戶密碼
-    users[userIndex].password = data.password; // 在實際應用中需要加密
+    // 保存用戶數據
+    console.log('保存用戶數據到localStorage...');
     localStorage.setItem('users', JSON.stringify(users));
+    console.log('用戶數據已保存');
     
     // 標記令牌為已使用
+    console.log('標記令牌為已使用...');
     markTokenAsUsed(data.token);
+    console.log('令牌已標記為已使用');
     
+    console.log('密碼重置成功完成');
     return { data: { message: '密碼重置成功' } };
   } catch (error) {
-    console.error('密碼重置失敗:', error);
+    console.error('密碼重置失敗，錯誤詳情:', error);
+    console.error('錯誤堆棧:', error.stack);
+    
     throw {
       response: {
         data: {
