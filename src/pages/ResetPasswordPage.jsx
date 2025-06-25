@@ -18,6 +18,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { resetPassword } from '../services/api';
+import { debugResetTokens, debugUsers } from '../services/emailService';
 
 const ResetPasswordPage = () => {
   const theme = useTheme();
@@ -43,11 +44,19 @@ const ResetPasswordPage = () => {
   const token = searchParams.get('token');
   
   useEffect(() => {
+    console.log('重置密碼頁面加載，令牌:', token);
+    console.log('URL搜索參數:', searchParams.toString());
+    
+    // 調試localStorage狀態
+    debugResetTokens();
+    debugUsers();
+    
     // 如果沒有 token，重定向到忘記密碼頁面
     if (!token) {
+      console.log('沒有令牌，重定向到忘記密碼頁面');
       navigate('/forgot-password');
     }
-  }, [token, navigate]);
+  }, [token, navigate, searchParams]);
 
   // 密碼驗證模式
   const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,}$/;
@@ -111,7 +120,12 @@ const ResetPasswordPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('提交重置密碼表單');
+    console.log('令牌:', token);
+    console.log('密碼長度:', formData.password.length);
+    
     if (!validateForm()) {
+      console.log('表單驗證失敗');
       return;
     }
 
@@ -119,12 +133,16 @@ const ResetPasswordPage = () => {
     setError('');
 
     try {
+      console.log('開始調用resetPassword API...');
       const response = await resetPassword({
         token,
         password: formData.password,
       });
       
+      console.log('resetPassword API 響應:', response);
+      
       if (response && response.data) {
+        console.log('密碼重置成功');
         setSuccess(true);
         // 3秒後重定向到登入頁面
         setTimeout(() => {
@@ -138,6 +156,7 @@ const ResetPasswordPage = () => {
         err.response?.data?.message || 
         err.message || 
         '無法重置密碼，請稍後再試。';
+      console.error('錯誤訊息:', errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);
