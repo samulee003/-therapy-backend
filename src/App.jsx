@@ -5,6 +5,7 @@ import Header from './components/layout/Header';
 import HomePage from './pages/HomePage';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import PatientDashboard from './pages/patient/PatientDashboard';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import AppointmentBookingPage from './pages/AppointmentBookingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -69,6 +70,10 @@ function App() {
 
           <Route element={<ProtectedRoute allowedRoles={['patient']} />}>
             <Route path="/patient-dashboard" element={<PatientDashboard />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin-dashboard" element={<AdminDashboard />} />
           </Route>
 
           {/* Route for any authenticated user */}

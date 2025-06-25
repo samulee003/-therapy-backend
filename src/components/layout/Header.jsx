@@ -68,10 +68,14 @@ const Header = () => {
     ];
 
     if (isAuthenticated) {
-      const dashboardPath =
-        user?.role === 'doctor' || user?.role === 'admin'
-          ? '/therapist-dashboard'
-          : '/patient-dashboard';
+      let dashboardPath;
+      if (user?.role === 'admin') {
+        dashboardPath = '/admin-dashboard';
+      } else if (user?.role === 'doctor') {
+        dashboardPath = '/therapist-dashboard';
+      } else {
+        dashboardPath = '/patient-dashboard';
+      }
       
       const authItems = [
         { 
@@ -227,7 +231,9 @@ const Header = () => {
                   <MenuItem
                     component={RouterLink}
                     to={
-                      user?.role === 'doctor' || user?.role === 'admin'
+                      user?.role === 'admin'
+                        ? '/admin-dashboard'
+                        : user?.role === 'doctor'
                         ? '/therapist-dashboard'
                         : '/patient-dashboard'
                     }
