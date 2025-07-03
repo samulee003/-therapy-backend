@@ -25,7 +25,7 @@ import {
   AccessTime as TimeIcon,
   Event as EventIcon,
 } from '@mui/icons-material';
-import { getScheduleForMonth, saveScheduleForDate } from '../../../services/api';
+import { getScheduleForMonth, saveScheduleForDate, getSettings } from '../../../services/api';
 import { formatDate, defaultSlotOptions } from './utils';
 
 // Helper function to convert HH:MM string to total minutes from midnight
@@ -82,6 +82,67 @@ const ScheduleManager = ({ user }) => {
   const [bulkEndDate, setBulkEndDate] = useState('');
   const [selectedWeekdays, setSelectedWeekdays] = useState([1, 2, 3, 4, 5]);
   const [isBulkScheduling, setIsBulkScheduling] = useState(false);
+
+  // 新增：自定義時段相關狀態
+  const [userCustomSlots, setUserCustomSlots] = useState([]);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [mergedSlotOptions, setMergedSlotOptions] = useState(defaultSlotOptions);
+
+  // 新增：獲取用戶設置
+  const fetchUserSettings = async () => {
+    if (!user) {
+      console.warn('嘗試獲取用戶設置但用戶未登入');
+      return;
+    }
+
+    setLoadingSettings(true);
+    try {
+      console.log('[ScheduleManager] 開始獲取用戶自定義時段設置');
+      const response = await getSettings();
+      console.log('[ScheduleManager] 獲取設置響應:', response.data);
+      
+      let settings = response.data;
+      
+      // 處理與舊版本API兼容性
+      if (response.data.settings) {
+        settings = response.data.settings;
+      }
+      
+      // 提取自定義時段
+      let customSlots = [];
+      if (Array.isArray(settings.defaultTimeSlots)) {
+        customSlots = settings.defaultTimeSlots;
+      } else if (typeof settings.defaultTimeSlots === 'string') {
+        try {
+          const parsed = JSON.parse(settings.defaultTimeSlots);
+          customSlots = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.error('[ScheduleManager] 解析自定義時段失敗:', e);
+          customSlots = [];
+        }
+      }
+      
+      console.log('[ScheduleManager] 提取的自定義時段:', customSlots);
+      setUserCustomSlots(customSlots);
+      
+      // 合併固定預設時段和用戶自定義時段
+      const merged = {
+        ...defaultSlotOptions,
+        customSlots: customSlots.sort() // 添加自定義時段並排序
+      };
+      
+      console.log('[ScheduleManager] 合併後的時段選項:', merged);
+      setMergedSlotOptions(merged);
+      
+    } catch (err) {
+      console.error('[ScheduleManager] 獲取用戶設置失敗:', err);
+      // 失敗時使用預設選項，不顯示錯誤給用戶（降級處理）
+      setUserCustomSlots([]);
+      setMergedSlotOptions(defaultSlotOptions);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
 
   // 獲取排班數據
   const fetchSchedule = async (year, month) => {
@@ -170,6 +231,13 @@ const ScheduleManager = ({ user }) => {
       fetchSchedule(year, month);
     }
   }, [user, currentScheduleDate]);
+
+  // 新增：獲取用戶自定義時段設置
+  useEffect(() => {
+    if (user) {
+      fetchUserSettings();
+    }
+  }, [user]);
 
   // 處理月份導航
   const handlePrevMonth = () => {
@@ -770,29 +838,36 @@ const ScheduleManager = ({ user }) => {
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom>
                 可用時段設置
+                {loadingSettings && (
+                  <CircularProgress size={16} sx={{ ml: 1 }} />
+                )}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                {Object.entries(defaultSlotOptions).map(([key, slots]) => (
+                {Object.entries(mergedSlotOptions).map(([key, slots]) => (
                   <Box key={key}>
-                    <Typography variant="caption" display="block" gutterBottom>
-                      {key === 'weekdaySlots' ? '週一至週五' : 
-                       key === 'saturdaySlots' ? '週六' : 
-                       key === 'afternoonSlots' ? '下午' : '其他'}
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {slots.map(slot => (
-                        <Chip
-                          key={`${key}-${slot}`}
-                          label={slot}
-                          size="small"
-                          onClick={() => handleAddDefaultTimeSlot(slot)}
-                          icon={<TimeIcon fontSize="small" />}
-                        />
+                                            <Typography variant="caption" display="block" gutterBottom>
+                          {key === 'weekdaySlots' ? '週一至週五' : 
+                           key === 'saturdaySlots' ? '週六' : 
+                           key === 'afternoonSlots' ? '下午' : 
+                           key === 'customSlots' ? '自定義時段' : '其他'}
+                        </Typography>
+                                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {slots.map(slot => (
+                          <Chip
+                            key={`${key}-${slot}`}
+                            label={slot}
+                            size="small"
+                            onClick={() => handleAddDefaultTimeSlot(slot)}
+                            icon={<TimeIcon fontSize="small" />}
+                            color={key === 'customSlots' ? 'secondary' : 'default'}
+                            variant={key === 'customSlots' ? 'filled' : 'outlined'}
+                          />
+                        ))}
+                    </Box>
+                                          </Box>
                       ))}
                     </Box>
                   </Box>
-                ))}
-              </Box>
 
               <Typography variant="subtitle2" gutterBottom>
                 當前選擇的時段
@@ -928,24 +1003,34 @@ const ScheduleManager = ({ user }) => {
                     新增時段
                   </Button>
 
-                  <Box sx={{ mt: 2, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {Object.entries(defaultSlotOptions).map(([key, slots]) => (
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                      快速時段選擇
+                      {loadingSettings && (
+                        <CircularProgress size={16} sx={{ ml: 1 }} />
+                      )}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {Object.entries(mergedSlotOptions).map(([key, slots]) => (
                       <Box key={key} sx={{ mb:1}}>
-                        <Typography variant="caption" display="block" gutterBottom>
-                          {key === 'weekdaySlots' ? '常用(平日)' : 
-                          key === 'saturdaySlots' ? '常用(週六)' : 
-                          key === 'afternoonSlots' ? '常用(下午)' : '其他'}
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {slots.map(slotValue => (
-                            <Chip
-                              key={`${key}-${slotValue}`}
-                              label={slotValue}
-                              size="small"
-                              onClick={() => handleAddDefaultTimeSlot(slotValue)}
-                              icon={<TimeIcon fontSize="small" />}
-                            />
-                          ))}
+                                                  <Typography variant="caption" display="block" gutterBottom>
+                            {key === 'weekdaySlots' ? '常用(平日)' : 
+                            key === 'saturdaySlots' ? '常用(週六)' : 
+                            key === 'afternoonSlots' ? '常用(下午)' : 
+                            key === 'customSlots' ? '自定義時段' : '其他'}
+                          </Typography>
+                                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {slots.map(slotValue => (
+                              <Chip
+                                key={`${key}-${slotValue}`}
+                                label={slotValue}
+                                size="small"
+                                onClick={() => handleAddDefaultTimeSlot(slotValue)}
+                                icon={<TimeIcon fontSize="small" />}
+                                color={key === 'customSlots' ? 'secondary' : 'default'}
+                                variant={key === 'customSlots' ? 'filled' : 'outlined'}
+                              />
+                            ))}
                         </Box>
                       </Box>
                     ))}
