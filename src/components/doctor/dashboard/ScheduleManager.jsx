@@ -125,13 +125,35 @@ const ScheduleManager = ({ user }) => {
       console.log('[ScheduleManager] 提取的自定義時段:', customSlots);
       setUserCustomSlots(customSlots);
       
-      // 合併固定預設時段和用戶自定義時段
-      const merged = {
-        ...defaultSlotOptions,
-        customSlots: customSlots.sort() // 添加自定義時段並排序
+      // 修復：實現智能去重的時段合併邏輯
+      const mergeAndDeduplicateSlots = (defaultOptions, customSlots) => {
+        // 收集所有預設時段到一個Set中，用於去重
+        const allDefaultSlots = new Set();
+        Object.values(defaultOptions).forEach(slots => {
+          slots.forEach(slot => allDefaultSlots.add(slot));
+        });
+        
+        // 過濾出真正的自定義時段（不在預設時段中的）
+        const uniqueCustomSlots = customSlots.filter(slot => !allDefaultSlots.has(slot));
+        
+        console.log('[ScheduleManager] 去重後的自定義時段:', uniqueCustomSlots);
+        
+        // 構建合併結果
+        const merged = {
+          ...defaultOptions
+        };
+        
+        // 只有當有真正的自定義時段時才添加customSlots分組
+        if (uniqueCustomSlots.length > 0) {
+          merged.customSlots = uniqueCustomSlots.sort();
+        }
+        
+        return merged;
       };
       
-      console.log('[ScheduleManager] 合併後的時段選項:', merged);
+      const merged = mergeAndDeduplicateSlots(defaultSlotOptions, customSlots);
+      
+      console.log('[ScheduleManager] 合併且去重後的時段選項:', merged);
       setMergedSlotOptions(merged);
       
     } catch (err) {
