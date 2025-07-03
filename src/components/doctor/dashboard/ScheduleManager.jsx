@@ -127,26 +127,29 @@ const ScheduleManager = ({ user }) => {
       
       // 修復：實現智能去重的時段合併邏輯
       const mergeAndDeduplicateSlots = (defaultOptions, customSlots) => {
-        // 收集所有預設時段到一個Set中，用於去重
-        const allDefaultSlots = new Set();
-        Object.values(defaultOptions).forEach(slots => {
-          slots.forEach(slot => allDefaultSlots.add(slot));
-        });
-        
-        // 過濾出真正的自定義時段（不在預設時段中的）
-        const uniqueCustomSlots = customSlots.filter(slot => !allDefaultSlots.has(slot));
-        
-        console.log('[ScheduleManager] 去重後的自定義時段:', uniqueCustomSlots);
-        
-        // 構建合併結果
-        const merged = {
-          ...defaultOptions
-        };
-        
-        // 只有當有真正的自定義時段時才添加customSlots分組
-        if (uniqueCustomSlots.length > 0) {
-          merged.customSlots = uniqueCustomSlots.sort();
+        // 如果沒有自定義時段，直接返回預設選項
+        if (!customSlots || customSlots.length === 0) {
+          return defaultOptions;
         }
+
+        // 創建自定義時段的Set，用於檢查重複
+        const customSlotsSet = new Set(customSlots);
+        
+        // 清理預設時段分組，移除與自定義時段重複的項目
+        const cleanedDefaultOptions = {};
+        Object.entries(defaultOptions).forEach(([key, slots]) => {
+          // 過濾掉與自定義時段重複的預設時段
+          cleanedDefaultOptions[key] = slots.filter(slot => !customSlotsSet.has(slot));
+        });
+
+        console.log('[ScheduleManager] 清理後的預設時段:', cleanedDefaultOptions);
+        console.log('[ScheduleManager] 自定義時段:', customSlots);
+        
+        // 構建最終結果：清理後的預設時段 + 自定義時段分組
+        const merged = {
+          ...cleanedDefaultOptions,
+          customSlots: customSlots.sort() // 始終顯示自定義時段分組
+        };
         
         return merged;
       };
