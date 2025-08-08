@@ -18,6 +18,25 @@
 
 - 總結：兩項需求均符合並通過驗證。
 
+---
+
+## Verification Report（2025-01-09 緊急修復）
+
+- 任務：修復登入頁面組件導入問題
+  - 問題：`LoginPage.jsx` 使用了 `FormControlLabel` 和 `Checkbox` 但未導入
+  - 症狀：編譯錯誤，導致「記住密碼」功能無法正常運作
+
+- 驗證範圍：
+  - 前端頁面：`src/pages/LoginPage.jsx`
+  - 關鍵檢查點：確認 Material-UI 組件正確導入並無語法錯誤
+
+- 驗證結果：
+  - 組件導入：已在第19-20行正確添加 `FormControlLabel` 和 `Checkbox` 導入。[PASS]
+  - 語法檢查：使用 linter 檢查無錯誤。[PASS]
+  - 編譯狀態：頁面可正常編譯，「記住密碼」功能完整運作。[PASS]
+
+- 總結：登入頁面問題已修復，功能恢復正常。
+
 ## Project Status Board（2025-08-08 更新）
 
 - [x] 患者端：預約提前天數由 7 天改為 5 天（前端日曆與提示已同步）
