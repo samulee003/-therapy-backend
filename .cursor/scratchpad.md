@@ -1,3 +1,28 @@
+## Verification Report（2025-08-08）
+
+- 任務：更新患者端功能需求（兩項）
+  - 1) 將「預約需提前天數」由 7 天縮短為 5 天
+  - 2) 在「註冊頁」加入「記住密碼」勾選，並與登入頁本機自動帶入協同
+
+- 驗證範圍：
+  - 前端頁面與組件：`src/pages/AppointmentBookingPage.jsx`、`src/pages/RegisterPage.jsx`、`src/pages/LoginPage.jsx`
+  - 關鍵檢查點：
+    - `getMinimumBookingDate()` 是否改為 `addDays(new Date(), 5)`，所有提示文案是否同步為「至少提前五天」。
+    - 註冊頁是否提供 `rememberPassword` Checkbox；成功註冊時是否按勾選狀態存入 `localStorage`（`remember_me_email`、`remember_me_password`）。
+    - 登入頁初載入時是否會讀取並自動帶入上述本機資料，且登入時會依勾選狀態同步增刪本機儲存。
+
+- 驗證結果：
+  - 預約限制：`AppointmentBookingPage.jsx` 已以 `addDays(..., 5)` 實作，日曆點選與 Tooltip、頁面 Alert 均以「至少提前五天」呈現。[PASS]
+  - 記住密碼：`RegisterPage.jsx` 已提供勾選並在註冊成功後依狀態寫入/清除 `localStorage`；`LoginPage.jsx` 首次載入會讀取並預填，登入時再依勾選同步。[PASS]
+  - 殘留檢查：未發現患者端殘留「7天」文案；醫師端 `AppointmentManager.jsx` 僅於「本週」過濾計算使用 7 天視窗，屬顯示範圍用途，非患者端限制。[PASS]
+
+- 總結：兩項需求均符合並通過驗證。
+
+## Project Status Board（2025-08-08 更新）
+
+- [x] 患者端：預約提前天數由 7 天改為 5 天（前端日曆與提示已同步）
+- [x] 患者端：註冊頁新增「記住密碼」勾選並與登入頁本機帶入協同
+
 # Scratchpad
 
 ## 背景與動機 (Background and Motivation)
@@ -5094,6 +5119,36 @@ startIcon={isMobile ? null : <VisibilityIcon />}
 
 **✅ 功能實施完成**
 
+### 變更（2025-08-08）：將預約提前限制由7天縮短為5天
+- 已更新 `src/pages/AppointmentBookingPage.jsx`：
+  - `getMinimumBookingDate()` 由 `addDays(new Date(), 7)` 改為 `addDays(new Date(), 5)`。
+  - 所有提示文案同步為「至少提前五天」。
+- 成功標準：
+  - 日曆中 0-4 天不可點選，從第 5 天起可預約。
+  - Tooltip 與 Alert 說明一致更新。
+  - 無 lint 錯誤。
+
+### 新增（2025-08-08）：記住密碼選項
+- 已更新 `src/pages/RegisterPage.jsx`：
+  - 新增 `rememberPassword` 欄位與勾選框。註冊成功後若勾選則將 `remember_me_email` 與 `remember_me_password` 儲存至 `localStorage`。
+- 已更新 `src/pages/LoginPage.jsx`：
+  - 新增「記住密碼」勾選框（預設值依 `localStorage` 還原）。
+  - 初次載入自動讀取 `remember_me_email`、`remember_me_password` 預填。
+  - 登入成功時依勾選狀態同步儲存或清除。
+- 成功標準：
+  - 使用者在註冊或登入時可選擇是否記住密碼。
+  - 重新開啟登入頁能自動帶入先前儲存的信箱與密碼（若有）。
+  - 無 lint 錯誤。
+
+## Project Status Board（節選）
+- [x] 預約時間限制從 7 天改為 5 天（前端）
+- [x] 註冊頁新增記住密碼勾選與本機儲存
+- [x] 登入頁支援讀取/同步記住密碼狀態
+
+## Verification Report
+- 預約限制：視覺與互動行為符合「至少提前五天」。[PASS]
+- 記住密碼：在註冊勾選後，登入頁自動帶入；登入頁勾選亦能同步儲存與清除。[PASS]
+
 **預約時間限制功能 - Executor 實施報告 (2025-01-02)**
 
 ✅ **功能實施已完成！** 我已成功實施預約時間限制功能，現在患者只能預約一週之後的時段。
@@ -5827,11 +5882,13 @@ notificationSettings = {
 - 修復不影響現有功能的穩定性
 
 ✅ **修復完成**：
-- 實施智能去重邏輯：使用Set數據結構收集所有預設時段，過濾出真正的自定義時段
-- 保持分類清晰：只有真正的自定義時段才會顯示"自定義時段"分組
+- **第一次修復 (commit 117a792)**：實施過於嚴格的去重邏輯，導致自定義時段不顯示
+- **第二次修復 (commit 7ee7ff3)**：改變去重策略，保留自定義時段獨立顯示：
+  - 自定義時段始終顯示在獨立的"自定義時段"分組中
+  - 從預設時段分組中移除與自定義時段重複的項目
+  - 避免界面上的重複顯示，同時確保自定義時段可見
 - 代碼優化：添加詳細的console.log用於調試，便於後續維護
 - 測試通過：npm run build 成功，無語法錯誤
-- 已提交代碼：commit 117a792，成功推送到 origin/main
 
 🎯 **修復效果**：
 - 消除重複：相同時段不會在多個分組中重複出現

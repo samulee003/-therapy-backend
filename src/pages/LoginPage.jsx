@@ -33,6 +33,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(''); // Use email as username
   const [password, setPassword] = useState('');
+  const [rememberPassword, setRememberPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({ email: '', password: '' });
@@ -93,6 +94,23 @@ const LoginPage = () => {
     }
   };
 
+  // 初始載入：如果先前在本機勾選了記住密碼，預填資料
+  React.useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem('remember_me_email');
+      const savedPassword = localStorage.getItem('remember_me_password');
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
+      if (savedPassword) {
+        setPassword(savedPassword);
+        setRememberPassword(true);
+      }
+    } catch (e) {
+      console.warn('讀取本機記住密碼失敗：', e);
+    }
+  }, []);
+
   const handleSubmit = async event => {
     event.preventDefault();
     console.log('[LoginPage.jsx] handleSubmit: starting with email:', email, 'password:', password.substring(0, 3) + '...'); // 僅顯示部分密碼以策安全
@@ -120,6 +138,19 @@ const LoginPage = () => {
         // 保存 token 到 localStorage（如果後端提供）
         if (response.data.token) {
           localStorage.setItem('auth_token', response.data.token);
+        }
+
+        // 同步記住密碼偏好
+        try {
+          if (rememberPassword) {
+            localStorage.setItem('remember_me_email', email);
+            localStorage.setItem('remember_me_password', password);
+          } else {
+            localStorage.removeItem('remember_me_email');
+            localStorage.removeItem('remember_me_password');
+          }
+        } catch (storageErr) {
+          console.warn('同步記住密碼偏好時發生問題：', storageErr);
         }
         
         // 使用 AuthContext 的 login 函數儲存用戶資料
@@ -240,6 +271,19 @@ const LoginPage = () => {
                 </InputAdornment>
               ),
             }}
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={rememberPassword}
+                onChange={(e) => setRememberPassword(e.target.checked)}
+                color="secondary"
+                size="small"
+              />
+            }
+            label={<Typography variant="body2">記住密碼（僅在本機瀏覽器保存）</Typography>}
+            sx={{ mt: 1 }}
           />
 
           <Box sx={{ textAlign: 'right', mt: 1 }}>

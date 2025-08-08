@@ -45,6 +45,7 @@ const RegisterPage = () => {
     confirmPassword: '',
     role: 'patient',
     agreeToPrivacyPolicy: false,
+    rememberPassword: false,
   });
 
   // 表單驗證錯誤
@@ -108,6 +109,10 @@ const RegisterPage = () => {
         if (!value) {
           errorMessage = '請詳閱並同意個人資料收集條款';
         }
+        break;
+      case 'rememberPassword':
+        // 使用者偏好，無需錯誤
+        errorMessage = '';
         break;
 
       default:
@@ -184,6 +189,19 @@ const RegisterPage = () => {
     try {
       const response = await registerUser(registrationData);
       setRegistrationSuccess(true);
+
+      // 按需求：如勾選記住密碼，將憑證保存至本機
+      try {
+        if (formData.rememberPassword) {
+          localStorage.setItem('remember_me_email', formData.email);
+          localStorage.setItem('remember_me_password', formData.password);
+        } else {
+          localStorage.removeItem('remember_me_email');
+          localStorage.removeItem('remember_me_password');
+        }
+      } catch (storageErr) {
+        console.warn('儲存記住密碼時發生問題：', storageErr);
+      }
       // 顯示成功訊息3秒後跳轉
       setTimeout(() => {
         navigate('/login', { state: { message: '註冊成功！請使用您的帳號登入。' } });
@@ -469,6 +487,35 @@ const RegisterPage = () => {
                   </FormHelperText>
                 )}
               </Box>
+            </Grid>
+
+            {/* 記住密碼選項（使用者偏好） */}
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.rememberPassword}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setFormData({
+                        ...formData,
+                        rememberPassword: newValue,
+                      });
+                      setErrors({
+                        ...errors,
+                        rememberPassword: validateField('rememberPassword', newValue),
+                      });
+                    }}
+                    name="rememberPassword"
+                    color="secondary"
+                    size="small"
+                  />
+                }
+                label={<Typography variant="body2">記住密碼（僅在本機瀏覽器保存）</Typography>}
+              />
+              <FormHelperText sx={{ ml: 4.5 }}>
+                如使用公共電腦，請勿勾選此項。
+              </FormHelperText>
             </Grid>
 
             {/* 註冊按鈕 */}
