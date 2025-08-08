@@ -1,0 +1,6 @@
+ M .cursor/scratchpad.md
+ M package-lock.json
+ M src/pages/AppointmentBookingPage.jsx
+ M src/pages/LoginPage.jsx
+ M src/pages/RegisterPage.jsx
+?? changed_files.txt
