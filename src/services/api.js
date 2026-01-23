@@ -535,4 +535,17 @@ export const resetPassword = async (data) => {
 // bulkGenerateDoctorSlots
 // loginAdmin
 
+// --- Calendar Sync --- //
+
+// Get Calendar Token (Matches GET /api/calendar/token)
+export const getCalendarToken = () => {
+  return apiClient.get('/api/calendar/token');
+};
+
+// Reset Calendar Token (Matches POST /api/calendar/token/reset)
+export const resetCalendarToken = () => {
+  return apiClient.post('/api/calendar/token/reset');
+};
+
 export default apiClient;
+
