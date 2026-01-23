@@ -24,8 +24,12 @@ import {
   Delete as DeleteIcon,
   Save as SaveIcon,
   AccessTime as TimeIcon,
+  CalendarMonth as CalendarIcon,
+  ContentCopy as CopyIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { getSettings, updateSettings } from '../../../services/api';
+import { getSettings, updateSettings, getCalendarToken, resetCalendarToken } from '../../../services/api';
+
 import { defaultSlotOptions } from './utils';
 
 const SettingsManager = ({ user }) => {
@@ -45,7 +49,13 @@ const SettingsManager = ({ user }) => {
   const [clinicName, setClinicName] = useState('');
   const [notificationEmail, setNotificationEmail] = useState('');
 
+  // 行事曆同步狀態
+  const [calendarToken, setCalendarToken] = useState('');
+  const [loadingToken, setLoadingToken] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
   // 獲取設置
+
   const fetchSettings = async () => {
     setLoadingSettings(true);
     setErrorSettings('');
@@ -95,12 +105,60 @@ const SettingsManager = ({ user }) => {
     }
   };
 
+  // 獲取行事曆 Token
+  const fetchCalendarToken = async () => {
+    setLoadingToken(true);
+    try {
+      const response = await getCalendarToken();
+      if (response.data && response.data.success) {
+        setCalendarToken(response.data.token);
+      }
+    } catch (err) {
+      console.error('Failed to fetch calendar token:', err);
+    } finally {
+      setLoadingToken(false);
+    }
+  };
+
+  // 重置行事曆 Token
+  const handleResetToken = async () => {
+    if (!window.confirm('重置 Token 將導致舊的行事曆訂閱失效，確定要重置嗎？')) {
+      return;
+    }
+    
+    setLoadingToken(true);
+    try {
+      const response = await resetCalendarToken();
+      if (response.data && response.data.success) {
+        setCalendarToken(response.data.token);
+        setSettingsUpdateSuccess(true);
+        setTimeout(() => setSettingsUpdateSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to reset calendar token:', err);
+      setErrorSettings('重置 Token 失敗');
+    } finally {
+      setLoadingToken(false);
+    }
+  };
+
+  // 複製訂閱網址
+  const handleCopyLink = () => {
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    const feedUrl = `${backendUrl}/api/calendar/feed/${calendarToken}`;
+    navigator.clipboard.writeText(feedUrl);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 2000);
+  };
+
   // 初始加載
   useEffect(() => {
     if (user) {
       fetchSettings();
+      fetchCalendarToken();
     }
   }, [user]);
+
 
   // 添加預設時段
   const handleAddDefaultTimeSlot = () => {
@@ -308,7 +366,102 @@ const SettingsManager = ({ user }) => {
             </Paper>
           </Grid>
 
+          {/* 行事曆同步設置 */}
+          <Grid item xs={12}>
+            <Paper sx={{ p: isMobile ? 2 : 3, mb: isMobile ? 2 : 3, borderRadius: '8px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <CalendarIcon sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography 
+                  variant="h6" 
+                  sx={{ fontSize: isMobile ? '1.1rem' : undefined }}
+                >
+                  行事曆同步 (Apple/Outlook/Google)
+                </Typography>
+              </Box>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                paragraph
+                sx={{ fontSize: isMobile ? '0.8rem' : undefined }}
+              >
+                透過 iCalendar 訂閱功能，自動將預約同步到您的手機行事曆。
+              </Typography>
+
+              {loadingToken ? (
+                <CircularProgress size={24} />
+              ) : (
+                <Box>
+                  <Box 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: 'grey.100', 
+                      borderRadius: 1, 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      mb: 2,
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontFamily: 'monospace', 
+                        flexGrow: 1, 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        mr: 1
+                      }}
+                    >
+                      {calendarToken 
+                        ? `${import.meta.env.VITE_API_BASE_URL || window.location.origin}/api/calendar/feed/${calendarToken}`
+                        : '未生成 Token'}
+                    </Typography>
+                    <IconButton size="small" onClick={handleCopyLink} disabled={!calendarToken}>
+                      <CopyIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      startIcon={<CopyIcon />} 
+                      onClick={handleCopyLink}
+                      disabled={!calendarToken}
+                    >
+                      {tokenCopied ? '已複製' : '複製訂閱網址'}
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      color="warning"
+                      startIcon={<RefreshIcon />} 
+                      onClick={handleResetToken}
+                    >
+                      重置 Token
+                    </Button>
+                  </Box>
+
+                  <Alert severity="info" sx={{ mt: 2, '& .MuiAlert-message': { width: '100%' } }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      如何在 iPhone 設定：
+                    </Typography>
+                    <Typography variant="body2" component="div" sx={{ fontSize: '0.8rem' }}>
+                      1. 複製上方網址<br />
+                      2. 打開 iPhone「設定」 > 「行事曆」<br />
+                      3. 點選「帳號」 > 「加入帳號」 > 「其他」<br />
+                      4. 點選「加入已訂閱的行事曆」<br />
+                      5. 貼上網址並儲存
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+            </Paper>
+          </Grid>
+
           {/* 預設時段設置 */}
+
           <Grid item xs={12}>
             <Paper sx={{ p: isMobile ? 2 : 3, borderRadius: '8px' }}>
               <Typography 
