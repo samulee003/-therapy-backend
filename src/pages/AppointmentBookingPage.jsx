@@ -82,13 +82,15 @@ const minutesToTime = totalMinutes => {
 };
 
 // 預約時間限制相關函數
+const MIN_BOOKING_DAYS = 3;
+
 const getMinimumBookingDate = () => {
-  // 返回當前日期的5天後（至少提前五天）
-  return startOfDay(addDays(new Date(), 5));
+  // 返回當前日期的3天後（至少提前三天）
+  return startOfDay(addDays(new Date(), MIN_BOOKING_DAYS));
 };
 
 const isDateBookable = (date) => {
-  // 檢查指定日期是否可以預約（必須至少提前五天）
+  // 檢查指定日期是否可以預約（必須至少提前三天）
   const minDate = getMinimumBookingDate();
   const targetDate = startOfDay(date);
   return targetDate >= minDate;
@@ -330,10 +332,10 @@ const AppointmentBookingPage = () => {
   };
 
   const handleDateClick = day => {
-    // 檢查日期是否可以預約（至少提前五天）
+    // 檢查日期是否可以預約（至少提前三天）
     if (!isDateBookable(day)) {
       // 如果日期不可預約，不進行任何操作
-      console.log(`日期 ${format(day, 'yyyy-MM-dd')} 不可預約，需要至少提前五天的日期`);
+      console.log(`日期 ${format(day, 'yyyy-MM-dd')} 不可預約，需要至少提前三天的日期`);
       return;
     }
     
@@ -682,7 +684,7 @@ const AppointmentBookingPage = () => {
           }}
         >
           <Typography variant="body2" sx={{ fontSize: 'inherit' }}>
-            <strong>預約須知：</strong>為了確保治療師有充分的準備時間，預約需要至少提前五天進行。
+            <strong>預約須知：</strong>為了確保治療師有充分的準備時間，預約需要至少提前三天進行。
             今天是 {format(new Date(), 'M月d日', { locale: zhTW })}，
             最早可預約日期為 {format(getMinimumBookingDate(), 'M月d日', { locale: zhTW })}。
           </Typography>
@@ -750,7 +752,7 @@ const AppointmentBookingPage = () => {
                   <Tooltip 
                     title={
                       !isBookable && isCurrentDisplayMonth
-                        ? "預約需要至少提前五天預訂，請選擇更晚的日期"
+                        ? "預約需要至少提前三天預訂，請選擇更晚的日期"
                         : ""
                     }
                     arrow
