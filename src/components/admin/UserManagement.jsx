@@ -33,6 +33,7 @@ import {
   Email as EmailIcon,
   Phone as PhoneIcon,
 } from '@mui/icons-material';
+import { getAdminUsers, adminUpdateUser } from '../../services/api';
 
 const UserManagement = () => {
   const theme = useTheme();
@@ -52,39 +53,21 @@ const UserManagement = () => {
   const [success, setSuccess] = useState('');
 
   // 載入用戶列表
-  const loadUsers = () => {
+  const loadUsers = async () => {
     setLoading(true);
     try {
-      // 從localStorage獲取用戶數據（模擬後端API）
-      const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
-      
-      // 添加一些示例用戶（如果沒有的話）
-      if (storedUsers.length === 0) {
-        const defaultUsers = [
-          {
-            id: 1,
-            email: 'patient@example.com',
-            name: '張三',
-            role: 'patient',
-            phone: '12345678',
-            createdAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString(),
-          },
-          {
-            id: 2,
-            email: 'doctor@example.com',
-            name: '李醫生',
-            role: 'doctor',
-            phone: '87654321',
-            createdAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString(),
-          },
-        ];
-        localStorage.setItem('users', JSON.stringify(defaultUsers));
-        setUsers(defaultUsers);
-      } else {
-        setUsers(storedUsers);
-      }
+      // [PATCH] 改為從後端取得真實用戶列表（原為 localStorage 假資料）
+      const res = await getAdminUsers();
+      const list = (res && res.data && res.data.users) || [];
+      setUsers(list.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        phone: '',
+        createdAt: u.created_at,
+        lastLogin: u.updated_at,
+      })));
     } catch (error) {
       console.error('載入用戶列表失敗:', error);
       setError('無法載入用戶列表');
@@ -160,26 +143,9 @@ const UserManagement = () => {
     setError('');
 
     try {
-      // 更新用戶密碼
-      const updatedUsers = users.map(u => 
-        u.id === user.id 
-          ? { ...u, password: newPassword, lastPasswordChange: new Date().toISOString() }
-          : u
-      );
-      
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
-      setUsers(updatedUsers);
-      
-      // 記錄操作日誌
-      const operationLog = JSON.parse(localStorage.getItem('admin_operations') || '[]');
-      operationLog.push({
-        id: Date.now(),
-        action: 'reset_password',
-        targetUser: user.email,
-        adminUser: 'current_admin',
-        timestamp: new Date().toISOString(),
-      });
-      localStorage.setItem('admin_operations', JSON.stringify(operationLog));
+      // [PATCH] 透過後端重置密碼（原為 localStorage 假操作，密碼根本沒改）
+      await adminUpdateUser(user.id, { password: newPassword });
+      await loadUsers();
       
       setSuccess(`已成功重置用戶 ${user.name} 的密碼`);
       handleCloseResetPassword();

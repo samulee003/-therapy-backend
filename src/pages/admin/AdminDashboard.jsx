@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getAdminDashboard } from '../../services/api';
 import {
   Container,
   Typography,
@@ -48,21 +49,22 @@ const AdminDashboard = () => {
     setTabValue(newValue);
   };
 
-  // 獲取統計數據
-  const getStatistics = () => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const operations = JSON.parse(localStorage.getItem('admin_operations') || '[]');
-    
-    return {
-      totalUsers: users.length,
-      patientCount: users.filter(u => u.role === 'patient').length,
-      doctorCount: users.filter(u => u.role === 'doctor').length,
-      adminCount: users.filter(u => u.role === 'admin').length,
-      recentOperations: operations.slice(-5).reverse(),
-    };
-  };
+  // [PATCH] 統計數據改為從後端取得（原為 localStorage 假資料）
+  const [dashboard, setDashboard] = useState(null);
+  useEffect(() => {
+    getAdminDashboard()
+      .then(res => setDashboard((res && res.data && res.data.data) || null))
+      .catch(err => console.error('載入統計失敗:', err));
+  }, []);
 
-  const stats = getStatistics();
+  const rs = (dashboard && dashboard.roleStats) || {};
+  const stats = {
+    totalUsers: dashboard ? dashboard.totalUsers : '—',
+    patientCount: dashboard ? (rs.patient ?? 0) : '—',
+    doctorCount: dashboard ? (rs.doctor ?? 0) : '—',
+    adminCount: dashboard ? (rs.admin ?? 0) : '—',
+    recentOperations: [],
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>

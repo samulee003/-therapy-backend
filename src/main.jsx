@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom'; // [PATCH] 靜態託管無 SPA fallback，改用 hash 路由避免深連結 404
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import App from './App';
 import theme from './theme';
@@ -13,7 +13,7 @@ initEmailJS();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <HashRouter>
       <ThemeProvider theme={theme}>
         <AuthProvider>
           {' '}
@@ -22,6 +22,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <App />
         </AuthProvider>
       </ThemeProvider>
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>
 );
