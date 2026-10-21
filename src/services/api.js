@@ -367,19 +367,14 @@ export const requestPasswordReset = async (data) => {
       const backendResponse = await apiClient.post('/api/auth/forgot-password', { email: data.email });
       console.log('[api.js] 後端驗證成功:', backendResponse.data);
       
-      // 後端驗證成功，使用EmailJS發送郵件
-      const result = await sendPasswordResetEmail(data.email);
-      
-      if (result.success) {
-        return { 
-          data: { 
-            message: '密碼重置郵件已發送，請檢查您的電子郵件',
-            showAdminContact: result.showAdminContact || false
-          } 
-        };
-      } else {
-        throw new Error(result.error || '發送郵件失敗');
-      }
+      // [PATCH] 郵件改由後端寄出：重置碼只存在後端，避免在前端生成/洩漏
+      return {
+        data: {
+          message: backendResponse.data?.message
+            || '如果該電子郵件地址存在於我們的系統中，您將收到密碼重置郵件',
+          showAdminContact: false
+        }
+      };
     } catch (backendError) {
       console.log('[api.js] 後端API調用失敗，回退到純前端模式:', backendError.message);
       
@@ -426,104 +421,19 @@ export const requestPasswordReset = async (data) => {
 
 // Reset password with token (整合後端API)
 export const resetPassword = async (data) => {
-  console.log('[api.js] resetPassword: 開始重置密碼流程');
-  console.log('重置數據:', { token: data.token ? '存在' : '不存在', password: '***' });
-  
-  try {
-    if (!data.token) {
-      throw new Error('缺少重置令牌');
-    }
-    
-    if (!data.password) {
-      throw new Error('缺少新密碼');
-    }
-    
-    // 首先驗證前端令牌以獲取用戶郵箱
-    console.log('開始驗證前端令牌...');
-    const validation = validateResetToken(data.token);
-    console.log('前端令牌驗證結果:', validation);
-    
-    if (!validation.valid) {
-      throw new Error(validation.error);
-    }
-    
-    console.log('前端令牌驗證成功，用戶郵箱:', validation.email);
-    
-    // 優先使用後端API更新密碼
-    try {
-      console.log('[api.js] 嘗試使用後端API更新密碼...');
-      const backendResponse = await apiClient.put('/api/auth/update-password', {
-        email: validation.email,
-        newPassword: data.password
-      });
-      
-      console.log('[api.js] 後端密碼更新成功:', backendResponse.data);
-      
-      // 標記前端令牌為已使用
-      markTokenAsUsed(data.token);
-      
-      return { 
-        data: { 
-          message: '密碼重置成功！請使用新密碼登入' 
-        } 
-      };
-    } catch (backendError) {
-      console.log('[api.js] 後端API不可用，使用前端localStorage模式:', backendError.message);
-      
-      // 後端不可用時，回退到localStorage模式
-      let users = JSON.parse(localStorage.getItem('users') || '[]');
-      console.log('當前用戶數量:', users.length);
-      
-      let userIndex = users.findIndex(user => user.email === validation.email);
-      console.log('用戶索引:', userIndex);
-      
-      // 如果用戶不存在，創建一個模擬用戶
-      if (userIndex === -1) {
-        console.log('用戶不存在，創建新用戶:', validation.email);
-        const newUser = {
-          id: Date.now(),
-          email: validation.email,
-          password: data.password,
-          role: 'patient',
-          name: validation.email.split('@')[0],
-          createdAt: new Date().toISOString()
-        };
-        users.push(newUser);
-        userIndex = users.length - 1;
-        console.log('新用戶已創建:', newUser);
-      } else {
-        console.log('找到現有用戶，更新密碼:', validation.email);
-        // 更新現有用戶密碼
-        users[userIndex].password = data.password;
-        console.log('用戶密碼已更新');
-      }
-      
-      // 保存用戶數據
-      console.log('保存用戶數據到localStorage...');
-      localStorage.setItem('users', JSON.stringify(users));
-      console.log('用戶數據已保存');
-      
-      // 標記令牌為已使用
-      markTokenAsUsed(data.token);
-      
-      return { 
-        data: { 
-          message: '密碼重置成功！(使用前端模式)' 
-        } 
-      };
-    }
-  } catch (error) {
-    console.error('密碼重置失敗，錯誤詳情:', error);
-    console.error('錯誤堆棧:', error.stack);
-    
-    throw {
-      response: {
-        data: {
-          error: error.message || '密碼重置失敗，請重新嘗試'
-        }
-      }
-    };
+  // [PATCH] 由後端驗證重置碼與有效期（原為前端自製 token + 呼叫無驗證的 update-password）
+  console.log('[api.js] resetPassword: 由後端驗證重置碼');
+  if (!data.token) {
+    throw new Error('缺少重置令牌');
   }
+  if (!data.password) {
+    throw new Error('缺少新密碼');
+  }
+  const backendResponse = await apiClient.post('/api/auth/reset-password', {
+    token: data.token,
+    password: data.password
+  });
+  return { data: backendResponse.data };
 };
 
 // --- Removed Functions (Backend doesn't support these) --- //
