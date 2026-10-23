@@ -466,3 +466,6 @@ export const getAdminDashboard = () => apiClient.get('/api/admin/dashboard');
 export const getAdminUsers = () => apiClient.get('/api/admin/users');
 export const adminUpdateUser = (id, data) => apiClient.put(`/api/admin/users/${id}`, data);
 export const adminDeleteUser = (id) => apiClient.delete(`/api/admin/users/${id}/cascade`);
+
+// --- 註冊防機器人 ---
+export const getHumanCheck = () => apiClient.get('/api/auth/human-check');

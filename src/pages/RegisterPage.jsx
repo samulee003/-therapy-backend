@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -29,7 +29,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { registerUser, formatApiError } from '../services/api';
+import { registerUser, formatApiError, getHumanCheck } from '../services/api';
 import { ErrorAlert, PrivacyPolicyDialog } from '../components/common';
 // import GoogleLoginButton from '../components/auth/GoogleLoginButton'; // 暫時隱藏Google註冊功能
 
@@ -47,6 +47,18 @@ const RegisterPage = () => {
     agreeToPrivacyPolicy: false,
     rememberPassword: false,
   });
+
+  // [PATCH] 防機器人:數學題驗證 + 蜜罐
+  const [humanCheck, setHumanCheck] = useState({ token: '', question: '' });
+  const [humanAnswer, setHumanAnswer] = useState('');
+  useEffect(() => {
+    getHumanCheck()
+      .then(res => {
+        const d = (res && res.data) || {};
+        setHumanCheck({ token: d.token || '', question: d.question || '' });
+      })
+      .catch(() => setError('無法載入註冊驗證，請重新整理頁面'));
+  }, []);
 
   // 表單驗證錯誤
   const [errors, setErrors] = useState({
@@ -180,10 +192,19 @@ const RegisterPage = () => {
     setError('');
     setLoading(true);
 
+    // [PATCH] 防機器人欄位
+    if (String(humanAnswer).trim() === '') {
+      setError('請填寫防機器人驗證的答案');
+      return;
+    }
+
     const registrationData = {
       username: formData.email,
       password: formData.password,
       role: formData.role,
+      humanToken: humanCheck.token,
+      humanAnswer: String(humanAnswer).trim(),
+      website: (event.target && event.target.website) ? event.target.website.value : '',
     };
 
     try {
@@ -208,6 +229,12 @@ const RegisterPage = () => {
       }, 3000);
     } catch (err) {
       console.error('Registration failed:', err);
+      // [PATCH] 驗證失敗後重新取題
+      getHumanCheck().then(res => {
+        const d = (res && res.data) || {};
+        setHumanCheck({ token: d.token || '', question: d.question || '' });
+        setHumanAnswer('');
+      }).catch(() => {});
       // 使用格式化的錯誤訊息
       const formattedError = err.formatted || formatApiError(err, '註冊失敗，請稍後再試');
       setError(formattedError.message);
@@ -516,6 +543,21 @@ const RegisterPage = () => {
               <FormHelperText sx={{ ml: 4.5 }}>
                 如使用公共電腦，請勿勾選此項。
               </FormHelperText>
+            </Grid>
+
+            {/* [PATCH] 防機器人:數學題 + 蜜罐 */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label={humanCheck.question ? `防機器人驗證：${humanCheck.question} = ?` : '防機器人驗證載入中...'}
+                name="humanAnswer"
+                value={humanAnswer}
+                onChange={(e) => setHumanAnswer(e.target.value)}
+                inputProps={{ inputMode: 'numeric' }}
+                helperText="請計算並輸入答案（例如 7 + 5 就填 12）"
+              />
+              {/* 蜜罐:真人不可見、不會填 */}
+              <input type="text" name="website" autoComplete="off" tabIndex={-1} style={{ display: 'none' }} aria-hidden="true" />
             </Grid>
 
             {/* 註冊按鈕 */}
